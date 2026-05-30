@@ -9,6 +9,12 @@
     <div id="hud">
       <div id="score">Score: 0</div>
       <div id="meter"><div id="meterFill"></div></div>
+      <button id="fullscreenButton" type="button">Full screen</button>
+    </div>
+    <div id="celebration" hidden>
+      <div id="celebrationTitle">Perfect Cut</div>
+      <div id="celebrationSubtitle">The whole lawn is mowed.</div>
+      <div id="celebrationSeeds"></div>
     </div>
     <details id="settings">
       <summary>Settings</summary>
@@ -18,13 +24,18 @@
       <label>Blade randomness <span data-value-for="heightRandomness"></span><input id="heightRandomness" type="range" min="0" max="3" step="0.01" value="0.2" /></label>
       <label>Wind sway <span data-value-for="windStrength"></span><input id="windStrength" type="range" min="0" max="0.8" step="0.01" value="0.1" /></label>
       <label>Mower bend <span data-value-for="bendStrength"></span><input id="bendStrength" type="range" min="0" max="1.5" step="0.01" value="0.18" /></label>
-      <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.65" /></label>
-      <label>Grass base color <input id="grassBaseColor" type="color" value="#2f7d23" /></label>
+      <label>Turn speed <span data-value-for="turnMaxSpeed"></span><input id="turnMaxSpeed" type="range" min="0.8" max="4" step="0.01" value="2.25" /></label>
+      <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.77" /></label>
+      <label>Seed pop rate <span data-value-for="seedPopRate"></span><input id="seedPopRate" type="range" min="0" max="0.08" step="0.001" value="0.001" /></label>
+      <label>Mower volume <span data-value-for="mowerVolume"></span><input id="mowerVolume" type="range" min="0" max="1" step="0.01" value="0.1" /></label>
+      <label>Breeze volume <span data-value-for="breezeVolume"></span><input id="breezeVolume" type="range" min="0" max="1" step="0.01" value="1" /></label>
+      <label>Breeze facing <span data-value-for="breezeFacingAmount"></span><input id="breezeFacingAmount" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+      <label>Grass base color <input id="grassBaseColor" type="color" value="#0A2E05" /></label>
       <label>Hue variance <span data-value-for="hueVariance"></span><input id="hueVariance" type="range" min="0" max="0.25" step="0.005" value="0.035" /></label>
       <label>Saturation variance <span data-value-for="satVariance"></span><input id="satVariance" type="range" min="0" max="0.8" step="0.01" value="0.18" /></label>
       <label>Lightness variance <span data-value-for="lightVariance"></span><input id="lightVariance" type="range" min="0" max="0.8" step="0.01" value="0.16" /></label>
-      <label>Cut color <input id="cutGrassColor" type="color" value="#48a329" /></label>
-      <label>Ground color <input id="groundColor" type="color" value="#6b8014" /></label>
+      <label>Cut color <input id="cutGrassColor" type="color" value="#051E03" /></label>
+      <label>Ground color <input id="groundColor" type="color" value="#295c00" /></label>
     </details>
     <canvas id="renderCanvas"></canvas>
     <script type="module" src="/src/main.ts"></script>

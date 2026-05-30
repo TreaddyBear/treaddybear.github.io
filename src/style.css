@@ -27,6 +27,22 @@ body {
   background: rgb(0 0 0 / 70%);
 }
 
+#fullscreenButton {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 9px;
+  border: 0;
+  border-radius: 4px;
+  color: #10200d;
+  background: #d8f5b0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#fullscreenButton:hover {
+  background: #f0ffc8;
+}
+
 #score {
   font-size: 18px;
   font-weight: 700;
@@ -50,7 +66,7 @@ body {
 
 #settings {
   position: fixed;
-  top: 78px;
+  top: 116px;
   left: 16px;
   z-index: 1;
   width: 230px;
@@ -86,4 +102,122 @@ body {
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+#celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 25% 25%, rgb(255 247 112 / 20%), transparent 26%),
+    radial-gradient(circle at 78% 34%, rgb(86 214 255 / 18%), transparent 24%),
+    radial-gradient(circle at 52% 76%, rgb(255 91 180 / 16%), transparent 28%);
+  animation: celebration-fade 4.8s ease forwards;
+}
+
+#celebration[hidden] {
+  display: none;
+}
+
+#celebrationTitle,
+#celebrationSubtitle {
+  position: absolute;
+  text-align: center;
+  text-shadow: 0 3px 18px rgb(0 0 0 / 55%);
+}
+
+#celebrationTitle {
+  top: 38%;
+  font-size: clamp(44px, 8vw, 104px);
+  font-weight: 900;
+  letter-spacing: 0;
+  animation: title-pop 1100ms cubic-bezier(0.2, 1.4, 0.35, 1) both;
+}
+
+#celebrationSubtitle {
+  top: calc(38% + clamp(58px, 9vw, 118px));
+  font-size: clamp(18px, 2.2vw, 30px);
+  font-weight: 700;
+  color: #f7ffcf;
+  animation: title-pop 1300ms 160ms cubic-bezier(0.2, 1.2, 0.35, 1) both;
+}
+
+#celebrationSeeds {
+  position: absolute;
+  inset: 0;
+}
+
+.celebration-seed {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: var(--seed-size);
+  height: var(--seed-size);
+  border-radius: 999px;
+  background: hsl(var(--seed-hue) 95% 66%);
+  box-shadow:
+    0 0 8px hsl(var(--seed-hue) 95% 72% / 80%),
+    0 0 22px hsl(var(--seed-hue) 95% 72% / 45%);
+  transform: translate(-50%, -50%);
+  animation: seed-firework 1900ms var(--seed-delay) cubic-bezier(0.15, 0.9, 0.25, 1) forwards;
+}
+
+.celebration-seed::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 34%;
+  border-radius: inherit;
+  background: #fff;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+@keyframes title-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.86);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes seed-firework {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(
+        calc(-50% + var(--seed-x)),
+        calc(-50% + var(--seed-y))
+      )
+      scale(0.72);
+  }
+}
+
+@keyframes celebration-fade {
+  0% {
+    opacity: 0;
+  }
+  12%,
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }

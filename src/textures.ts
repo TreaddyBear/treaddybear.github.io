@@ -1,0 +1,65 @@
+import { Color3, DynamicTexture, Scene } from "@babylonjs/core";
+import { settings } from "./config";
+import { clamp01, color3ToHsl, hexToColor3, hslToColor3 } from "./utils/color";
+import { valueNoise } from "./utils/noise";
+
+export function createGroundTexture(scene: Scene) {
+  const texture = new DynamicTexture("groundNoise", { width: 128, height: 128 }, scene);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(128, 128);
+  const base = hexToColor3(settings.groundColor);
+
+  for (let y = 0; y < 128; y += 1) {
+    for (let x = 0; x < 128; x += 1) {
+      const noise = (valueNoise(x * 0.12, y * 0.12) - 0.5) * 0.24;
+      const index = ((y * 128) + x) * 4;
+      image.data[index] = clamp01(base.r + noise) * 255;
+      image.data[index + 1] = clamp01(base.g + noise) * 255;
+      image.data[index + 2] = clamp01(base.b + noise) * 255;
+      image.data[index + 3] = 255;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  texture.update();
+  return texture;
+}
+
+export function createRoadTexture(scene: Scene, baseColor = new Color3(0.62, 0.62, 0.6)) {
+  const width = 128;
+  const height = 1024;
+  const texture = new DynamicTexture("roadNoise", { width, height }, scene);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(width, height);
+  const base = color3ToHsl(baseColor);
+  const softBand = (distance: number, radius: number) => {
+    const t = clamp01(distance / radius);
+    return 1 - (t * t * (3 - (2 * t)));
+  };
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const u = x / (width - 1);
+      const v = y / (height - 1);
+      const large = (valueNoise((u * 4.5) + 11, (v * 24) - 9) - 0.5) * 0.1;
+      const fine = (valueNoise((u * 70) + 91, (v * 520) - 17) - 0.5) * 0.4;
+      const edgeMask = softBand(Math.min(u, 1 - u), 0.075);
+      const centerMask = softBand(Math.abs(u - 0.5), 0.038);
+      const darkBand = Math.max(edgeMask, centerMask) * 0.5;
+      const lightness = clamp01((base.l * (1 + large + (fine * 0.22))) * (1 - darkBand));
+      const color = hslToColor3(base.h + (large * 0.015), base.s * (1 + (fine * 0.08)), lightness);
+      const index = ((y * width) + x) * 4;
+
+      image.data[index] = color.r * 255;
+      image.data[index + 1] = color.g * 255;
+      image.data[index + 2] = color.b * 255;
+      image.data[index + 3] = 255;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  texture.update();
+  texture.uScale = 1;
+  texture.vScale = 1;
+  return texture;
+}
