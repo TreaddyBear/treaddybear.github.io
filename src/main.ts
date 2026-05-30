@@ -59,6 +59,7 @@ let turnHoldSeconds = 0;
 let lastTurnDirection = 0;
 let currentThrottle = 0;
 const windWisps: WindWisp[] = [];
+const windMotes: WindMote[] = [];
 
 const playerSpeed = 1.65;
 const playerBoost = 1.45;
@@ -100,6 +101,19 @@ type WindWisp = {
   y: number;
   bend: number;
   hook: number;
+};
+type WindMote = {
+  mesh: Mesh;
+  material: StandardMaterial;
+  segment: YardSegment;
+  age: number;
+  duration: number;
+  x: number;
+  y: number;
+  z: number;
+  speed: number;
+  drift: number;
+  size: number;
 };
 
 scene.clearColor.set(0.62, 0.76, 0.9, 1);
@@ -589,6 +603,7 @@ function resetWindWisp(wisp: WindWisp) {
 
 function updateWindWispShape(wisp: WindWisp) {
   const segments = 10;
+  const viewUp = camera.getDirection(Vector3.Up()).normalize();
   const t = Math.min(1, Math.max(0, wisp.age / wisp.duration));
   const appear = Math.min(1, t / 0.32);
   const fadeOut = Math.min(1, (1 - t) / 0.42);
@@ -608,16 +623,18 @@ function updateWindWispShape(wisp: WindWisp) {
     const firstCurve = Math.sin(Math.PI * Math.min(1, u * 0.92)) * wisp.bend * curveAmount;
     const hookT = Math.max(0, (u - 0.58) / 0.42);
     const hook = Math.sin(Math.PI * hookT * 0.9) * wisp.hook * hookAmount;
-    const z = firstCurve + hook;
+    const centerX = wisp.x + x;
+    const centerY = wisp.y + (Math.sin(Math.PI * u) * 0.04 * curveAmount);
+    const centerZ = wisp.z + firstCurve + hook;
     const lift = Math.sin(Math.PI * u) * 0.04 * curveAmount;
     const offset = i * 6;
 
-    wisp.positions[offset] = x;
-    wisp.positions[offset + 1] = lift + localWidth;
-    wisp.positions[offset + 2] = z;
-    wisp.positions[offset + 3] = x;
-    wisp.positions[offset + 4] = lift - localWidth;
-    wisp.positions[offset + 5] = z;
+    wisp.positions[offset] = centerX + (viewUp.x * localWidth);
+    wisp.positions[offset + 1] = centerY + lift + (viewUp.y * localWidth);
+    wisp.positions[offset + 2] = centerZ + (viewUp.z * localWidth);
+    wisp.positions[offset + 3] = centerX - (viewUp.x * localWidth);
+    wisp.positions[offset + 4] = centerY + lift - (viewUp.y * localWidth);
+    wisp.positions[offset + 5] = centerZ - (viewUp.z * localWidth);
   }
 
   wisp.mesh.updateVerticesData(VertexBuffer.PositionKind, wisp.positions, false, false);
@@ -625,7 +642,7 @@ function updateWindWispShape(wisp: WindWisp) {
 }
 
 function createWindWisps() {
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     const material = new StandardMaterial(`windWispMaterial-${i}`, scene);
     material.diffuseColor = new Color3(1, 1, 1);
     material.emissiveColor = new Color3(0.9, 1, 0.92);
@@ -653,6 +670,7 @@ function createWindWisps() {
     };
 
     resetWindWisp(wisp);
+    wisp.age = i === 0 ? wisp.duration * 0.12 : -(2 + (i * 2.7) + (Math.random() * 1.3));
     updateWindWispShape(wisp);
     windWisps.push(wisp);
   }
@@ -671,10 +689,80 @@ function updateWindWisps(deltaSeconds: number) {
       resetWindWisp(wisp);
     }
 
-    wisp.mesh.position.set(wisp.x, wisp.y, wisp.z);
+    wisp.mesh.position.set(0, 0, 0);
     wisp.mesh.rotation.set(0, 0, 0);
     wisp.mesh.scaling.set(1, 1, 1);
     updateWindWispShape(wisp);
+  }
+}
+
+function resetWindMote(mote: WindMote) {
+  mote.segment = yardSegments[Math.floor(Math.random() * yardSegments.length)];
+  mote.age = -(Math.random() * 4);
+  mote.duration = 5 + (Math.random() * 5);
+  mote.x = mote.segment.xMin - 1 + (Math.random() * 2);
+  mote.z = mote.segment.zMin + (Math.random() * (mote.segment.zMax - mote.segment.zMin));
+  mote.y = 0.45 + (Math.random() * 1.2);
+  mote.speed = 0.55 + (Math.random() * 0.75);
+  mote.drift = (Math.random() - 0.5) * 0.5;
+  mote.size = 0.018 + (Math.random() * 0.035);
+}
+
+function createWindMotes() {
+  for (let i = 0; i < 34; i += 1) {
+    const material = new StandardMaterial(`windMoteMaterial-${i}`, scene);
+    const isWarm = Math.random() < 0.18;
+    material.diffuseColor = isWarm ? new Color3(1, 0.92, 0.34) : new Color3(0.95, 1, 0.9);
+    material.emissiveColor = material.diffuseColor;
+    material.alpha = 0;
+    material.disableLighting = true;
+
+    const mesh = MeshBuilder.CreatePlane(`windMote-${i}`, { size: 1 }, scene);
+    mesh.material = material;
+    mesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    mesh.isPickable = false;
+
+    const mote: WindMote = {
+      mesh,
+      material,
+      segment: yardSegments[0],
+      age: 0,
+      duration: 6,
+      x: 0,
+      y: 0,
+      z: 0,
+      speed: 1,
+      drift: 0,
+      size: 0.02,
+    };
+
+    resetWindMote(mote);
+    windMotes.push(mote);
+  }
+}
+
+function updateWindMotes(deltaSeconds: number) {
+  for (const mote of windMotes) {
+    mote.age += deltaSeconds;
+
+    if (mote.age > mote.duration || mote.x > mote.segment.xMax + 1) {
+      resetWindMote(mote);
+    }
+
+    if (mote.age < 0) {
+      mote.material.alpha = 0;
+      continue;
+    }
+
+    const t = mote.age / mote.duration;
+    const fade = Math.sin(Math.PI * t);
+    const x = mote.x + (mote.age * mote.speed);
+    const y = mote.y + (Math.sin((t * Math.PI * 2) + mote.drift) * 0.08);
+    const z = mote.z + (Math.sin(t * Math.PI) * mote.drift);
+
+    mote.mesh.position.set(x, y, z);
+    mote.mesh.scaling.set(mote.size, mote.size, mote.size);
+    mote.material.alpha = fade * 0.28;
   }
 }
 
@@ -789,6 +877,7 @@ for (const [index, segment] of yardSegments.entries()) {
 }
 
 createWindWisps();
+createWindMotes();
 
 longGrass = makeLongBladeMesh();
 cutGrass = makeCutBladeMesh();
@@ -829,6 +918,7 @@ engine.runRenderLoop(() => {
   movePlayer(deltaSeconds);
   updateGrassMotion(timeSeconds);
   updateWindWisps(deltaSeconds);
+  updateWindMotes(deltaSeconds);
   mowTouchedGrass();
   scene.render();
 });
