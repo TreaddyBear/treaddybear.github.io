@@ -1,0 +1,89 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #111;
+}
+
+#renderCanvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  touch-action: none;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  width: 160px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
+}
+
+#score {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+#meter {
+  height: 8px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 20%);
+}
+
+#meterFill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: #6bd442;
+  transition: width 220ms ease-out;
+}
+
+#settings {
+  position: fixed;
+  top: 78px;
+  left: 16px;
+  z-index: 1;
+  width: 230px;
+  max-height: calc(100vh - 88px);
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: #f4f7f0;
+  background: rgb(0 0 0 / 62%);
+  font-size: 13px;
+}
+
+#settings summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+#settings label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+#settings input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+#settings input[type="color"] {
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
