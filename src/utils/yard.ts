@@ -19,12 +19,16 @@ export function isInsideSegments(segments: RectLike[], x: number, z: number) {
 }
 
 export function randomPointInSegments(segments: RectLike[]) {
+  const xMin = Math.min(...segments.map((segment) => segment.xMin));
+  const xMax = Math.max(...segments.map((segment) => segment.xMax));
+  const zMin = Math.min(...segments.map((segment) => segment.zMin));
+  const zMax = Math.max(...segments.map((segment) => segment.zMax));
   let x = 0;
   let z = 0;
 
   do {
-    x = -9 + (18 * Math.random());
-    z = -9 + (18 * Math.random());
+    x = xMin + ((xMax - xMin) * Math.random());
+    z = zMin + ((zMax - zMin) * Math.random());
   } while (!isInsideSegments(segments, x, z));
 
   return { x, z };

@@ -39,6 +39,23 @@ body {
   cursor: pointer;
 }
 
+#hudInputLabel {
+  display: block;
+  margin-top: 9px;
+  color: #e8f5df;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#quickInputMode {
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 4px;
+  color: #f4f7f0;
+  background: rgb(0 0 0 / 62%);
+}
+
 #fullscreenButton:hover {
   background: #f0ffc8;
 }
@@ -48,7 +65,15 @@ body {
   font-weight: 700;
 }
 
-#meter {
+#mistakes {
+  margin-top: 8px;
+  color: #ffd8d8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#meter,
+#mistakeMeter {
   height: 8px;
   margin-top: 7px;
   overflow: hidden;
@@ -56,21 +81,30 @@ body {
   background: rgb(255 255 255 / 20%);
 }
 
-#meterFill {
+#meterFill,
+#mistakeMeterFill {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: #6bd442;
   transition: width 220ms ease-out;
+}
+
+#meterFill {
+  background: #6bd442;
+}
+
+#mistakeMeterFill {
+  background: #ff6b6b;
 }
 
 #settings {
   position: fixed;
-  top: 116px;
-  left: 16px;
+  top: 16px;
+  right: 16px;
   z-index: 1;
   width: 230px;
-  max-height: calc(100vh - 88px);
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
   overflow: auto;
   padding: 10px 12px;
   border-radius: 6px;
@@ -82,6 +116,19 @@ body {
 #settings summary {
   cursor: pointer;
   font-weight: 700;
+}
+
+#settings > summary {
+  margin-bottom: 8px;
+}
+
+.settings-group {
+  padding: 7px 0 8px;
+  border-top: 1px solid rgb(255 255 255 / 13%);
+}
+
+.settings-group summary {
+  color: #e7f7d6;
 }
 
 #settings label {
@@ -104,6 +151,45 @@ body {
   background: transparent;
 }
 
+#settings select {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+#touchPad {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 2;
+  display: none;
+  width: 128px;
+  height: 128px;
+  border: 2px solid rgb(255 255 255 / 34%);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 24%);
+  touch-action: none;
+}
+
+#touchPad.active {
+  background: rgb(216 245 176 / 20%);
+}
+
+#touchKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgb(240 255 200 / 68%);
+  box-shadow: 0 3px 18px rgb(0 0 0 / 30%);
+  transform: translate(-50%, -50%);
+}
+
+#touchPad[data-mode="visible"] {
+  display: block;
+}
+
 #celebration {
   position: fixed;
   inset: 0;
@@ -112,12 +198,12 @@ body {
   place-items: center;
   overflow: hidden;
   color: #fff;
-  pointer-events: none;
+  pointer-events: auto;
   background:
     radial-gradient(circle at 25% 25%, rgb(255 247 112 / 20%), transparent 26%),
     radial-gradient(circle at 78% 34%, rgb(86 214 255 / 18%), transparent 24%),
     radial-gradient(circle at 52% 76%, rgb(255 91 180 / 16%), transparent 28%);
-  animation: celebration-fade 4.8s ease forwards;
+  animation: celebration-fade 9.4s ease forwards;
 }
 
 #celebration[hidden] {
@@ -147,6 +233,30 @@ body {
   animation: title-pop 1300ms 160ms cubic-bezier(0.2, 1.2, 0.35, 1) both;
 }
 
+#celebrationActions {
+  position: absolute;
+  top: calc(38% + clamp(100px, 13vw, 166px));
+  display: flex;
+  gap: 12px;
+  animation: title-pop 1300ms 320ms cubic-bezier(0.2, 1.2, 0.35, 1) both;
+}
+
+#celebrationActions button {
+  min-width: 112px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 5px;
+  color: #10200d;
+  background: #f7ffcf;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 28%);
+}
+
+#celebrationActions button:hover {
+  background: #fff;
+}
+
 #celebrationSeeds {
   position: absolute;
   inset: 0;
@@ -164,7 +274,7 @@ body {
     0 0 8px hsl(var(--seed-hue) 95% 72% / 80%),
     0 0 22px hsl(var(--seed-hue) 95% 72% / 45%);
   transform: translate(-50%, -50%);
-  animation: seed-firework 1900ms var(--seed-delay) cubic-bezier(0.15, 0.9, 0.25, 1) forwards;
+  animation: seed-firework 3200ms var(--seed-delay) cubic-bezier(0.15, 0.9, 0.25, 1) forwards;
 }
 
 .celebration-seed::after {

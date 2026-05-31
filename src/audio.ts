@@ -1,11 +1,34 @@
 import { ArcRotateCamera, Vector3 } from "@babylonjs/core";
 import mowerUrl from "./assets/lawn-mower.mp3?url";
-import breezeUrl from "./assets/breeze.mp3?url";
+import breezeDirectionalUrl from "./assets/breeze.mp3?url";
+import breezeAmbientUrl from "./assets/breeze-ambient.mp3?url";
+import grassCuttingUrl from "./assets/grass-cutting.mp3?url";
+import completionFanfareUrl from "./assets/completion-fanfare.mp3?url";
+import completionLoopUrl from "./assets/completion-loop.mp3?url";
+import flowerPop1Url from "./assets/flower-pop-1.mp3?url";
+import flowerPop2Url from "./assets/flower-pop-2.mp3?url";
+import flowerPop3Url from "./assets/flower-pop-3.mp3?url";
+import flowerPop4Url from "./assets/flower-pop-4.mp3?url";
+import flowerPop5Url from "./assets/flower-pop-5.mp3?url";
+import flowerPop6Url from "./assets/flower-pop-6.mp3?url";
+import flowerPop7Url from "./assets/flower-pop-7.mp3?url";
+import wallBumpUrl from "./assets/wall-bump.mp3?url";
+import reverseBeepUrl from "./assets/reverse-beep.mp3?url";
 
 type AudioSettings = {
   mowerVolume: number;
   breezeVolume: number;
+  ambientBreezeVolume: number;
   breezeFacingAmount: number;
+  grassCuttingVolume: number;
+  grassCuttingAttackDelay: number;
+  grassCuttingAttack: number;
+  grassCuttingDecay: number;
+  flowerPopVolume: number;
+  wallBumpVolume: number;
+  reverseBeepVolume: number;
+  completionFanfareVolume: number;
+  completionLoopVolume: number;
 };
 
 type LoopWindow = {
@@ -13,8 +36,24 @@ type LoopWindow = {
   end: number;
 };
 
+const flowerPopBank = [
+  { src: flowerPop1Url, weight: 28 },
+  { src: flowerPop2Url, weight: 24 },
+  { src: flowerPop3Url, weight: 20 },
+  { src: flowerPop4Url, weight: 16 },
+  { src: flowerPop5Url, weight: 8 },
+  { src: flowerPop6Url, weight: 3 },
+  { src: flowerPop7Url, weight: 1 },
+];
+
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
+}
+
+function getAudioContext() {
+  const Context = window.AudioContext
+    ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  return Context ? new Context() : null;
 }
 
 function findLoopWindow(buffer: AudioBuffer): LoopWindow {
@@ -42,9 +81,20 @@ function findLoopWindow(buffer: AudioBuffer): LoopWindow {
   };
 }
 
-function createFallbackAudio(src: string) {
+async function loadAudioBuffer(src: string, audioContext: AudioContext) {
+  const response = await fetch(src);
+  const data = await response.arrayBuffer();
+
+  if (data.byteLength === 0) {
+    return null;
+  }
+
+  return audioContext.decodeAudioData(data);
+}
+
+function createFallbackAudio(src: string, loop: boolean) {
   const audio = new Audio(src);
-  audio.loop = true;
+  audio.loop = loop;
   audio.preload = "auto";
   audio.volume = 0;
   audio.addEventListener("error", () => {
@@ -54,7 +104,7 @@ function createFallbackAudio(src: string) {
 }
 
 function createLoopingTrack(src: string) {
-  const fallbackAudio = createFallbackAudio(src);
+  const fallbackAudio = createFallbackAudio(src, true);
   let audioContext: AudioContext | null = null;
   let gainNode: GainNode | null = null;
   let sourceNode: AudioBufferSourceNode | null = null;
@@ -68,30 +118,26 @@ function createLoopingTrack(src: string) {
   };
 
   const startWebAudio = async () => {
-    const Context = window.AudioContext
-      ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    audioContext ??= getAudioContext();
 
-    if (!Context) {
+    if (!audioContext) {
       playFallback();
       return;
     }
 
-    audioContext ??= new Context();
     await audioContext.resume();
 
     if (sourceNode) {
       return;
     }
 
-    const response = await fetch(src);
-    const data = await response.arrayBuffer();
+    const buffer = await loadAudioBuffer(src, audioContext);
 
-    if (data.byteLength === 0) {
+    if (!buffer) {
       playFallback();
       return;
     }
 
-    const buffer = await audioContext.decodeAudioData(data);
     const loop = findLoopWindow(buffer);
     gainNode = audioContext.createGain();
     gainNode.gain.value = volume;
@@ -108,12 +154,12 @@ function createLoopingTrack(src: string) {
   };
 
   return {
-    setVolume(nextVolume: number) {
+    setVolume(nextVolume: number, response = 0.035) {
       volume = clamp01(nextVolume);
       fallbackAudio.volume = volume;
 
       if (gainNode && audioContext) {
-        gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.035);
+        gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, Math.max(0.001, response));
       }
     },
 
@@ -125,10 +171,88 @@ function createLoopingTrack(src: string) {
   };
 }
 
+function createOneShotTrack(src: string) {
+  const fallbackAudio = createFallbackAudio(src, false);
+  let audioContext: AudioContext | null = null;
+  let buffer: AudioBuffer | null = null;
+  let loading: Promise<AudioBuffer | null> | null = null;
+
+  const load = async () => {
+    audioContext ??= getAudioContext();
+
+    if (!audioContext) {
+      return null;
+    }
+
+    await audioContext.resume();
+    buffer = await loadAudioBuffer(src, audioContext);
+    return buffer;
+  };
+
+  const playFallback = (volume: number) => {
+    const audio = fallbackAudio.cloneNode(true) as HTMLAudioElement;
+    audio.volume = clamp01(volume);
+    audio.play().catch(() => {});
+  };
+
+  return {
+    unlock() {
+      loading ??= load().catch(() => null);
+    },
+
+    play(volume: number) {
+      const safeVolume = clamp01(volume);
+      loading ??= load().catch(() => null);
+      loading.then((loadedBuffer) => {
+        if (!loadedBuffer || !audioContext) {
+          playFallback(safeVolume);
+          return;
+        }
+
+        const gainNode = audioContext.createGain();
+        const sourceNode = audioContext.createBufferSource();
+        gainNode.gain.value = safeVolume;
+        gainNode.connect(audioContext.destination);
+        sourceNode.buffer = loadedBuffer;
+        sourceNode.connect(gainNode);
+        sourceNode.start();
+      }).catch(() => {
+        playFallback(safeVolume);
+      });
+    },
+  };
+}
+
+function chooseWeightedIndex(weights: number[]) {
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let roll = Math.random() * total;
+
+  for (let i = 0; i < weights.length; i += 1) {
+    roll -= weights[i];
+
+    if (roll <= 0) {
+      return i;
+    }
+  }
+
+  return weights.length - 1;
+}
+
 export function createPrototypeAudio() {
   const mower = createLoopingTrack(mowerUrl);
-  const breeze = createLoopingTrack(breezeUrl);
+  const directionalBreeze = createLoopingTrack(breezeDirectionalUrl);
+  const ambientBreeze = createLoopingTrack(breezeAmbientUrl);
+  const grassCutting = createLoopingTrack(grassCuttingUrl);
+  const reverseBeep = createLoopingTrack(reverseBeepUrl);
+  const completionLoop = createLoopingTrack(completionLoopUrl);
+  const completionFanfare = createOneShotTrack(completionFanfareUrl);
+  const flowerPops = flowerPopBank.map((entry) => createOneShotTrack(entry.src));
+  const flowerPopWeights = flowerPopBank.map((entry) => entry.weight);
+  const wallBump = createOneShotTrack(wallBumpUrl);
   let unlocked = false;
+  let cuttingActive = false;
+  let cuttingStartedAt = 0;
+  let reversingActive = false;
 
   const unlock = () => {
     if (unlocked) {
@@ -137,25 +261,73 @@ export function createPrototypeAudio() {
 
     unlocked = true;
     mower.unlock();
-    breeze.unlock();
+    directionalBreeze.unlock();
+    ambientBreeze.unlock();
+    grassCutting.unlock();
+    reverseBeep.unlock();
+    completionLoop.unlock();
+    completionFanfare.unlock();
+    for (const flowerPop of flowerPops) {
+      flowerPop.unlock();
+    }
+    wallBump.unlock();
   };
 
   window.addEventListener("pointerdown", unlock, { once: true });
   window.addEventListener("keydown", unlock, { once: true });
 
   return {
+    setCuttingActive(active: boolean) {
+      if (active && !cuttingActive) {
+        cuttingStartedAt = performance.now() / 1000;
+      }
+      cuttingActive = active;
+    },
+
+    setReversingActive(active: boolean) {
+      reversingActive = active;
+    },
+
+    playFlowerPop(volume: number) {
+      flowerPops[chooseWeightedIndex(flowerPopWeights)]?.play(volume);
+    },
+
+    playWallBump(volume: number) {
+      wallBump.play(volume);
+    },
+
+    playCompletionFanfare(volume: number) {
+      completionFanfare.play(volume);
+    },
+
+    setCompletionLoopActive(active: boolean, settings: AudioSettings) {
+      completionLoop.setVolume(active ? settings.completionLoopVolume : 0, active ? 0.6 : 0.25);
+    },
+
     update(camera: ArcRotateCamera, settings: AudioSettings) {
-      const windDirection = new Vector3(1, 0, 0);
+      const windDirection = new Vector3(-1, 0, 0);
       const cameraForward = camera.target.subtract(camera.position).normalize();
       const facing = clamp01((Vector3.Dot(cameraForward, windDirection) + 1) / 2);
       const facingVolume = 1 - settings.breezeFacingAmount + (settings.breezeFacingAmount * facing);
+      const cuttingAge = (performance.now() / 1000) - cuttingStartedAt;
+      const cuttingAudible = cuttingActive && cuttingAge >= settings.grassCuttingAttackDelay;
 
       mower.setVolume(settings.mowerVolume);
-      breeze.setVolume(settings.breezeVolume * facingVolume);
+      directionalBreeze.setVolume(settings.breezeVolume * facingVolume);
+      ambientBreeze.setVolume(settings.ambientBreezeVolume);
+      grassCutting.setVolume(
+        cuttingAudible ? settings.grassCuttingVolume : 0,
+        cuttingAudible ? settings.grassCuttingAttack : settings.grassCuttingDecay,
+      );
+      reverseBeep.setVolume(reversingActive ? settings.reverseBeepVolume : 0, reversingActive ? 0.012 : 0.045);
 
       if (unlocked) {
         mower.unlock();
-        breeze.unlock();
+        directionalBreeze.unlock();
+        ambientBreeze.unlock();
+        grassCutting.unlock();
+        reverseBeep.unlock();
+        completionLoop.unlock();
       }
     },
   };

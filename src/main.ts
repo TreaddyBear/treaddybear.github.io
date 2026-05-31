@@ -19,13 +19,15 @@ import {
 } from "@babylonjs/core";
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
+import { createInputController, InputMode } from "./input";
 import {
   bladeCount,
   cellSize,
+  applyActiveMap,
+  getActiveMap,
   mediumGrassCount,
   mowerCutRadius,
   playerBoost,
-  playerRadius,
   playerSpeed,
   settings,
   wheatGrassCount,
@@ -37,24 +39,38 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
-import { createFence, createNeighborhoodLots, createRoad, updateFollowCamera } from "./world";
+import { createFence, createMapGrounds, createNeighborhoodLots, createRoad, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
 const meterFillElement = document.querySelector<HTMLDivElement>("#meterFill");
+const mistakesElement = document.querySelector<HTMLDivElement>("#mistakes");
+const mistakeMeterFillElement = document.querySelector<HTMLDivElement>("#mistakeMeterFill");
+const quickInputModeElement = document.querySelector<HTMLSelectElement>("#quickInputMode");
 const settingsElement = document.querySelector<HTMLDetailsElement>("#settings");
 const fullscreenButtonElement = document.querySelector<HTMLButtonElement>("#fullscreenButton");
 const celebrationElement = document.querySelector<HTMLDivElement>("#celebration");
 const celebrationSeedsElement = document.querySelector<HTMLDivElement>("#celebrationSeeds");
+const nextLevelButtonElement = document.querySelector<HTMLButtonElement>("#nextLevelButton");
+const closeCelebrationButtonElement = document.querySelector<HTMLButtonElement>("#closeCelebrationButton");
+const touchPadElement = document.querySelector<HTMLDivElement>("#touchPad");
+const touchKnobElement = document.querySelector<HTMLDivElement>("#touchKnob");
 
 if (
   !canvasElement
   || !scoreElement
   || !meterFillElement
+  || !mistakesElement
+  || !mistakeMeterFillElement
+  || !quickInputModeElement
   || !settingsElement
   || !fullscreenButtonElement
   || !celebrationElement
   || !celebrationSeedsElement
+  || !nextLevelButtonElement
+  || !closeCelebrationButtonElement
+  || !touchPadElement
+  || !touchKnobElement
 ) {
   throw new Error("Missing canvas, HUD, or settings element.");
 }
@@ -62,23 +78,33 @@ if (
 const canvas = canvasElement;
 const scoreEl = scoreElement;
 const meterFillEl = meterFillElement;
+const mistakesEl = mistakesElement;
+const mistakeMeterFillEl = mistakeMeterFillElement;
+const quickInputModeEl = quickInputModeElement;
 const settingsEl = settingsElement;
 const fullscreenButtonEl = fullscreenButtonElement;
 const celebrationEl = celebrationElement;
 const celebrationSeedsEl = celebrationSeedsElement;
+const nextLevelButtonEl = nextLevelButtonElement;
+const closeCelebrationButtonEl = closeCelebrationButtonElement;
+const analogInput = createInputController(touchPadElement, touchKnobElement);
 
 const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
 const prototypeAudio = createPrototypeAudio();
 let celebrationShown = false;
+let celebrationHideTimer = 0;
 
-if (import.meta.env.PROD) {
-  settingsEl.hidden = true;
+if (!import.meta.env.PROD) {
+  settingsEl.hidden = false;
 }
 
 const keys = new Set<string>();
 const grassGrid = new Map<string, number[]>();
 let player: Mesh;
+let mapGroundRoot: TransformNode | null = null;
+let fenceRoot: TransformNode | null = null;
+let secretGunRoot: TransformNode | null = null;
 let longGrass: Mesh;
 let cutGrass: Mesh;
 let mediumGrass: Mesh;
@@ -103,16 +129,40 @@ let cutTiltX: Float32Array;
 let cutTiltZ: Float32Array;
 let isMowed: boolean[];
 let mowedCount = 0;
+let mistakeCount = 0;
 let playerYaw = 0;
 let turnHoldSeconds = 0;
 let lastTurnDirection = 0;
 let currentThrottle = 0;
+let driveSpeed = 0;
 let clippingBurstCooldown = 0;
+let bumpCooldown = 0;
+let grassCuttingAudioTimer = 0;
+let mouseTurn = 0;
+let mouseSteeringActive = false;
+let cameraOrbitYaw = 0;
+let cameraOrbitHeight = 0;
+let cameraDistanceOffset = 0;
+let cameraAdjustmentCount = 0;
+let cameraAdjustmentCooldown = 0;
+let cameraReturnDelay = 0;
+let cameraReturning = false;
+let hasSecretGun = false;
+let shootCooldown = 0;
+let lastControllerShoot = false;
+const cameraDrag = {
+  active: false,
+  pointerId: -1,
+  lastX: 0,
+  lastY: 0,
+};
 const windWisps: WindWisp[] = [];
 const windMotes: WindMote[] = [];
 const dandelions: Dandelion[] = [];
 const floatingSeeds: FloatingSeed[] = [];
 const fallingPetals: FallingPetal[] = [];
+const tulips: Tulip[] = [];
+let fenceDamage: FenceDamageState[] = [];
 
 type WindWisp = {
   mesh: Mesh;
@@ -169,6 +219,26 @@ type FallingPetal = {
   duration: number;
   velocity: Vector3;
 };
+type Tulip = {
+  root: TransformNode;
+  head: Mesh;
+  stem: Mesh;
+  x: number;
+  z: number;
+  destroyed: boolean;
+};
+type FenceDamageState = {
+  segmentIndex: number;
+  pieceIndex: number;
+  x: number;
+  z: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  health: number;
+  broken: boolean;
+};
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
 scene.imageProcessingConfiguration.exposure = 1.08;
@@ -189,16 +259,26 @@ const playerMaterial = makeMaterial("playerMaterial", new Color3(0.08, 0.36, 0.9
 const groundMaterial = makeMaterial("groundMaterial", new Color3(0.42, 0.5, 0.08), 0.9);
 const bladeMaterial = makeMaterial("bladeMaterial", Color3.White(), 0.38);
 bladeMaterial.backFaceCulling = false;
-bladeMaterial.specularIntensity = 0.75;
 bladeMaterial.clearCoat.isEnabled = true;
-bladeMaterial.clearCoat.intensity = 0.22;
-bladeMaterial.clearCoat.roughness = 0.42;
 const cutBladeMaterial = makeMaterial("cutBladeMaterial", Color3.White(), 0.58);
 cutBladeMaterial.backFaceCulling = false;
-cutBladeMaterial.specularIntensity = 0.35;
 cutBladeMaterial.clearCoat.isEnabled = true;
-cutBladeMaterial.clearCoat.intensity = 0.08;
-cutBladeMaterial.clearCoat.roughness = 0.6;
+
+function refreshGrassMaterial() {
+  bladeMaterial.roughness = settings.grassRoughness;
+  bladeMaterial.metallic = settings.grassMetallic;
+  bladeMaterial.specularIntensity = 0.18;
+  bladeMaterial.clearCoat.intensity = settings.grassClearCoat;
+  bladeMaterial.clearCoat.roughness = Math.max(0.018, settings.grassRoughness * 0.12);
+
+  cutBladeMaterial.roughness = settings.cutGrassRoughness;
+  cutBladeMaterial.metallic = settings.cutGrassMetallic;
+  cutBladeMaterial.specularIntensity = 0.11;
+  cutBladeMaterial.clearCoat.intensity = settings.cutGrassClearCoat;
+  cutBladeMaterial.clearCoat.roughness = Math.max(0.035, settings.cutGrassRoughness * 0.14);
+}
+
+refreshGrassMaterial();
 
 const dandelionStemMaterial = new StandardMaterial("dandelionStemMaterial", scene);
 dandelionStemMaterial.diffuseColor = new Color3(0.24, 0.58, 0.16);
@@ -220,13 +300,30 @@ dandelionCenterMaterial.diffuseColor = new Color3(0.82, 0.58, 0.04);
 dandelionCenterMaterial.emissiveColor = new Color3(0.1, 0.07, 0);
 dandelionCenterMaterial.specularColor = Color3.Black();
 
+const tulipStemMaterial = new StandardMaterial("tulipStemMaterial", scene);
+tulipStemMaterial.diffuseColor = new Color3(0.12, 0.42, 0.08);
+tulipStemMaterial.specularColor = Color3.Black();
+
+const tulipHeadMaterials = [
+  new Color3(0.95, 0.08, 0.12),
+  new Color3(1, 0.58, 0.12),
+  new Color3(0.95, 0.18, 0.62),
+  new Color3(0.78, 0.12, 0.92),
+].map((color, index) => {
+  const material = new StandardMaterial(`tulipHeadMaterial-${index}`, scene);
+  material.diffuseColor = color;
+  material.emissiveColor = color.scale(0.08);
+  material.specularColor = new Color3(0.12, 0.08, 0.04);
+  return material;
+});
+
 const roadMaterial = new StandardMaterial("roadMaterial", scene);
 roadMaterial.diffuseColor = new Color3(0.34, 0.34, 0.33);
 roadMaterial.specularColor = Color3.Black();
 
 const stripeMaterial = new StandardMaterial("stripeMaterial", scene);
-stripeMaterial.diffuseColor = new Color3(0.95, 0.82, 0.2);
-stripeMaterial.emissiveColor = new Color3(0.08, 0.06, 0);
+stripeMaterial.diffuseColor = new Color3(0.93, 0.67, 0.16);
+stripeMaterial.emissiveColor = new Color3(0.04, 0.025, 0);
 stripeMaterial.specularColor = Color3.Black();
 
 const fenceMaterial = new StandardMaterial("fenceMaterial", scene);
@@ -237,6 +334,18 @@ const worldGroundMaterial = new StandardMaterial("worldGroundMaterial", scene);
 worldGroundMaterial.diffuseColor = new Color3(0.08, 0.16, 0.03);
 worldGroundMaterial.specularColor = Color3.Black();
 
+const divotMaterial = new StandardMaterial("secretDivotMaterial", scene);
+divotMaterial.diffuseColor = new Color3(0.13, 0.08, 0.035);
+divotMaterial.specularColor = Color3.Black();
+
+const secretGunMaterial = new StandardMaterial("secretGunMaterial", scene);
+secretGunMaterial.diffuseColor = new Color3(0.035, 0.038, 0.04);
+secretGunMaterial.specularColor = new Color3(0.08, 0.08, 0.075);
+
+const secretGunGripMaterial = new StandardMaterial("secretGunGripMaterial", scene);
+secretGunGripMaterial.diffuseColor = new Color3(0.11, 0.075, 0.045);
+secretGunGripMaterial.specularColor = Color3.Black();
+
 function makeLongBladeMesh(name = "longGrass") {
   const mesh = new Mesh(name, scene);
   const positions = [
@@ -244,8 +353,8 @@ function makeLongBladeMesh(name = "longGrass") {
     0.055, 0, 0,
     -0.035, 0.5, 0.025,
     0.035, 0.5, 0.025,
-    -0.085, 0.5, 0.035,
-    0.085, 0.5, 0.035,
+    -0.038, 0.5, 0.035,
+    0.038, 0.5, 0.035,
     0, 0.86, 0.14,
     0, 0, -0.035,
     0, 0.45, 0.005,
@@ -260,8 +369,18 @@ function makeLongBladeMesh(name = "longGrass") {
     8, 9, 2,
     9, 6, 2,
   ];
-  const normals: number[] = [];
-  VertexData.ComputeNormals(positions, indices, normals);
+  const normals = [
+    0, 0.62, -0.78,
+    0, 0.62, -0.78,
+    0, 0.7, -0.71,
+    0, 0.7, -0.71,
+    0, 0.78, -0.63,
+    0, 0.78, -0.63,
+    0, 0.86, -0.5,
+    0, 0.58, -0.82,
+    0, 0.72, -0.69,
+    0, 0.86, -0.5,
+  ];
 
   const vertexData = new VertexData();
   vertexData.positions = positions;
@@ -324,10 +443,68 @@ function makeWheatBladeMesh() {
   return mesh;
 }
 
+function createHiddenGunProp() {
+  const root = new TransformNode("hidden-gun-cache", scene);
+  root.position = new Vector3(-31.5, 0, -18.5);
+  root.rotation.y = -0.72;
+
+  const divot = MeshBuilder.CreateCylinder("secret-gun-divot", { diameter: 2.4, height: 0.045, tessellation: 24 }, scene);
+  divot.parent = root;
+  divot.position.y = -0.032;
+  divot.scaling = new Vector3(1.35, 1, 0.72);
+  divot.material = divotMaterial;
+
+  const barrel = MeshBuilder.CreateCylinder("secret-gun-barrel", { height: 0.86, diameter: 0.08, tessellation: 8 }, scene);
+  barrel.parent = root;
+  barrel.position = new Vector3(0.06, 0.055, 0);
+  barrel.rotation.z = Math.PI / 2;
+  barrel.material = secretGunMaterial;
+
+  const body = MeshBuilder.CreateBox("secret-gun-body", { width: 0.46, height: 0.16, depth: 0.22 }, scene);
+  body.parent = root;
+  body.position = new Vector3(-0.28, 0.055, 0);
+  body.material = secretGunMaterial;
+
+  const grip = MeshBuilder.CreateBox("secret-gun-grip", { width: 0.13, height: 0.36, depth: 0.15 }, scene);
+  grip.parent = root;
+  grip.position = new Vector3(-0.42, -0.11, 0.02);
+  grip.rotation.z = -0.38;
+  grip.material = secretGunGripMaterial;
+
+  const sight = MeshBuilder.CreateBox("secret-gun-sight", { width: 0.14, height: 0.045, depth: 0.07 }, scene);
+  sight.parent = root;
+  sight.position = new Vector3(-0.18, 0.165, 0);
+  sight.material = secretGunMaterial;
+
+  return root;
+}
+
+function updateSecretGunPickup() {
+  if (hasSecretGun || !secretGunRoot || !secretGunRoot.isEnabled()) {
+    return;
+  }
+
+  const dx = player.position.x - secretGunRoot.position.x;
+  const dz = player.position.z - secretGunRoot.position.z;
+
+  if ((dx * dx) + (dz * dz) > 1.1 * 1.1) {
+    return;
+  }
+
+  hasSecretGun = true;
+  secretGunRoot.setEnabled(false);
+  updateHud();
+}
+
 function updateHud() {
   const percentage = mowedCount === bladeCount ? 100 : Math.floor((mowedCount / bladeCount) * 100);
   scoreEl.textContent = `Mowed: ${percentage}%`;
+  if (hasSecretGun) {
+    scoreEl.textContent += " | Armed";
+  }
   meterFillEl.style.width = `${(mowedCount / bladeCount) * 100}%`;
+  mistakesEl.textContent = `Mistakes: ${mistakeCount}`;
+  mistakeMeterFillEl.style.width = `${Math.min(100, mistakeCount * 12)}%`;
 
   if (percentage === 100 && !celebrationShown) {
     showCelebration();
@@ -336,7 +513,10 @@ function updateHud() {
 
 function showCelebration() {
   celebrationShown = true;
+  window.clearTimeout(celebrationHideTimer);
   celebrationSeedsEl.replaceChildren();
+  prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume);
+  prototypeAudio.setCompletionLoopActive(true, settings);
 
   for (let i = 0; i < 96; i += 1) {
     const seed = document.createElement("span");
@@ -354,15 +534,31 @@ function showCelebration() {
   }
 
   celebrationEl.hidden = false;
-  window.setTimeout(() => {
-    celebrationEl.hidden = true;
-  }, 5200);
 }
 
 function resetCelebration() {
+  window.clearTimeout(celebrationHideTimer);
   celebrationShown = false;
   celebrationEl.hidden = true;
   celebrationSeedsEl.replaceChildren();
+  prototypeAudio.setCompletionLoopActive(false, settings);
+}
+
+function closeCelebration() {
+  celebrationEl.hidden = true;
+  prototypeAudio.setCompletionLoopActive(false, settings);
+}
+
+function goToNextLevel() {
+  const nextMap = settings.mapId === "main" ? "flower-court" : "main";
+  settings.mapId = nextMap;
+  const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
+
+  if (mapControl) {
+    mapControl.value = nextMap;
+  }
+
+  resetGame();
 }
 
 function isInsideYard(x: number, z: number) {
@@ -371,6 +567,44 @@ function isInsideYard(x: number, z: number) {
 
 function randomYardPoint() {
   return randomPointInSegments(yardSegments);
+}
+
+function distanceToFlowerBed(x: number, z: number) {
+  let closest = Number.POSITIVE_INFINITY;
+
+  for (const bed of getActiveMap().flowerBeds) {
+    const clampedX = Math.min(bed.xMax, Math.max(bed.xMin, x));
+    const clampedZ = Math.min(bed.zMax, Math.max(bed.zMin, z));
+    const dx = x - clampedX;
+    const dz = z - clampedZ;
+    const inside = x >= bed.xMin && x <= bed.xMax && z >= bed.zMin && z <= bed.zMax;
+    const distance = inside ? -Math.min(x - bed.xMin, bed.xMax - x, z - bed.zMin, bed.zMax - z) : Math.sqrt((dx * dx) + (dz * dz));
+    closest = Math.min(closest, distance);
+  }
+
+  return closest;
+}
+
+function shouldPlaceGrassNearFlowerBed(x: number, z: number) {
+  const distance = distanceToFlowerBed(x, z);
+
+  if (!Number.isFinite(distance)) {
+    return true;
+  }
+
+  if (distance < -0.1) {
+    return false;
+  }
+
+  if (distance < 0.34) {
+    return Math.random() < 0.06;
+  }
+
+  if (distance < 0.62) {
+    return Math.random() < 0.26;
+  }
+
+  return true;
 }
 
 function distanceToMainYard(x: number, z: number) {
@@ -405,19 +639,179 @@ function distanceToSegment(x: number, z: number, startX: number, startZ: number,
   return Math.sqrt((offsetX * offsetX) + (offsetZ * offsetZ));
 }
 
+function nearestFenceSegment(x: number, z: number) {
+  let nearest = { index: -1, distance: Number.POSITIVE_INFINITY };
+
+  for (const [index, segment] of getActiveMap().fenceSegments.entries()) {
+    const distance = distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z);
+
+    if (distance < nearest.distance) {
+      nearest = { index, distance };
+    }
+  }
+
+  return nearest;
+}
+
+function createFenceDamageStates() {
+  const states: FenceDamageState[] = [];
+  const plankWidth = 0.34;
+  const plankDepth = 0.08;
+
+  for (const [segmentIndex, segment] of getActiveMap().fenceSegments.entries()) {
+    const dx = segment.end.x - segment.start.x;
+    const dz = segment.end.z - segment.start.z;
+    const length = Math.sqrt((dx * dx) + (dz * dz));
+    const steps = Math.floor(length / 0.55);
+    const horizontal = Math.abs(dx) >= Math.abs(dz);
+    const halfX = horizontal ? plankWidth / 2 : plankDepth / 2;
+    const halfZ = horizontal ? plankDepth / 2 : plankWidth / 2;
+
+    for (let pieceIndex = 0; pieceIndex <= steps; pieceIndex += 1) {
+      const t = steps === 0 ? 0 : pieceIndex / steps;
+      const x = segment.start.x + (dx * t);
+      const z = segment.start.z + (dz * t);
+      states.push({
+        segmentIndex,
+        pieceIndex,
+        x,
+        z,
+        minX: x - halfX,
+        maxX: x + halfX,
+        minZ: z - halfZ,
+        maxZ: z + halfZ,
+        health: 10,
+        broken: false,
+      });
+    }
+  }
+
+  return states;
+}
+
+function nearestFencePiece(x: number, z: number) {
+  let nearest = { index: -1, distance: Number.POSITIVE_INFINITY };
+
+  for (let i = 0; i < fenceDamage.length; i += 1) {
+    const piece = fenceDamage[i];
+
+    if (!piece || piece.broken) {
+      continue;
+    }
+
+    const dx = x - piece.x;
+    const dz = z - piece.z;
+    const distance = Math.sqrt((dx * dx) + (dz * dz));
+
+    if (distance < nearest.distance) {
+      nearest = { index: i, distance };
+    }
+  }
+
+  return nearest;
+}
+
+function breakFencePiece(index: number) {
+  const state = fenceDamage[index];
+  const mesh = state ? scene.getMeshByName(`fence-${state.segmentIndex}-plank-${state.pieceIndex}`) : null;
+  mesh?.setEnabled(false);
+}
+
+function damageFencePiece(index: number, impactSpeed: number) {
+  const state = fenceDamage[index];
+
+  if (!state || state.broken) {
+    return;
+  }
+
+  const speedRatio = Math.min(1, Math.abs(impactSpeed) / (playerSpeed * playerBoost));
+  const damage = speedRatio > 0.85 ? 5 : speedRatio > 0.55 ? 3 : 1;
+  state.health -= damage;
+
+  if (state.health <= 0) {
+    state.broken = true;
+    breakFencePiece(index);
+  }
+}
+
+function damageFenceAt(x: number, z: number, impactSpeed: number) {
+  const nearest = nearestFencePiece(x, z);
+
+  if (nearest.index < 0 || nearest.distance > 0.62) {
+    return;
+  }
+
+  damageFencePiece(nearest.index, impactSpeed);
+}
+
+function shootFenceAlongRay(origin: Vector3, direction: Vector3, range: number) {
+  let best = { index: -1, distanceToRay: Number.POSITIVE_INFINITY, forwardDistance: 0 };
+
+  for (let index = 0; index < fenceDamage.length; index += 1) {
+    const piece = fenceDamage[index];
+
+    if (!piece || piece.broken) {
+      continue;
+    }
+
+    const dx = piece.x - origin.x;
+    const dz = piece.z - origin.z;
+    const forwardDistance = (dx * direction.x) + (dz * direction.z);
+
+    if (forwardDistance < 0 || forwardDistance > range) {
+      continue;
+    }
+
+    const sideDistance = Math.abs((dx * direction.z) - (dz * direction.x));
+
+    if (sideDistance < best.distanceToRay) {
+      best = { index, distanceToRay: sideDistance, forwardDistance };
+    }
+  }
+
+  if (best.index >= 0 && best.distanceToRay < 0.42) {
+    const hit = origin.add(direction.scale(best.forwardDistance));
+    damageFenceAt(hit.x, hit.z, playerSpeed * playerBoost);
+  }
+}
+
+function collidingFencePiece(x: number, z: number) {
+  const mowerHalfSize = 0.46;
+  let hit = { index: -1, distance: Number.POSITIVE_INFINITY };
+
+  for (let index = 0; index < fenceDamage.length; index += 1) {
+    const piece = fenceDamage[index];
+
+    if (!piece || piece.broken) {
+      continue;
+    }
+
+    if (
+      x < piece.minX - mowerHalfSize
+      || x > piece.maxX + mowerHalfSize
+      || z < piece.minZ - mowerHalfSize
+      || z > piece.maxZ + mowerHalfSize
+    ) {
+      continue;
+    }
+
+    const dx = x - piece.x;
+    const dz = z - piece.z;
+    const distance = Math.sqrt((dx * dx) + (dz * dz));
+
+    if (distance < hit.distance) {
+      hit = { index, distance };
+    }
+  }
+
+  return hit;
+}
+
 function grassFenceFalloff(x: number, z: number) {
-  const fenceSegments = [
-    [-9, -9, 9, -9],
-    [9, -9, 9, 2],
-    [9, 2, 0, 2],
-    [0, 2, 0, 9],
-    [0, 9, -9, 9],
-    [-9, 9, -9, -9],
-  ];
   let distance = Number.POSITIVE_INFINITY;
 
-  for (const [startX, startZ, endX, endZ] of fenceSegments) {
-    distance = Math.min(distance, distanceToSegment(x, z, startX, startZ, endX, endZ));
+  for (const segment of getActiveMap().fenceSegments) {
+    distance = Math.min(distance, distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
   }
 
   if (distance < 0.09) {
@@ -477,10 +871,12 @@ function placeGrass() {
   for (let i = 0; i < bladeCount; i += 1) {
     let { x, z } = randomYardPoint();
     let fenceFalloff = grassFenceFalloff(x, z);
+    let bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
 
-    for (let attempt = 0; attempt < 70 && fenceFalloff < 0.98; attempt += 1) {
+    for (let attempt = 0; attempt < 90 && (fenceFalloff < 0.98 || !bedOpen); attempt += 1) {
       ({ x, z } = randomYardPoint());
       fenceFalloff = grassFenceFalloff(x, z);
+      bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
     }
 
     const clumpNoise = grassNoiseAt(x, z);
@@ -530,20 +926,30 @@ function placeMediumGrass() {
     let z = 0;
     let distance = 0;
     let density = 0;
+    let placed = false;
 
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
       x = -34 + (Math.random() * 68);
       z = -29 + (Math.random() * 58);
       distance = distanceToMainYard(x, z);
-      density = Math.max(0, 1 - (distance / 28));
+      const fade = Math.max(0, 1 - (distance / 31));
+      const patch = grassNoiseAt((x * 0.12) + 6, (z * 0.12) - 3);
+      density = Math.min(1, Math.max(0, (fade * fade * 1.15) + ((patch - 0.5) * 0.22)));
 
-      if (!isInsideYard(x, z) && !isOnRoad(x) && Math.random() < Math.max(0.08, density)) {
+      if (!isInsideYard(x, z) && !isOnRoad(x) && Math.random() < density) {
+        placed = true;
         break;
       }
     }
 
+    if (!placed) {
+      writeMatrix(mediumGrassMatrices, i, emptyMatrix());
+      writeColor(mediumGrassColors, i, [0, 0, 0, 0]);
+      continue;
+    }
+
     const rotation = Quaternion.FromEulerAngles(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.08);
-    const distanceFade = Math.max(0.28, 1 - (distance * 0.026));
+    const distanceFade = Math.max(0.08, 1 - (distance * 0.035));
     const patchNoise = grassNoiseAt(x, z);
     const scale = new Vector3(1, (0.22 + (0.34 * patchNoise) + (Math.random() * 0.16)) * distanceFade, 1);
     const matrix = Matrix.Compose(scale, rotation, new Vector3(x, 0, z));
@@ -564,26 +970,50 @@ function placeMediumGrass() {
 function placeWheatGrass() {
   wheatGrassMatrices = new Float32Array(wheatGrassCount * 16);
   wheatGrassColors = new Float32Array(wheatGrassCount * 4);
+  const clumps = Array.from({ length: 52 }, () => ({
+    x: -55 + (Math.random() * 120),
+    z: -55 + (Math.random() * 110),
+    radius: 2.8 + (Math.random() * 9.5),
+    strength: 0.35 + (Math.random() * 0.8),
+  })).filter((clump) => !isInsideYard(clump.x, clump.z) && !isOnRoad(clump.x) && distanceToMainYard(clump.x, clump.z) > 14);
 
   for (let i = 0; i < wheatGrassCount; i += 1) {
     let x = 0;
     let z = 0;
     let patchNoise = 0;
+    let clumpWeight = 0;
+    let distance = 0;
 
-    for (let attempt = 0; attempt < 90; attempt += 1) {
-      x = -55 + (Math.random() * 120);
-      z = -55 + (Math.random() * 110);
-      patchNoise = grassNoiseAt(x * 0.45, z * 0.45);
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const useClump = clumps.length > 0 && Math.random() < 0.86;
+      const clump = clumps[Math.floor(Math.random() * clumps.length)];
+      const angle = Math.random() * Math.PI * 2;
+      const radius = useClump ? Math.sqrt(Math.random()) * clump.radius : 0;
 
-      if (!isInsideYard(x, z) && !isOnRoad(x) && distanceToMainYard(x, z) > 24 && Math.random() < patchNoise * 0.7) {
+      x = useClump ? clump.x + (Math.cos(angle) * radius) : -55 + (Math.random() * 120);
+      z = useClump ? clump.z + (Math.sin(angle) * radius) : -55 + (Math.random() * 110);
+      patchNoise = grassNoiseAt(x * 0.24, z * 0.24);
+      clumpWeight = useClump ? Math.max(0, 1 - (radius / clump.radius)) * clump.strength : 0;
+      distance = distanceToMainYard(x, z);
+
+      const brokenPatch = grassNoiseAt((x * 0.075) + 15, (z * 0.075) - 4);
+      const transition = Math.min(1, Math.max(0, (distance - 13) / 36));
+      const edgePatch = Math.max(0, 1 - Math.abs(distance - 17) / 8) * 0.22;
+      const density = Math.min(1, (patchNoise * 0.26) + (clumpWeight * 0.9) + (brokenPatch * 0.2) + edgePatch);
+
+      if (!isInsideYard(x, z) && !isOnRoad(x) && distance > 12 && Math.random() < density * (0.22 + (transition * 0.78))) {
         break;
       }
     }
 
-    const rotation = Quaternion.FromEulerAngles((Math.random() - 0.5) * 0.18, Math.random() * Math.PI, (Math.random() - 0.5) * 0.32);
-    const height = 0.7 + (patchNoise * 1.25) + (Math.random() * 0.45);
-    const matrix = Matrix.Compose(new Vector3(0.85, height, 0.85), rotation, new Vector3(x, 0, z));
-    const color = mixColor(new Color3(0.48, 0.45, 0.31), new Color3(0.86, 0.8, 0.56), patchNoise);
+    const wilderness = Math.min(1, Math.max(0, (distance - 14) / 42));
+    const rotation = Quaternion.FromEulerAngles((Math.random() - 0.5) * 0.28, Math.random() * Math.PI, (Math.random() - 0.5) * 0.55);
+    const height = 0.28 + (patchNoise * (0.45 + (wilderness * 0.55))) + (clumpWeight * (0.45 + (wilderness * 0.8))) + (Math.random() * (0.18 + (clumpWeight * 0.6)));
+    const width = 0.45 + (clumpWeight * 0.45) + (Math.random() * 0.3);
+    const matrix = Matrix.Compose(new Vector3(width, height, width), rotation, new Vector3(x, 0, z));
+    const edgeGreen = mixColor(hexToColor3(settings.grassBaseColor), new Color3(0.46, 0.46, 0.28), 0.38 + (patchNoise * 0.2));
+    const wheatColor = mixColor(new Color3(0.42, 0.4, 0.28), new Color3(0.9, 0.82, 0.52), Math.min(1, patchNoise + (clumpWeight * 0.28)));
+    const color = mixColor(edgeGreen, wheatColor, wilderness);
     const pale = mixColor(color, new Color3(0.82, 0.84, 0.78), Math.random() * 0.3);
 
     writeMatrix(wheatGrassMatrices, i, matrix);
@@ -684,7 +1114,7 @@ function createDandelion(x: number, z: number, kind: Dandelion["kind"]) {
 function placeDandelions() {
   clearDandelions();
 
-  for (let i = 0; i < 30; i += 1) {
+  for (let i = 0; i < getActiveMap().dandelionCount; i += 1) {
     const { x, z } = randomYardPoint();
     const kind = i % 3 === 0 ? "seed" : "yellow";
 
@@ -694,41 +1124,174 @@ function placeDandelions() {
   }
 }
 
+function clearTulips() {
+  while (tulips.length > 0) {
+    const tulip = tulips.pop();
+    tulip?.root.dispose(false, true);
+  }
+}
+
+function createTulip(x: number, z: number) {
+  const root = new TransformNode("tulip", scene);
+  root.position = new Vector3(x, 0.09, z);
+
+  const stem = MeshBuilder.CreateCylinder("tulip-stem", { height: 0.58, diameter: 0.035, tessellation: 5 }, scene);
+  stem.parent = root;
+  stem.position.y = 0.29;
+  stem.rotation.x = (Math.random() - 0.5) * 0.18;
+  stem.rotation.z = (Math.random() - 0.5) * 0.18;
+  stem.material = tulipStemMaterial;
+
+  const head = MeshBuilder.CreateSphere("tulip-head", { diameter: 0.18, segments: 7 }, scene);
+  head.parent = root;
+  head.position.y = 0.64;
+  head.scaling = new Vector3(0.85, 1.25, 0.85);
+  head.material = tulipHeadMaterials[Math.floor(Math.random() * tulipHeadMaterials.length)];
+
+  const leaf = MeshBuilder.CreatePlane("tulip-leaf", { width: 0.16, height: 0.34 }, scene);
+  leaf.parent = root;
+  leaf.position = new Vector3(0.08, 0.28, 0);
+  leaf.rotation.z = -0.75;
+  leaf.material = tulipStemMaterial;
+
+  tulips.push({ root, head, stem, x, z, destroyed: false });
+}
+
+function placeTulips() {
+  clearTulips();
+
+  for (const bed of getActiveMap().flowerBeds) {
+    for (let i = 0; i < bed.count; i += 1) {
+      const { x, z } = randomRectPoint(bed);
+      createTulip(x, z);
+    }
+  }
+}
+
+function damageProtectedTulips() {
+  const radiusSquared = (mowerCutRadius * 1.35) ** 2;
+  let changed = false;
+
+  for (const tulip of tulips) {
+    if (tulip.destroyed) {
+      continue;
+    }
+
+    const dx = tulip.x - player.position.x;
+    const dz = tulip.z - player.position.z;
+
+    if ((dx * dx) + (dz * dz) > radiusSquared) {
+      continue;
+    }
+
+    destroyTulip(tulip);
+    changed = true;
+  }
+
+  if (changed) {
+    updateHud();
+  }
+}
+
+function destroyTulip(tulip: Tulip) {
+  tulip.destroyed = true;
+  tulip.head.scaling = new Vector3(1.4, 0.24, 1.4);
+  tulip.head.position.y = 0.12;
+  tulip.head.rotation.x = 1.4 + (Math.random() * 0.7);
+  tulip.stem.scaling.y = 0.18;
+  tulip.stem.position.y = 0.05;
+  mistakeCount += 1;
+}
+
 function resetGame() {
+  applyActiveMap();
   resetCelebration();
-  player.position = new Vector3(0, 0.18, 0);
+  mapGroundRoot?.dispose(false, true);
+  fenceRoot?.dispose(false, true);
+  mapGroundRoot = createMapGrounds(scene, getActiveMap(), groundMaterial);
+  fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments);
+  fenceDamage = createFenceDamageStates();
+  player.position = getActiveMap().spawn.clone();
   playerYaw = 0;
   player.rotation.y = playerYaw;
+  cameraOrbitYaw = 0;
+  cameraOrbitHeight = 0;
+  cameraDistanceOffset = 0;
+  cameraAdjustmentCount = 0;
+  cameraAdjustmentCooldown = 0;
+  cameraReturnDelay = 0;
+  cameraReturning = false;
+  mistakeCount = 0;
+  hasSecretGun = false;
+  shootCooldown = 0;
+  secretGunRoot?.setEnabled(true);
+  placeMediumGrass();
+  placeWheatGrass();
   placeGrass();
   placeDandelions();
+  placeTulips();
   mowTouchedGrass();
   updateHud();
 }
 
-function moveWithinYard(nextPosition: Vector3) {
-  if (isInsideYard(nextPosition.x, nextPosition.z)) {
+function moveWithinYard(nextPosition: Vector3, movement: Vector3) {
+  const hit = collidingFencePiece(nextPosition.x, nextPosition.z);
+
+  if (hit.index < 0) {
     player.position.copyFrom(nextPosition);
-    return;
+    return -1;
   }
 
-  if (isInsideYard(nextPosition.x, player.position.z)) {
-    player.position.x = nextPosition.x;
+  let collided = true;
+  const xOnly = new Vector3(nextPosition.x, player.position.y, player.position.z);
+  const zOnly = new Vector3(player.position.x, player.position.y, nextPosition.z);
+
+  if (collidingFencePiece(xOnly.x, xOnly.z).index < 0) {
+    player.position.x = xOnly.x;
+    collided = false;
   }
 
-  if (isInsideYard(player.position.x, nextPosition.z)) {
-    player.position.z = nextPosition.z;
+  if (collidingFencePiece(zOnly.x, zOnly.z).index < 0) {
+    player.position.z = zOnly.z;
+    collided = false;
   }
+
+  if (collided) {
+    const bumpDirection = movement.lengthSquared() > 0.000001 ? movement.normalize() : new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
+    player.position.subtractInPlace(bumpDirection.scale(0.12));
+  }
+
+  return collided ? hit.index : -1;
 }
 
 function movePlayer(deltaSeconds: number) {
-  const turnDirection = (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0);
+  const useKeyboard = settings.inputMode === "auto" || settings.inputMode === "keyboard";
+  const useMouseSteering = settings.inputMode !== "keyboard" && settings.inputMode !== "touch" && mouseSteeringActive && document.hasFocus() && !cameraDrag.active;
+  const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
+  const controllerTurn = analogInput.controllerTurn;
+  const touchTurn = analogInput.touchTurn;
+  const analogTurn = Math.max(-1, Math.min(1, controllerTurn + touchTurn + (useMouseSteering ? mouseTurn * 0.72 : 0)));
+  const turnDirection = Math.max(-1, Math.min(1, keyboardTurn + analogTurn));
+  const turnSign = Math.sign(turnDirection);
+  const shouldAccelerateTurn = keyboardTurn !== 0
+    || Math.abs(controllerTurn) >= settings.controllerTurnAccelThreshold
+    || Math.abs(touchTurn) >= settings.controllerTurnAccelThreshold;
 
-  if (turnDirection !== 0) {
-    turnHoldSeconds = turnDirection === lastTurnDirection ? turnHoldSeconds + deltaSeconds : 0;
-    lastTurnDirection = turnDirection;
+  if (turnSign !== 0) {
+    if (turnSign !== lastTurnDirection) {
+      turnHoldSeconds = 0;
+    }
+
+    if (shouldAccelerateTurn) {
+      turnHoldSeconds += deltaSeconds;
+    }
+
+    lastTurnDirection = turnSign;
     const build = Math.min(1, turnHoldSeconds / settings.turnBuild);
-    const turnScale = 0.14 + (build * build * 0.86);
-    playerYaw += turnDirection * settings.turnMaxSpeed * turnScale * deltaSeconds;
+    const keyboardScale = keyboardTurn === 0 ? 0 : 0.14 + (build * build * 0.86);
+    const analogScale = shouldAccelerateTurn ? 1 + (build * build * 0.72) : 1;
+    const scaledTurn = Math.max(-1, Math.min(1, (keyboardTurn * keyboardScale) + (analogTurn * analogScale)));
+    playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds;
   } else {
     turnHoldSeconds = 0;
     lastTurnDirection = 0;
@@ -738,22 +1301,105 @@ function movePlayer(deltaSeconds: number) {
 
   currentThrottle = 0;
 
-  if (keys.has("w")) {
+  if (useKeyboard && keys.has("w")) {
     currentThrottle += 1;
   }
 
-  if (keys.has("s")) {
+  if (useKeyboard && keys.has("s")) {
     currentThrottle -= 0.45;
   }
 
-  if (currentThrottle === 0) {
+  currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle));
+
+  const targetSpeed = currentThrottle === 0
+    ? 0
+    : playerSpeed * ((useKeyboard && keys.has(" ")) || analogInput.boost ? playerBoost : 1) * currentThrottle;
+  const ramp = currentThrottle === 0 ? 7 : 2.8;
+  driveSpeed += (targetSpeed - driveSpeed) * Math.min(1, deltaSeconds * ramp);
+
+  if (Math.abs(driveSpeed) < 0.01) {
+    driveSpeed = 0;
     return;
   }
 
-  const boost = keys.has(" ") ? playerBoost : 1;
   const direction = new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
-  direction.scaleInPlace(playerSpeed * boost * currentThrottle * deltaSeconds);
-  moveWithinYard(player.position.add(direction));
+  direction.scaleInPlace(driveSpeed * deltaSeconds);
+
+  const nextPosition = player.position.add(direction);
+
+  const hitFenceIndex = moveWithinYard(nextPosition, direction);
+
+  if (hitFenceIndex >= 0 && bumpCooldown <= 0) {
+    damageFencePiece(hitFenceIndex, driveSpeed);
+    driveSpeed = 0;
+    prototypeAudio.playWallBump(settings.wallBumpVolume);
+    bumpCooldown = 0.35;
+  }
+}
+
+function markCameraAdjusted() {
+  if (cameraAdjustmentCooldown <= 0) {
+    cameraAdjustmentCount += 1;
+  }
+
+  cameraAdjustmentCooldown = 0.45;
+  cameraReturnDelay = Math.min(18, Math.max(2.5, cameraAdjustmentCount * 2.5));
+  cameraReturning = false;
+}
+
+function updateCameraInput(deltaSeconds: number) {
+  let adjusted = false;
+  const controllerCameraTurn = analogInput.cameraTurn;
+  const controllerCameraPitch = analogInput.cameraPitch;
+
+  if (Math.abs(controllerCameraTurn) > 0 || Math.abs(controllerCameraPitch) > 0) {
+    cameraOrbitYaw += controllerCameraTurn * deltaSeconds * 2.2;
+    cameraOrbitHeight -= controllerCameraPitch * deltaSeconds * 2.4;
+    adjusted = true;
+  }
+
+  if (settings.inputMode === "keyboard") {
+    const arrowTurn = (keys.has("arrowright") ? 1 : 0) - (keys.has("arrowleft") ? 1 : 0);
+    const arrowPitch = (keys.has("arrowdown") ? 1 : 0) - (keys.has("arrowup") ? 1 : 0);
+
+    if (arrowTurn !== 0 || arrowPitch !== 0) {
+      cameraOrbitYaw += arrowTurn * deltaSeconds * 2.4;
+      cameraOrbitHeight += arrowPitch * deltaSeconds * 3.1;
+      adjusted = true;
+    }
+  }
+
+  if (adjusted) {
+    markCameraAdjusted();
+  } else {
+    cameraAdjustmentCooldown = Math.max(0, cameraAdjustmentCooldown - deltaSeconds);
+
+    if (cameraAdjustmentCount < 7 && (Math.abs(cameraOrbitYaw) > 0.001 || Math.abs(cameraOrbitHeight) > 0.001 || Math.abs(cameraDistanceOffset) > 0.001)) {
+      cameraReturnDelay -= deltaSeconds;
+
+      if (cameraReturnDelay <= 0) {
+        cameraReturning = true;
+      }
+    }
+  }
+
+  if (cameraReturning) {
+    const returnAmount = Math.min(1, deltaSeconds / 7);
+    cameraOrbitYaw += (0 - cameraOrbitYaw) * returnAmount;
+    cameraOrbitHeight += (0 - cameraOrbitHeight) * returnAmount;
+    cameraDistanceOffset += (0 - cameraDistanceOffset) * returnAmount;
+
+    if (Math.abs(cameraOrbitYaw) < 0.004 && Math.abs(cameraOrbitHeight) < 0.004 && Math.abs(cameraDistanceOffset) < 0.004) {
+      cameraOrbitYaw = 0;
+      cameraOrbitHeight = 0;
+      cameraDistanceOffset = 0;
+      cameraReturning = false;
+      cameraAdjustmentCount = 0;
+    }
+  }
+
+  cameraOrbitHeight = Math.max(-1.7, Math.min(4.8, cameraOrbitHeight));
+  cameraDistanceOffset = Math.max(-3.2, Math.min(7.5, cameraDistanceOffset));
 }
 
 function mowTouchedGrass() {
@@ -792,6 +1438,7 @@ function mowTouchedGrass() {
   }
 
   if (mowedThisFrame) {
+    grassCuttingAudioTimer = 0.16;
     longGrass.thinInstanceBufferUpdated("matrix");
     cutGrass.thinInstanceBufferUpdated("matrix");
     updateHud();
@@ -839,6 +1486,8 @@ function mowDandelion(dandelion: Dandelion) {
     return;
   }
 
+  prototypeAudio.playFlowerPop(settings.flowerPopVolume);
+
   const worldPosition = dandelion.head.getAbsolutePosition().clone();
   dandelion.head.parent = null;
   dandelion.head.position.copyFrom(worldPosition);
@@ -848,6 +1497,90 @@ function mowDandelion(dandelion: Dandelion) {
     Math.cos(playerYaw) * 2.2,
   );
   dandelion.headFalling = true;
+}
+
+function distanceToShot(x: number, z: number, origin: Vector3, direction: Vector3, range: number) {
+  const dx = x - origin.x;
+  const dz = z - origin.z;
+  const forwardDistance = (dx * direction.x) + (dz * direction.z);
+
+  if (forwardDistance < 0 || forwardDistance > range) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.abs((dx * direction.z) - (dz * direction.x));
+}
+
+function shootSecretGun() {
+  if (!hasSecretGun || shootCooldown > 0) {
+    return;
+  }
+
+  shootCooldown = 0.22;
+  const origin = player.position.add(new Vector3(Math.sin(playerYaw) * 0.8, 0, Math.cos(playerYaw) * 0.8));
+  const direction = new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
+  const range = 18;
+  const shotWidth = 0.28;
+  let changedGrass = false;
+
+  for (let distance = 0; distance <= range; distance += 0.45) {
+    const x = origin.x + (direction.x * distance);
+    const z = origin.z + (direction.z * distance);
+    const cellX = Math.floor(x / cellSize);
+    const cellZ = Math.floor(z / cellSize);
+
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      for (let offsetZ = -1; offsetZ <= 1; offsetZ += 1) {
+        const cell = grassGrid.get(gridKey(cellX + offsetX, cellZ + offsetZ));
+
+        if (!cell) {
+          continue;
+        }
+
+        for (const index of cell) {
+          if (isMowed[index] || distanceToShot(grassX[index], grassZ[index], origin, direction, range) > shotWidth) {
+            continue;
+          }
+
+          isMowed[index] = true;
+          mowedCount += 1;
+          writeMatrix(longGrassMatrices, index, emptyMatrix());
+          writeMatrix(cutGrassMatrices, index, matrixForBlade(index, true));
+          changedGrass = true;
+        }
+      }
+    }
+  }
+
+  if (changedGrass) {
+    longGrass.thinInstanceBufferUpdated("matrix");
+    cutGrass.thinInstanceBufferUpdated("matrix");
+    updateHud();
+  }
+
+  for (const dandelion of dandelions) {
+    const position = dandelion.head.getAbsolutePosition();
+    const x = dandelion.kind === "yellow" && dandelion.cut ? position.x : dandelion.x;
+    const z = dandelion.kind === "yellow" && dandelion.cut ? position.z : dandelion.z;
+
+    if (distanceToShot(x, z, origin, direction, range) < 0.42) {
+      mowDandelion(dandelion);
+    }
+  }
+
+  let hitTulip = false;
+  for (const tulip of tulips) {
+    if (!tulip.destroyed && distanceToShot(tulip.x, tulip.z, origin, direction, range) < 0.42) {
+      destroyTulip(tulip);
+      hitTulip = true;
+    }
+  }
+
+  if (hitTulip) {
+    updateHud();
+  }
+
+  shootFenceAlongRay(origin, direction, range);
 }
 
 function updateGrassMotion(timeSeconds: number) {
@@ -1340,6 +2073,58 @@ function refreshGroundColor() {
   groundMaterial.albedoTexture = createGroundTexture(scene);
 }
 
+function hasTouchInput() {
+  return navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+}
+
+function hasControllerInput() {
+  return Boolean(navigator.getGamepads().find(Boolean));
+}
+
+function setInputMode(mode: InputMode) {
+  settings.inputMode = mode;
+  analogInput.setMode(mode);
+  const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
+
+  if (inputModeControl) {
+    inputModeControl.value = mode;
+  }
+
+  if (quickInputModeEl.querySelector(`option[value="${mode}"]`)) {
+    quickInputModeEl.value = mode;
+  }
+}
+
+function syncQuickInputModes() {
+  const modes: Array<{ value: InputMode; label: string; available: boolean }> = [
+    { value: "auto", label: "Auto", available: true },
+    { value: "keyboard", label: "Keyboard", available: true },
+    { value: "controller", label: "Controller", available: hasControllerInput() },
+    { value: "touch", label: "Touchpad", available: hasTouchInput() },
+  ];
+
+  const currentValue = quickInputModeEl.value;
+  quickInputModeEl.replaceChildren();
+
+  for (const mode of modes) {
+    if (!mode.available) {
+      continue;
+    }
+
+    const option = document.createElement("option");
+    option.value = mode.value;
+    option.textContent = mode.label;
+    quickInputModeEl.append(option);
+  }
+
+  const nextValue = quickInputModeEl.querySelector(`option[value="${settings.inputMode}"]`)
+    ? settings.inputMode
+    : quickInputModeEl.querySelector(`option[value="${currentValue}"]`)
+      ? currentValue
+      : "auto";
+  quickInputModeEl.value = nextValue;
+}
+
 function setupSettings() {
   const numberControls = [
     "minHeight",
@@ -1350,10 +2135,27 @@ function setupSettings() {
     "bendStrength",
     "turnMaxSpeed",
     "turnBuild",
+    "controllerTurnAccelThreshold",
     "seedPopRate",
     "mowerVolume",
     "breezeVolume",
+    "ambientBreezeVolume",
     "breezeFacingAmount",
+    "grassCuttingVolume",
+    "grassCuttingAttackDelay",
+    "grassCuttingAttack",
+    "grassCuttingDecay",
+    "flowerPopVolume",
+    "wallBumpVolume",
+    "reverseBeepVolume",
+    "completionFanfareVolume",
+    "completionLoopVolume",
+    "grassRoughness",
+    "grassMetallic",
+    "grassClearCoat",
+    "cutGrassRoughness",
+    "cutGrassMetallic",
+    "cutGrassClearCoat",
     "hueVariance",
     "satVariance",
     "lightVariance",
@@ -1363,6 +2165,8 @@ function setupSettings() {
     "cutGrassColor",
     "groundColor",
   ] as const;
+  const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
+  const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
   let regenerateTimer = 0;
 
   const scheduleRegenerate = () => {
@@ -1394,6 +2198,15 @@ function setupSettings() {
         scheduleRegenerate();
       } else if (["hueVariance", "satVariance", "lightVariance"].includes(id)) {
         refreshGrassColors();
+      } else if ([
+        "grassRoughness",
+        "grassMetallic",
+        "grassClearCoat",
+        "cutGrassRoughness",
+        "cutGrassMetallic",
+        "cutGrassClearCoat",
+      ].includes(id)) {
+        refreshGrassMaterial();
       }
     });
   }
@@ -1409,6 +2222,29 @@ function setupSettings() {
       } else {
         refreshGrassColors();
       }
+    });
+  }
+
+  if (inputModeControl) {
+    inputModeControl.value = settings.inputMode;
+    analogInput.setMode(settings.inputMode as InputMode);
+    inputModeControl.addEventListener("input", () => {
+      setInputMode(inputModeControl.value as InputMode);
+    });
+  }
+
+  syncQuickInputModes();
+  quickInputModeEl.addEventListener("input", () => {
+    setInputMode(quickInputModeEl.value as InputMode);
+  });
+  window.addEventListener("gamepadconnected", syncQuickInputModes);
+  window.addEventListener("gamepaddisconnected", syncQuickInputModes);
+
+  if (mapControl) {
+    mapControl.value = settings.mapId;
+    mapControl.addEventListener("input", () => {
+      settings.mapId = mapControl.value;
+      resetGame();
     });
   }
 }
@@ -1434,19 +2270,12 @@ camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
 const worldGround = MeshBuilder.CreateGround("world-ground", { width: 100, height: 200 }, scene);
-worldGround.position.y = -0.02;
+worldGround.position.y = -0.05;
 worldGround.material = worldGroundMaterial;
-
-for (const [index, segment] of yardSegments.entries()) {
-  const ground = MeshBuilder.CreateGround(`ground-${index}`, { width: segment.width, height: segment.height }, scene);
-  ground.position = segment.center;
-  ground.material = groundMaterial;
-  ground.receiveShadows = true;
-}
 
 createRoad(scene, roadMaterial, stripeMaterial);
 createNeighborhoodLots(scene, groundMaterial);
-createFence(scene, fenceMaterial);
+secretGunRoot = createHiddenGunProp();
 createWindWisps();
 createWindMotes();
 
@@ -1454,8 +2283,6 @@ longGrass = makeLongBladeMesh();
 cutGrass = makeCutBladeMesh();
 mediumGrass = makeLongBladeMesh("mediumGrass");
 wheatGrass = makeWheatBladeMesh();
-placeMediumGrass();
-placeWheatGrass();
 
 player = MeshBuilder.CreateBox("player", { size: 1 }, scene);
 player.material = playerMaterial;
@@ -1482,6 +2309,84 @@ fullscreenButtonEl.addEventListener("keydown", (event) => {
   }
 });
 
+closeCelebrationButtonEl.addEventListener("click", closeCelebration);
+nextLevelButtonEl.addEventListener("click", goToNextLevel);
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
+canvas.addEventListener("pointerenter", () => {
+  mouseSteeringActive = true;
+});
+
+canvas.addEventListener("pointerleave", () => {
+  mouseSteeringActive = false;
+  mouseTurn = 0;
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  if (cameraDrag.active && event.pointerId === cameraDrag.pointerId) {
+    cameraOrbitYaw -= (event.clientX - cameraDrag.lastX) * 0.006;
+    cameraOrbitHeight += (event.clientY - cameraDrag.lastY) * 0.012;
+    cameraOrbitHeight = Math.max(-1.7, Math.min(4.8, cameraOrbitHeight));
+    markCameraAdjusted();
+    cameraDrag.lastX = event.clientX;
+    cameraDrag.lastY = event.clientY;
+    return;
+  }
+
+  if (settings.inputMode === "touch") {
+    mouseTurn = 0;
+    return;
+  }
+
+  const normalizedX = (event.clientX / Math.max(1, window.innerWidth)) - 0.5;
+  mouseTurn = Math.max(-1, Math.min(1, normalizedX * 2.2));
+});
+
+canvas.addEventListener("pointerdown", (event) => {
+  mouseSteeringActive = true;
+
+  if (event.button === 0) {
+    shootSecretGun();
+  }
+
+  if (event.button !== 2) {
+    return;
+  }
+
+  event.preventDefault();
+  cameraDrag.active = true;
+  cameraDrag.pointerId = event.pointerId;
+  cameraDrag.lastX = event.clientX;
+  cameraDrag.lastY = event.clientY;
+  canvas.setPointerCapture(event.pointerId);
+});
+
+const endCameraDrag = (event: PointerEvent) => {
+  if (event.pointerId !== cameraDrag.pointerId) {
+    return;
+  }
+
+  cameraDrag.active = false;
+  cameraDrag.pointerId = -1;
+};
+
+canvas.addEventListener("pointerup", endCameraDrag);
+canvas.addEventListener("pointercancel", endCameraDrag);
+
+canvas.addEventListener("wheel", (event) => {
+  if (settings.inputMode === "touch") {
+    return;
+  }
+
+  event.preventDefault();
+  cameraDistanceOffset += event.deltaY * 0.008;
+  cameraDistanceOffset = Math.max(-3.2, Math.min(7.5, cameraDistanceOffset));
+  markCameraAdjusted();
+}, { passive: false });
+
 document.addEventListener("fullscreenchange", () => {
   fullscreenButtonEl.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
   engine.resize();
@@ -1490,13 +2395,17 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
-  if (["w", "a", "s", "d", " "].includes(key)) {
+  if (["w", "a", "s", "d", " ", "arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key)) {
     event.preventDefault();
     keys.add(key);
   }
 
   if (key === "r") {
     resetGame();
+  }
+
+  if (key === "e") {
+    shootSecretGun();
   }
 
   if (key === "f") {
@@ -1517,8 +2426,17 @@ engine.runRenderLoop(() => {
   const timeSeconds = performance.now() / 1000;
 
   clippingBurstCooldown = Math.max(0, clippingBurstCooldown - deltaSeconds);
+  bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
+  grassCuttingAudioTimer = Math.max(0, grassCuttingAudioTimer - deltaSeconds);
+  shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
+  const controllerShoot = Boolean(navigator.getGamepads().find(Boolean)?.buttons[2]?.pressed);
+  if (controllerShoot && !lastControllerShoot) {
+    shootSecretGun();
+  }
+  lastControllerShoot = controllerShoot;
+  updateCameraInput(deltaSeconds);
   movePlayer(deltaSeconds);
-  updateFollowCamera(camera, player.position, playerYaw, deltaSeconds);
+  updateFollowCamera(camera, player.position, playerYaw, deltaSeconds, cameraOrbitYaw, cameraOrbitHeight, cameraDistanceOffset);
   updateGrassMotion(timeSeconds);
   updateWindWisps(deltaSeconds);
   updateWindMotes(deltaSeconds);
@@ -1526,6 +2444,10 @@ engine.runRenderLoop(() => {
   updateFloatingSeeds(deltaSeconds);
   updateFallingPetals(deltaSeconds);
   mowTouchedGrass();
+  damageProtectedTulips();
+  updateSecretGunPickup();
+  prototypeAudio.setCuttingActive(grassCuttingAudioTimer > 0);
+  prototypeAudio.setReversingActive(driveSpeed < -0.01 || currentThrottle < -0.05);
   prototypeAudio.update(camera, settings);
   scene.render();
 });

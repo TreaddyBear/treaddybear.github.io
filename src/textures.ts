@@ -25,7 +25,7 @@ export function createGroundTexture(scene: Scene) {
   return texture;
 }
 
-export function createRoadTexture(scene: Scene, baseColor = new Color3(0.62, 0.62, 0.6)) {
+export function createRoadTexture(scene: Scene, baseColor = new Color3(0.42, 0.41, 0.38)) {
   const width = 128;
   const height = 1024;
   const texture = new DynamicTexture("roadNoise", { width, height }, scene);
@@ -41,13 +41,13 @@ export function createRoadTexture(scene: Scene, baseColor = new Color3(0.62, 0.6
     for (let x = 0; x < width; x += 1) {
       const u = x / (width - 1);
       const v = y / (height - 1);
-      const large = (valueNoise((u * 4.5) + 11, (v * 24) - 9) - 0.5) * 0.1;
-      const fine = (valueNoise((u * 70) + 91, (v * 520) - 17) - 0.5) * 0.4;
-      const edgeMask = softBand(Math.min(u, 1 - u), 0.075);
-      const centerMask = softBand(Math.abs(u - 0.5), 0.038);
-      const darkBand = Math.max(edgeMask, centerMask) * 0.5;
+      const large = (valueNoise((u * 5.5) + 11, (v * 30) - 9) - 0.5) * 0.075;
+      const fine = (valueNoise((u * 82) + 91, (v * 620) - 17) - 0.5) * 0.26;
+      const edgeMask = softBand(Math.min(u, 1 - u), 0.06);
+      const centerMask = softBand(Math.abs(u - 0.5), 0.028);
+      const darkBand = Math.max(edgeMask, centerMask) * 0.18;
       const lightness = clamp01((base.l * (1 + large + (fine * 0.22))) * (1 - darkBand));
-      const color = hslToColor3(base.h + (large * 0.015), base.s * (1 + (fine * 0.08)), lightness);
+      const color = hslToColor3(base.h + (large * 0.01), base.s * (1 + (fine * 0.05)), lightness);
       const index = ((y * width) + x) * 4;
 
       image.data[index] = color.r * 255;

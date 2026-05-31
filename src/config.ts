@@ -1,4 +1,5 @@
 import { Vector3 } from "@babylonjs/core";
+import type { RectLike } from "./utils/yard";
 
 export const playerSpeed = 1.65;
 export const playerBoost = 1.45;
@@ -18,21 +19,117 @@ export const settings = {
   bendStrength: 0.18,
   turnMaxSpeed: 2.25,
   turnBuild: 0.77,
+  controllerTurnAccelThreshold: 0.7,
   seedPopRate: 0.001,
-  mowerVolume: 0.1,
-  breezeVolume: 1,
+  mowerVolume: 0.4,
+  breezeVolume: 0.6,
+  ambientBreezeVolume: 0.3,
   breezeFacingAmount: 0.7,
+  grassCuttingVolume: 0.4,
+  grassCuttingAttackDelay: 0.2,
+  grassCuttingAttack: 0.03,
+  grassCuttingDecay: 0.17,
+  flowerPopVolume: 0.17,
+  wallBumpVolume: 0.75,
+  reverseBeepVolume: 0.04,
+  completionFanfareVolume: 0.7,
+  completionLoopVolume: 0.35,
+  grassRoughness: 0.22,
+  grassMetallic: 0,
+  grassClearCoat: 0.009,
+  cutGrassRoughness: 0.36,
+  cutGrassMetallic: 0,
+  cutGrassClearCoat: 0.003,
+  inputMode: "auto",
   grassBaseColor: "#0A2E05",
   hueVariance: 0.035,
   satVariance: 0.18,
   lightVariance: 0.16,
   cutGrassColor: "#051E03",
   groundColor: "#295c00",
+  mapId: "main",
 };
 
-export const yardSegments = [
+export type FenceSegment = {
+  start: Vector3;
+  end: Vector3;
+};
+
+export type FlowerBed = RectLike & {
+  count: number;
+};
+
+export type LawnMap = {
+  id: string;
+  name: string;
+  spawn: Vector3;
+  segments: Array<RectLike & { width: number; height: number; center: Vector3 }>;
+  fenceSegments: FenceSegment[];
+  flowerBeds: FlowerBed[];
+  dandelionCount: number;
+};
+
+const mainSegments = [
   { xMin: -9, xMax: 9, zMin: -9, zMax: 2, width: 18, height: 11, center: new Vector3(0, 0, -3.5) },
   { xMin: -9, xMax: 0, zMin: 2, zMax: 9, width: 9, height: 7, center: new Vector3(-4.5, 0, 5.5) },
 ];
+
+export const lawnMaps: LawnMap[] = [
+  {
+    id: "main",
+    name: "Main",
+    spawn: new Vector3(0, 0.18, 0),
+    segments: mainSegments,
+    fenceSegments: [
+      { start: new Vector3(-9.25, 0, -9.25), end: new Vector3(9.25, 0, -9.25) },
+      { start: new Vector3(9.25, 0, -9.25), end: new Vector3(9.25, 0, 2.25) },
+      { start: new Vector3(9.25, 0, 2.25), end: new Vector3(0.25, 0, 2.25) },
+      { start: new Vector3(0.25, 0, 2.25), end: new Vector3(0.25, 0, 9.25) },
+      { start: new Vector3(0.25, 0, 9.25), end: new Vector3(-9.25, 0, 9.25) },
+      { start: new Vector3(-9.25, 0, 9.25), end: new Vector3(-9.25, 0, -9.25) },
+    ],
+    flowerBeds: [],
+    dandelionCount: 18,
+  },
+  {
+    id: "flower-court",
+    name: "Flower Court",
+    spawn: new Vector3(0, 0.18, -7),
+    segments: [
+      { xMin: -10, xMax: 10, zMin: -10, zMax: 10, width: 20, height: 20, center: new Vector3(0, 0, 0) },
+      { xMin: -15, xMax: -10, zMin: -4, zMax: 4, width: 5, height: 8, center: new Vector3(-12.5, 0, 0) },
+      { xMin: 10, xMax: 15, zMin: -4, zMax: 4, width: 5, height: 8, center: new Vector3(12.5, 0, 0) },
+    ],
+    fenceSegments: [
+      { start: new Vector3(-10.25, 0, -10.25), end: new Vector3(10.25, 0, -10.25) },
+      { start: new Vector3(10.25, 0, -10.25), end: new Vector3(10.25, 0, -4.25) },
+      { start: new Vector3(10.25, 0, -4.25), end: new Vector3(15.25, 0, -4.25) },
+      { start: new Vector3(15.25, 0, -4.25), end: new Vector3(15.25, 0, 4.25) },
+      { start: new Vector3(15.25, 0, 4.25), end: new Vector3(10.25, 0, 4.25) },
+      { start: new Vector3(10.25, 0, 4.25), end: new Vector3(10.25, 0, 10.25) },
+      { start: new Vector3(10.25, 0, 10.25), end: new Vector3(-10.25, 0, 10.25) },
+      { start: new Vector3(-10.25, 0, 10.25), end: new Vector3(-10.25, 0, 4.25) },
+      { start: new Vector3(-10.25, 0, 4.25), end: new Vector3(-15.25, 0, 4.25) },
+      { start: new Vector3(-15.25, 0, 4.25), end: new Vector3(-15.25, 0, -4.25) },
+      { start: new Vector3(-15.25, 0, -4.25), end: new Vector3(-10.25, 0, -4.25) },
+      { start: new Vector3(-10.25, 0, -4.25), end: new Vector3(-10.25, 0, -10.25) },
+    ],
+    flowerBeds: [
+      { xMin: -3.8, xMax: 3.8, zMin: -2.2, zMax: 2.2, count: 52 },
+    ],
+    dandelionCount: 12,
+  },
+];
+
+export function getActiveMap() {
+  return lawnMaps.find((map) => map.id === settings.mapId) ?? lawnMaps[0];
+}
+
+export const yardSegments = [...mainSegments];
+
+export function applyActiveMap() {
+  const activeMap = getActiveMap();
+  yardSegments.splice(0, yardSegments.length, ...activeMap.segments);
+}
 
 export type YardSegment = (typeof yardSegments)[number];
