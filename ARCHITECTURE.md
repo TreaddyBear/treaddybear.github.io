@@ -38,11 +38,13 @@ Protected flowers are a new map objective type. Tulips can be destroyed by the m
 
 ## Grass And World
 
-The road material uses a generated dynamic texture rather than asset loading. It layers broad value noise with much finer noise, then darkens soft bands at both road edges and down the center so the surface reads less flat without adding textures or dependencies.
+The road material uses a generated dynamic texture rather than asset loading. It layers broad value noise with much finer noise, then darkens soft bands at both road edges and down the center so the surface reads less flat without adding textures or dependencies. The road mesh extends roughly 3x farther than the original prototype road.
+
+The outer ground is a generated terrain mesh rather than a flat ground plane. `terrainHeightAt()` keeps the area near the yard mostly flat for about 10 meters, increases rolling noise farther out, damps height near the road corridor, and includes a deliberate concealment mound between the main yard and the hidden gun. Future idea: add trees farther beyond the hilly area.
 
 The main lawn grass tracks two influences per blade: wind sway and mower pressure. Mower pressure is painted onto blades as the mower body passes over them, and wind is reduced on blades that have been pressed down so wheel/body tracks can read separately from the ambient breeze.
 
-The grass is rendered with thin instances and should stay dense. The main lawn uses long, noisy, clumpy grass that becomes short when cut instead of disappearing. Neighbor yards should visually meet the main lawn with no visible ground gap, use mid-length grass, and must thin out with distance. Far out-of-bounds areas should read more like patchy wheat/wilderness grass than manicured lawn, with irregular taller edge patches so the transition is not a hard box.
+The grass is rendered with thin instances and should stay dense. The main lawn uses long, noisy, clumpy grass that becomes short when cut instead of disappearing. Neighbor yards should visually meet the main lawn with no visible ground gap, use mid-length grass, and must thin out with distance. Far out-of-bounds areas should read more like patchy wheat/wilderness grass than manicured lawn, with irregular taller edge patches so the transition is not a hard box. The expanded outer world currently has five simple procedural trees as placeholders for future art direction.
 
 Dandelions are part of the game feel. Yellow dandelions should be canary yellow and roughly dandelion-shaped. On first mow, the whole head pops off and flies farther than the current tiny petals; on the second mow it can obliterate into particles. White seed heads should be spherical and wispy rather than blocky. Breeze-triggered seed release should pull individual seeds or small random groups into the wind without fading every matching flower instance at once.
 
@@ -80,11 +82,11 @@ The settings panel has a map selector plus an input mode selector with `auto`, `
 
 Camera/input control layers are prototype-simple: mouse position steers the mower while the canvas is focused in `auto` or controller-oriented modes, but not in forced `keyboard` or `touch` mode. Right mouse drag orbits the follow camera; mouse wheel zooms; controller right stick adjusts camera orbit/height. In forced `keyboard` mode, arrow keys adjust camera orbit/height. After manual camera adjustment, the camera rests for a short delay, then slowly interpolates back behind the mower; repeated manual adjustments extend the rest delay, and after enough repeats the camera stays where the player put it.
 
-Development settings are grouped into collapsible submenus for input, grass shape, grass color, grass shine, dandelions, and audio. The HUD also has a quick input-mode selector that shows only modes available on the current system, while the hidden/dev settings selector keeps all modes for forced testing.
+Development settings are grouped into collapsible submenus for input, debug, grass shape, grass color, grass shine, dandelions, and audio. The HUD also has a quick input-mode selector that shows only modes available on the current system, while the hidden/dev settings selector keeps all modes for forced testing.
 
-Fence pieces are the collision source now, not an abstract yard-boundary gate. Each unbroken plank has an AABB-style blocker expanded by the mower footprint, and movement tests those boxes from every direction. Bumping a plank damages that exact plank, harder hits do more damage, and once its health reaches zero only that plank disappears and stops blocking. There is intentionally no special content beyond the fence yet.
+Fence pieces are the collision source now, not an abstract yard-boundary gate. Each unbroken plank has an AABB-style blocker expanded by the mower footprint, and movement tests those boxes from every direction. Bumping a plank damages that exact plank, harder hits do more damage, and once its configurable max HP reaches zero only that plank disappears and stops blocking. The Debug settings group can show billboard health labels over unbroken planks and tune `fenceMaxHealth`, currently `100`. There is intentionally no special content beyond the fence yet.
 
-There is one hidden gun pickup in a shallow divot outside the fence. Once collected, the mower can shoot forward with left click, `E`, or controller face button 2. Shots cut grass, damage fences, pop dandelions, and destroy protected tulips as mistakes.
+There is one hidden gun pickup outside the fence behind a terrain mound, currently around `(-33.5, -21.5)`. It should not be visible from the main yard. Once collected, the mower can shoot forward with left click, `E`, or controller face button 2. Shots cut grass, damage fences, pop dandelions, and destroy protected tulips as mistakes.
 
 ## Package And Build Notes
 

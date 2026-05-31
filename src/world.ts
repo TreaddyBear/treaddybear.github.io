@@ -14,6 +14,75 @@ import type { FenceSegment, LawnMap } from "./config";
 import { valueNoise } from "./utils/noise";
 import { createRoadTexture } from "./textures";
 
+function smoothstep01(value: number) {
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - (2 * t));
+}
+
+function distanceToMainYardBounds(x: number, z: number) {
+  const clampedX = Math.min(9, Math.max(-9, x));
+  const clampedZ = Math.min(9, Math.max(-9, z));
+  const dx = x - clampedX;
+  const dz = z - clampedZ;
+  return Math.sqrt((dx * dx) + (dz * dz));
+}
+
+export function terrainHeightAt(x: number, z: number) {
+  const distanceFade = smoothstep01((distanceToMainYardBounds(x, z) - 10) / 54);
+  const roadFade = smoothstep01(Math.max(0, Math.abs(x - 14.5) - 4.2) / 8);
+  const broad = valueNoise((x * 0.035) + 12, (z * 0.035) - 8) - 0.5;
+  const mid = valueNoise((x * 0.095) - 4, (z * 0.095) + 19) - 0.5;
+  const rolling = ((broad * 2.7) + (mid * 0.75)) * distanceFade * roadFade;
+  const concealDx = x + 25.5;
+  const concealDz = z + 16.5;
+  const concealHill = Math.max(0, 1 - (((concealDx * concealDx) / 74) + ((concealDz * concealDz) / 34)));
+  return rolling + (concealHill * concealHill * 2.4);
+}
+
+export function createWorldTerrain(scene: Scene, material: Material) {
+  const width = 300;
+  const height = 600;
+  const subdivisionsX = 80;
+  const subdivisionsZ = 132;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
+
+  for (let zIndex = 0; zIndex <= subdivisionsZ; zIndex += 1) {
+    const z = -height / 2 + ((zIndex / subdivisionsZ) * height);
+
+    for (let xIndex = 0; xIndex <= subdivisionsX; xIndex += 1) {
+      const x = -width / 2 + ((xIndex / subdivisionsX) * width);
+      positions.push(x, terrainHeightAt(x, z) - 0.08, z);
+      uvs.push(xIndex / subdivisionsX, zIndex / subdivisionsZ);
+    }
+  }
+
+  const row = subdivisionsX + 1;
+
+  for (let zIndex = 0; zIndex < subdivisionsZ; zIndex += 1) {
+    for (let xIndex = 0; xIndex < subdivisionsX; xIndex += 1) {
+      const base = (zIndex * row) + xIndex;
+      indices.push(base, base + 1, base + row);
+      indices.push(base + 1, base + row + 1, base + row);
+    }
+  }
+
+  const normals: number[] = [];
+  VertexData.ComputeNormals(positions, indices, normals);
+
+  const mesh = new Mesh("world-terrain", scene);
+  const vertexData = new VertexData();
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.normals = normals;
+  vertexData.uvs = uvs;
+  vertexData.applyToMesh(mesh);
+  mesh.material = material;
+  mesh.receiveShadows = true;
+  return mesh;
+}
+
 function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   const mesh = new Mesh("road-stripe", scene);
   const steps = 8;
@@ -53,11 +122,11 @@ export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeM
   roadMaterial.diffuseTexture?.dispose();
   roadMaterial.diffuseTexture = createRoadTexture(scene);
 
-  const road = MeshBuilder.CreateGround("road", { width: 5.2, height: 180 }, scene);
+  const road = MeshBuilder.CreateGround("road", { width: 5.2, height: 540 }, scene);
   road.position = new Vector3(14.5, 0.006, 0);
   road.material = roadMaterial;
 
-  for (let z = -82; z <= 82; z += 10) {
+  for (let z = -262; z <= 262; z += 10) {
     createRoadStripe(scene, stripeMaterial, z);
   }
 }

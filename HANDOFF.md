@@ -42,8 +42,8 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 ## Last Verified State
 
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
-- `pnpm run build` passed after the latest UI, audio default, individual fence plank AABB collision/damage, camera-return, completion-audio, and blade-shape changes.
-- A browser smoke test confirmed the HUD/settings no longer overlap on desktop, the quick input selector only showed available modes on the current machine, the scene loaded, and no console errors were reported.
+- `pnpm run build` passed after the latest terrain, gun hiding, fence debug, and tree changes.
+- A browser smoke test confirmed the terrain/gun scene loaded, the canvas rendered, and no console errors were reported. A later debug-toggle smoke test was attempted but hit a browser automation variable redeclare before completing; the production build passed.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
 - `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags, then pushed `dev`, `master`, and the `v0.1.1` tag.
 
@@ -58,6 +58,8 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Chase camera following the mower.
 - Dense instanced grass that changes to cut state instead of disappearing.
 - Neighbor lawns and far out-of-bounds grass/wheat dressing.
+- Large outer terrain mesh with procedural bumpy height variation.
+- Five simple procedural trees in the expanded outer world, using low-poly trunks and leafy crowns at varied scales.
 - Procedural ground and road materials.
 - Dandelions with yellow and white seed-head behavior.
 - Sparse large wind wisps and tiny wind particles.
@@ -131,8 +133,11 @@ Important defaults in `src/config.ts`:
 - Grass-cutting audio should use a short onset delay plus attack/decay smoothing because abrupt loop gating sounds bad, but the decay should stay tight enough that the layer does not smear after mowing stops.
 - Reverse movement should play a comical backing-up loop.
 - Protected flower beds are allowed to be destructible, but destroying them should count as mistakes rather than progress.
-- Fence planks each have hidden damage and AABB-style collision from every direction. Bumps deal `1`, medium hits deal `3`, and near-full-speed hits deal `5` against `10` health. Broken planks disappear individually and stop blocking. No special out-of-bounds content exists yet.
-- There is a hidden gun pickup in a shallow divot outside the fence at roughly `(-31.5, -18.5)`. It is intentionally not visible from the starting area. Once picked up, HUD shows `Armed`; left click, `E`, or controller face button 2 shoots a forward line that cuts grass, damages fences, pops dandelions, and destroys protected tulips as mistakes.
+- Fence planks each have hidden damage and AABB-style collision from every direction. Bumps deal `1`, medium hits deal `3`, and near-full-speed hits deal `5` against `settings.fenceMaxHealth`, currently `100`. Broken planks disappear individually and stop blocking. Escaping the yard should be possible only with sustained intentional damage, not casual play.
+- Dev settings include a Debug group with `showFenceHealth` and `fenceMaxHealth`. The health overlay creates billboard text labels over unbroken planks only while enabled, and changing max health schedules a reset so planks get the new max.
+- There is a hidden gun pickup outside the fence at roughly `(-33.5, -21.5)`, behind a terrain mound centered roughly near `(-25.5, -16.5)`. It should be impossible to see from the main yard area. Once picked up, HUD shows `Armed`; left click, `E`, or controller face button 2 shoots a forward line that cuts grass, damages fences, pops dandelions, and destroys protected tulips as mistakes.
+- Outer ground and road now extend roughly 3x farther than before. The world terrain uses procedural value-noise height variation: mostly flat for about the first 10 meters beyond the yard, stronger farther out, and damped around the road corridor so the road does not visibly fight the terrain.
+- Trees farther out beyond the hilly area are on the future docket, but not implemented yet.
 - Keyboard steering should use the original gentle-to-fast turn acceleration curve. Controller steering should stay stable for small stick movements and only add acceleration once the left stick passes the tunable threshold, currently `0.7`.
 - The HUD has a quick input-mode selector. It should only show currently available modes such as keyboard, detected controller, and detected touch; the full dev settings menu still keeps all modes for forced testing.
 - The dev settings menu starts hidden in raw HTML and is only unhidden by script in dev mode, so production builds should not flicker the settings panel.

@@ -20,6 +20,8 @@ export const settings = {
   turnMaxSpeed: 2.25,
   turnBuild: 0.77,
   controllerTurnAccelThreshold: 0.7,
+  fenceMaxHealth: 100,
+  showFenceHealth: false,
   seedPopRate: 0.001,
   mowerVolume: 0.4,
   breezeVolume: 0.6,

@@ -2,6 +2,7 @@ import {
   ArcRotateCamera,
   Color3,
   DirectionalLight,
+  DynamicTexture,
   Engine,
   HemisphericLight,
   Matrix,
@@ -39,7 +40,7 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
-import { createFence, createMapGrounds, createNeighborhoodLots, createRoad, updateFollowCamera } from "./world";
+import { createFence, createMapGrounds, createNeighborhoodLots, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -163,6 +164,7 @@ const floatingSeeds: FloatingSeed[] = [];
 const fallingPetals: FallingPetal[] = [];
 const tulips: Tulip[] = [];
 let fenceDamage: FenceDamageState[] = [];
+const fenceHealthLabels: FenceHealthLabel[] = [];
 
 type WindWisp = {
   mesh: Mesh;
@@ -238,6 +240,11 @@ type FenceDamageState = {
   maxZ: number;
   health: number;
   broken: boolean;
+};
+type FenceHealthLabel = {
+  mesh: Mesh;
+  material: StandardMaterial;
+  texture: DynamicTexture;
 };
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
@@ -334,10 +341,6 @@ const worldGroundMaterial = new StandardMaterial("worldGroundMaterial", scene);
 worldGroundMaterial.diffuseColor = new Color3(0.08, 0.16, 0.03);
 worldGroundMaterial.specularColor = Color3.Black();
 
-const divotMaterial = new StandardMaterial("secretDivotMaterial", scene);
-divotMaterial.diffuseColor = new Color3(0.13, 0.08, 0.035);
-divotMaterial.specularColor = Color3.Black();
-
 const secretGunMaterial = new StandardMaterial("secretGunMaterial", scene);
 secretGunMaterial.diffuseColor = new Color3(0.035, 0.038, 0.04);
 secretGunMaterial.specularColor = new Color3(0.08, 0.08, 0.075);
@@ -345,6 +348,21 @@ secretGunMaterial.specularColor = new Color3(0.08, 0.08, 0.075);
 const secretGunGripMaterial = new StandardMaterial("secretGunGripMaterial", scene);
 secretGunGripMaterial.diffuseColor = new Color3(0.11, 0.075, 0.045);
 secretGunGripMaterial.specularColor = Color3.Black();
+
+const treeTrunkMaterial = new StandardMaterial("treeTrunkMaterial", scene);
+treeTrunkMaterial.diffuseColor = new Color3(0.23, 0.13, 0.055);
+treeTrunkMaterial.specularColor = Color3.Black();
+
+const treeLeafMaterials = [
+  new Color3(0.08, 0.24, 0.055),
+  new Color3(0.12, 0.33, 0.08),
+  new Color3(0.18, 0.3, 0.08),
+].map((color, index) => {
+  const material = new StandardMaterial(`treeLeafMaterial-${index}`, scene);
+  material.diffuseColor = color;
+  material.specularColor = Color3.Black();
+  return material;
+});
 
 function makeLongBladeMesh(name = "longGrass") {
   const mesh = new Mesh(name, scene);
@@ -445,14 +463,16 @@ function makeWheatBladeMesh() {
 
 function createHiddenGunProp() {
   const root = new TransformNode("hidden-gun-cache", scene);
-  root.position = new Vector3(-31.5, 0, -18.5);
-  root.rotation.y = -0.72;
+  const x = -33.5;
+  const z = -21.5;
+  root.position = new Vector3(x, terrainHeightAt(x, z) - 0.03, z);
+  root.rotation.y = -0.78;
 
-  const divot = MeshBuilder.CreateCylinder("secret-gun-divot", { diameter: 2.4, height: 0.045, tessellation: 24 }, scene);
+  const divot = MeshBuilder.CreateCylinder("secret-gun-divot", { diameter: 0.9, height: 0.018, tessellation: 16 }, scene);
   divot.parent = root;
-  divot.position.y = -0.032;
-  divot.scaling = new Vector3(1.35, 1, 0.72);
-  divot.material = divotMaterial;
+  divot.position.y = -0.012;
+  divot.scaling = new Vector3(1.1, 1, 0.64);
+  divot.material = worldGroundMaterial;
 
   const barrel = MeshBuilder.CreateCylinder("secret-gun-barrel", { height: 0.86, diameter: 0.08, tessellation: 8 }, scene);
   barrel.parent = root;
@@ -477,6 +497,57 @@ function createHiddenGunProp() {
   sight.material = secretGunMaterial;
 
   return root;
+}
+
+function createTree(x: number, z: number, scale: number, leafMaterial: StandardMaterial) {
+  const root = new TransformNode("simple-tree", scene);
+  const groundY = terrainHeightAt(x, z) - 0.06;
+  root.position = new Vector3(x, groundY, z);
+  root.rotation.y = Math.random() * Math.PI * 2;
+
+  const trunkHeight = 1.4 * scale;
+  const trunk = MeshBuilder.CreateCylinder("tree-trunk", {
+    height: trunkHeight,
+    diameterTop: 0.24 * scale,
+    diameterBottom: 0.36 * scale,
+    tessellation: 7,
+  }, scene);
+  trunk.parent = root;
+  trunk.position.y = trunkHeight / 2;
+  trunk.rotation.x = (Math.random() - 0.5) * 0.08;
+  trunk.rotation.z = (Math.random() - 0.5) * 0.08;
+  trunk.material = treeTrunkMaterial;
+  shadowGenerator.addShadowCaster(trunk);
+
+  const lowerLeaves = MeshBuilder.CreateSphere("tree-leaves-lower", { diameter: 1.45 * scale, segments: 7 }, scene);
+  lowerLeaves.parent = root;
+  lowerLeaves.position = new Vector3(0.05 * scale, trunkHeight + (0.32 * scale), 0);
+  lowerLeaves.scaling = new Vector3(1.08, 0.86, 1);
+  lowerLeaves.material = leafMaterial;
+  shadowGenerator.addShadowCaster(lowerLeaves);
+
+  const crown = MeshBuilder.CreateSphere("tree-leaves-crown", { diameter: 1.08 * scale, segments: 7 }, scene);
+  crown.parent = root;
+  crown.position = new Vector3(-0.12 * scale, trunkHeight + (0.88 * scale), 0.06 * scale);
+  crown.scaling = new Vector3(0.92, 1.1, 0.95);
+  crown.material = leafMaterial;
+  shadowGenerator.addShadowCaster(crown);
+
+  return root;
+}
+
+function createSimpleTrees() {
+  const trees = [
+    { x: -52, z: -36, scale: 1.35, material: treeLeafMaterials[0] },
+    { x: -43, z: 42, scale: 0.9, material: treeLeafMaterials[1] },
+    { x: 34, z: -48, scale: 1.15, material: treeLeafMaterials[2] },
+    { x: 58, z: 31, scale: 1.65, material: treeLeafMaterials[0] },
+    { x: -22, z: 64, scale: 0.72, material: treeLeafMaterials[1] },
+  ];
+
+  for (const tree of trees) {
+    createTree(tree.x, tree.z, tree.scale, tree.material);
+  }
 }
 
 function updateSecretGunPickup() {
@@ -680,7 +751,7 @@ function createFenceDamageStates() {
         maxX: x + halfX,
         minZ: z - halfZ,
         maxZ: z + halfZ,
-        health: 10,
+        health: settings.fenceMaxHealth,
         broken: false,
       });
     }
@@ -715,6 +786,74 @@ function breakFencePiece(index: number) {
   const state = fenceDamage[index];
   const mesh = state ? scene.getMeshByName(`fence-${state.segmentIndex}-plank-${state.pieceIndex}`) : null;
   mesh?.setEnabled(false);
+  updateFenceHealthLabel(index);
+}
+
+function disposeFenceHealthLabels() {
+  while (fenceHealthLabels.length > 0) {
+    const label = fenceHealthLabels.pop();
+    label?.texture.dispose();
+    label?.material.dispose();
+    label?.mesh.dispose();
+  }
+}
+
+function drawFenceHealthLabel(index: number) {
+  const state = fenceDamage[index];
+  const label = fenceHealthLabels[index];
+
+  if (!state || !label) {
+    return;
+  }
+
+  label.texture.clear();
+  label.texture.drawText(
+    state.broken ? "BROKEN" : `${Math.max(0, Math.ceil(state.health))}/${settings.fenceMaxHealth}`,
+    null,
+    40,
+    "bold 26px Arial",
+    state.broken ? "#ff8080" : "#ffffff",
+    "rgba(0,0,0,0.58)",
+    true,
+  );
+}
+
+function updateFenceHealthLabel(index: number) {
+  const state = fenceDamage[index];
+  const label = fenceHealthLabels[index];
+
+  if (!label || !state) {
+    return;
+  }
+
+  label.mesh.setEnabled(settings.showFenceHealth && !state.broken);
+  drawFenceHealthLabel(index);
+}
+
+function syncFenceHealthLabels() {
+  disposeFenceHealthLabels();
+
+  if (!settings.showFenceHealth) {
+    return;
+  }
+
+  for (let index = 0; index < fenceDamage.length; index += 1) {
+    const state = fenceDamage[index];
+    const texture = new DynamicTexture(`fence-health-texture-${index}`, { width: 128, height: 64 }, scene, false);
+    texture.hasAlpha = true;
+    const material = new StandardMaterial(`fence-health-material-${index}`, scene);
+    material.diffuseTexture = texture;
+    material.emissiveColor = Color3.White();
+    material.opacityTexture = texture;
+    material.backFaceCulling = false;
+
+    const mesh = MeshBuilder.CreatePlane(`fence-health-label-${index}`, { width: 0.86, height: 0.34 }, scene);
+    mesh.position = new Vector3(state.x, 0.82, state.z);
+    mesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    mesh.material = material;
+    fenceHealthLabels[index] = { mesh, material, texture };
+    updateFenceHealthLabel(index);
+  }
 }
 
 function damageFencePiece(index: number, impactSpeed: number) {
@@ -732,6 +871,8 @@ function damageFencePiece(index: number, impactSpeed: number) {
     state.broken = true;
     breakFencePiece(index);
   }
+
+  updateFenceHealthLabel(index);
 }
 
 function damageFenceAt(x: number, z: number, impactSpeed: number) {
@@ -929,8 +1070,8 @@ function placeMediumGrass() {
     let placed = false;
 
     for (let attempt = 0; attempt < 100; attempt += 1) {
-      x = -34 + (Math.random() * 68);
-      z = -29 + (Math.random() * 58);
+      x = -64 + (Math.random() * 128);
+      z = -58 + (Math.random() * 116);
       distance = distanceToMainYard(x, z);
       const fade = Math.max(0, 1 - (distance / 31));
       const patch = grassNoiseAt((x * 0.12) + 6, (z * 0.12) - 3);
@@ -971,8 +1112,8 @@ function placeWheatGrass() {
   wheatGrassMatrices = new Float32Array(wheatGrassCount * 16);
   wheatGrassColors = new Float32Array(wheatGrassCount * 4);
   const clumps = Array.from({ length: 52 }, () => ({
-    x: -55 + (Math.random() * 120),
-    z: -55 + (Math.random() * 110),
+    x: -72 + (Math.random() * 154),
+    z: -70 + (Math.random() * 140),
     radius: 2.8 + (Math.random() * 9.5),
     strength: 0.35 + (Math.random() * 0.8),
   })).filter((clump) => !isInsideYard(clump.x, clump.z) && !isOnRoad(clump.x) && distanceToMainYard(clump.x, clump.z) > 14);
@@ -990,8 +1131,8 @@ function placeWheatGrass() {
       const angle = Math.random() * Math.PI * 2;
       const radius = useClump ? Math.sqrt(Math.random()) * clump.radius : 0;
 
-      x = useClump ? clump.x + (Math.cos(angle) * radius) : -55 + (Math.random() * 120);
-      z = useClump ? clump.z + (Math.sin(angle) * radius) : -55 + (Math.random() * 110);
+      x = useClump ? clump.x + (Math.cos(angle) * radius) : -72 + (Math.random() * 154);
+      z = useClump ? clump.z + (Math.sin(angle) * radius) : -70 + (Math.random() * 140);
       patchNoise = grassNoiseAt(x * 0.24, z * 0.24);
       clumpWeight = useClump ? Math.max(0, 1 - (radius / clump.radius)) * clump.strength : 0;
       distance = distanceToMainYard(x, z);
@@ -1208,9 +1349,11 @@ function resetGame() {
   resetCelebration();
   mapGroundRoot?.dispose(false, true);
   fenceRoot?.dispose(false, true);
+  disposeFenceHealthLabels();
   mapGroundRoot = createMapGrounds(scene, getActiveMap(), groundMaterial);
   fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments);
   fenceDamage = createFenceDamageStates();
+  syncFenceHealthLabels();
   player.position = getActiveMap().spawn.clone();
   playerYaw = 0;
   player.rotation.y = playerYaw;
@@ -2136,6 +2279,7 @@ function setupSettings() {
     "turnMaxSpeed",
     "turnBuild",
     "controllerTurnAccelThreshold",
+    "fenceMaxHealth",
     "seedPopRate",
     "mowerVolume",
     "breezeVolume",
@@ -2164,6 +2308,9 @@ function setupSettings() {
     "grassBaseColor",
     "cutGrassColor",
     "groundColor",
+  ] as const;
+  const checkboxControls = [
+    "showFenceHealth",
   ] as const;
   const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
   const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
@@ -2196,6 +2343,8 @@ function setupSettings() {
         }
 
         scheduleRegenerate();
+      } else if (id === "fenceMaxHealth") {
+        scheduleRegenerate();
       } else if (["hueVariance", "satVariance", "lightVariance"].includes(id)) {
         refreshGrassColors();
       } else if ([
@@ -2221,6 +2370,22 @@ function setupSettings() {
         refreshGroundColor();
       } else {
         refreshGrassColors();
+      }
+    });
+  }
+
+  for (const id of checkboxControls) {
+    const input = settingsEl.querySelector<HTMLInputElement>(`#${id}`);
+
+    if (input) {
+      input.checked = Boolean(settings[id]);
+    }
+
+    input?.addEventListener("input", () => {
+      settings[id] = input.checked;
+
+      if (id === "showFenceHealth") {
+        syncFenceHealthLabels();
       }
     });
   }
@@ -2269,9 +2434,8 @@ camera.detachControl();
 camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
-const worldGround = MeshBuilder.CreateGround("world-ground", { width: 100, height: 200 }, scene);
-worldGround.position.y = -0.05;
-worldGround.material = worldGroundMaterial;
+createWorldTerrain(scene, worldGroundMaterial);
+createSimpleTrees();
 
 createRoad(scene, roadMaterial, stripeMaterial);
 createNeighborhoodLots(scene, groundMaterial);
