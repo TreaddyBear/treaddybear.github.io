@@ -2,6 +2,15 @@
 
 The prototype is still intentionally small, but the big one-file scene has been split into a few responsibility-based modules so grass, world dressing, and tuning can evolve independently.
 
+## Current Snapshot
+
+- Active development branch: `dev`.
+- Latest release tag: `v0.1.1` at commit `97687ff`.
+- GitHub Pages deploys from pushes to `master`; tags are release markers, but tag-triggered deploys were blocked by `github-pages` environment protection.
+- Use `HANDOFF.md` for fresh-conversation context and `RELEASE.md` for the exact release/deploy procedure.
+
+## Code Map
+
 - `src/main.ts` owns the Babylon scene lifecycle, input, game loop, mowing rules, grass blades, flowers, and wind actors.
 - `src/config.ts` centralizes gameplay constants, settings defaults, and the playable yard shape.
 - `src/world.ts` builds static world pieces: road, neighboring yards, fence planks, and the chase camera follow behavior.

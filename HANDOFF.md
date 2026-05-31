@@ -6,55 +6,46 @@ This document is the compact handoff for starting a fresh conversation without r
 
 - Active development branch: `dev`.
 - Do not use `main` or `master` for day-to-day work.
-- Public releases should be made from tested commits using version tags like `v0.1.0`.
-- GitHub Pages deploys are handled by `.github/workflows/deploy-gh-pages.yml` on `v*` tags or manual workflow dispatch.
+- Public releases should be made from tested commits using version tags like `v0.1.1`.
+- GitHub Pages deploys are handled by `.github/workflows/deploy-gh-pages.yml` on pushes to `master` or manual workflow dispatch.
+- Tags remain the release markers, but Pages deploys from `master` because the `github-pages` environment protection blocked tag-triggered deploys. The failed `v0.1.0` tag workflow can be ignored.
+- Current published release marker: `v0.1.1` at commit `97687ff` (`Deploy Pages from release branch`).
+- `dev`, `master`, `origin/dev`, and `origin/master` currently point to the same `v0.1.1` commit.
 - The project is a Vite TypeScript Babylon.js app using `@babylonjs/core` only for runtime dependencies.
 - Package manager is `pnpm@11.0.0`.
 - Dependency security policy currently requires `minimumReleaseAge: 57600` in `pnpm-workspace.yaml`.
 - Internal asset/source tracking lives in `INTERNAL_ATTRIBUTION.md`.
 
-## Current Uncommitted Work
+## Current Working Tree
 
-The current working tree includes uncommitted audio, input, UI, and documentation changes. Do not assume a clean tree.
+- As of the `v0.1.1` release push, the working tree was clean.
+- This handoff edit may be uncommitted if a new conversation starts immediately after it; check `git status --short --branch`.
+- Usual harmless local warning: Git may print `unable to access 'C:\Users\Owner/.config/git/ignore': Permission denied`.
 
-Expected modified or new files include:
-
-- `ARCHITECTURE.md`
-- `HANDOFF.md`
-- `INTERNAL_ATTRIBUTION.md`
-- `index.html`
-- `pnpm-workspace.yaml`
-- `src/audio.ts`
-- `src/config.ts`
-- `src/input.ts`
-- `src/main.ts`
-- `src/style.css`
-- `src/assets/breeze-ambient.mp3`
-- `src/assets/completion-fanfare.mp3`
-- `src/assets/completion-loop.mp3`
-- `src/assets/flower-pop-1.mp3`
-- `src/assets/flower-pop-2.mp3`
-- `src/assets/flower-pop-3.mp3`
-- `src/assets/flower-pop-4.mp3`
-- `src/assets/flower-pop-5.mp3`
-- `src/assets/flower-pop-6.mp3`
-- `src/assets/flower-pop-7.mp3`
-- `src/assets/grass-cutting.mp3`
-- `src/assets/reverse-beep.mp3`
-- `src/assets/wall-bump.mp3`
-
-Known non-empty audio files at the time of this handoff:
+Known non-empty audio files:
 
 - `src/assets/breeze.mp3`
 - `src/assets/lawn-mower.mp3`
+- `src/assets/breeze-ambient.mp3`
+- `src/assets/grass-cutting.mp3`
+- `src/assets/reverse-beep.mp3`
+- `src/assets/wall-bump.mp3`
+- `src/assets/flower-pop-1.mp3` through `src/assets/flower-pop-7.mp3`
 
-The new effect assets may be empty placeholders. That is intentional; the audio layer must handle missing, empty, or malformed MP3s gracefully.
+Known empty placeholder audio files:
+
+- `src/assets/completion-fanfare.mp3`
+- `src/assets/completion-loop.mp3`
+
+Empty placeholders are intentional during prototyping; the audio layer must handle missing, empty, or malformed MP3s gracefully.
 
 ## Last Verified State
 
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
-- `pnpm run build` passed after the latest UI, audio default, individual fence plank damage, camera-return, completion-audio, and blade-shape changes.
+- `pnpm run build` passed after the latest UI, audio default, individual fence plank AABB collision/damage, camera-return, completion-audio, and blade-shape changes.
 - A browser smoke test confirmed the HUD/settings no longer overlap on desktop, the quick input selector only showed available modes on the current machine, the scene loaded, and no console errors were reported.
+- `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
+- `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags, then pushed `dev`, `master`, and the `v0.1.1` tag.
 
 ## Current Features
 
@@ -162,7 +153,10 @@ For release:
 ```bash
 git checkout dev
 pnpm run build:gh-pages
-git tag v0.1.0
+git tag v0.1.2
 git push origin dev
-git push origin v0.1.0
+git push origin v0.1.2
+git checkout master
+git merge --ff-only v0.1.2
+git push origin master
 ```
