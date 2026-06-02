@@ -102,7 +102,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
   return {
     get turn() {
-      const touchTurn = touch.active && shouldUseTouch() ? touch.x / 54 : 0;
+      const touchTurn = touch.active && shouldUseTouch() ? deadzone(touch.x / 54) : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const gamepadTurn = gamepad ? deadzone(gamepad.axes[0] ?? 0) : 0;
       return clamp(touchTurn + gamepadTurn, -1, 1);
@@ -114,7 +114,10 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     get touchTurn() {
-      return touch.active && shouldUseTouch() ? touch.x / 54 : 0;
+      // Same feel as the analog stick: a dead center, then gentle proportional
+      // turning. The turn-acceleration ramp on the sides is applied downstream
+      // once this passes controllerTurnAccelThreshold, exactly like the gamepad.
+      return touch.active && shouldUseTouch() ? deadzone(touch.x / 54) : 0;
     },
 
     get cameraTurn() {

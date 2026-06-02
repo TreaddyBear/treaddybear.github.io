@@ -46,7 +46,7 @@ export const settings = {
   cutGrassRoughness: 0.36,
   cutGrassMetallic: 0,
   cutGrassClearCoat: 0.003,
-  inputMode: "keyboard",
+  inputMode: "auto",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
   satVariance: 0.18,

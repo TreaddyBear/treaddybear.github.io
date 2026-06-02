@@ -153,6 +153,11 @@ let cameraReturning = false;
 let hasSecretGun = false;
 let shootCooldown = 0;
 let lastControllerShoot = false;
+let lastCelebrationAdvance = false;
+let lastCelebrationDismiss = false;
+// The concrete device currently pushed into analogInput. Starts as "auto" (a
+// value effectiveInputMode never returns) so the first resolve always applies.
+let lastAppliedInputMode: InputMode = "auto";
 const cameraDrag = {
   active: false,
   pointerId: -1,
@@ -689,6 +694,7 @@ function showCelebration() {
   }
 
   celebrationEl.hidden = false;
+  nextLevelButtonEl.focus();
 }
 
 function resetCelebration() {
@@ -1695,8 +1701,13 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
 }
 
 function movePlayer(deltaSeconds: number) {
-  const useKeyboard = settings.inputMode === "auto" || settings.inputMode === "keyboard" || settings.inputMode === "mouse";
-  const useMouseSteering = (settings.inputMode === "auto" || settings.inputMode === "mouse") && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraDrag.active;
+  const activeInputMode = effectiveInputMode();
+  const useKeyboard = activeInputMode === "keyboard" || activeInputMode === "mouse";
+  // Mouse steering only when the player actually means it: explicit mouse mode,
+  // or auto that resolved to keyboard on a desktop. A present controller/touch
+  // resolves away from keyboard, so it no longer fights the mouse cursor.
+  const useMouseSteering = (settings.inputMode === "mouse" || (settings.inputMode === "auto" && activeInputMode === "keyboard"))
+    && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraDrag.active;
   const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
   const controllerTurn = analogInput.controllerTurn;
   const touchTurn = analogInput.touchTurn;
@@ -1796,7 +1807,7 @@ function updateCameraInput(deltaSeconds: number) {
     adjusted = true;
   }
 
-  if (settings.inputMode === "keyboard") {
+  if (effectiveInputMode() === "keyboard") {
     const arrowTurn = (keys.has("arrowright") ? 1 : 0) - (keys.has("arrowleft") ? 1 : 0);
     const arrowPitch = (keys.has("arrowdown") ? 1 : 0) - (keys.has("arrowup") ? 1 : 0);
 
@@ -2565,9 +2576,46 @@ function hasControllerInput() {
   return Boolean(navigator.getGamepads().find(Boolean));
 }
 
+function isTouchPrimaryDevice() {
+  // A genuine touch-first device (phone/tablet): a coarse pointer and no mouse.
+  // This deliberately excludes touchscreen laptops so they stay on keyboard/mouse.
+  return matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+}
+
+// Resolves the user's preference into the concrete device that actually drives
+// the game. In "auto", presence wins in priority order: controller, then touch,
+// then keyboard. Explicitly forced modes are returned unchanged.
+function effectiveInputMode(): InputMode {
+  if (settings.inputMode !== "auto") {
+    return settings.inputMode as InputMode;
+  }
+
+  if (hasControllerInput()) {
+    return "controller";
+  }
+
+  if (isTouchPrimaryDevice()) {
+    return "touch";
+  }
+
+  return "keyboard";
+}
+
+// Pushes the resolved device into analogInput, but only when it changes, so a
+// connected controller or a touch device engages automatically and we never
+// reset touch state every frame.
+function applyActiveInputMode() {
+  const resolved = effectiveInputMode();
+
+  if (resolved !== lastAppliedInputMode) {
+    analogInput.setMode(resolved);
+    lastAppliedInputMode = resolved;
+  }
+}
+
 function setInputMode(mode: InputMode) {
   settings.inputMode = mode;
-  analogInput.setMode(mode);
+  applyActiveInputMode();
   const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
 
   if (inputModeControl) {
@@ -2762,7 +2810,7 @@ function setupSettings() {
 
   if (inputModeControl) {
     inputModeControl.value = settings.inputMode;
-    analogInput.setMode(settings.inputMode as InputMode);
+    applyActiveInputMode();
     inputModeControl.addEventListener("input", () => {
       setInputMode(inputModeControl.value as InputMode);
     });
@@ -2934,7 +2982,28 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
-  if (["w", "a", "s", "d", " ", "arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key)) {
+  // The completion card is a modal: let the keyboard advance or dismiss it
+  // before any key falls through to mower driving.
+  if (!celebrationEl.hidden) {
+    if (key === "enter" || key === " ") {
+      event.preventDefault();
+      goToNextLevel();
+    } else if (key === "escape") {
+      event.preventDefault();
+      closeCelebration();
+    }
+
+    return;
+  }
+
+  // Don't swallow keys (especially Space) while a focusable control is in
+  // focus, or activating buttons/selects with the keyboard would break.
+  const active = document.activeElement;
+  const onControl = active instanceof HTMLButtonElement
+    || active instanceof HTMLSelectElement
+    || active instanceof HTMLInputElement;
+
+  if (!onControl && ["w", "a", "s", "d", " ", "arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key)) {
     event.preventDefault();
     keys.add(key);
   }
@@ -2968,7 +3037,31 @@ engine.runRenderLoop(() => {
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   grassCuttingAudioTimer = Math.max(0, grassCuttingAudioTimer - deltaSeconds);
   shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
-  const controllerShoot = Boolean(navigator.getGamepads().find(Boolean)?.buttons[2]?.pressed);
+  applyActiveInputMode();
+
+  const gamepad = navigator.getGamepads().find(Boolean);
+
+  // The completion card is DOM, which a gamepad can't focus, so drive it
+  // directly: A advances to the next level, B closes. Edge-triggered so a held
+  // button doesn't skip through screens.
+  if (!celebrationEl.hidden) {
+    const advance = Boolean(gamepad?.buttons[0]?.pressed);
+    const dismiss = Boolean(gamepad?.buttons[1]?.pressed);
+
+    if (advance && !lastCelebrationAdvance) {
+      goToNextLevel();
+    } else if (dismiss && !lastCelebrationDismiss) {
+      closeCelebration();
+    }
+
+    lastCelebrationAdvance = advance;
+    lastCelebrationDismiss = dismiss;
+  } else {
+    lastCelebrationAdvance = Boolean(gamepad?.buttons[0]?.pressed);
+    lastCelebrationDismiss = Boolean(gamepad?.buttons[1]?.pressed);
+  }
+
+  const controllerShoot = Boolean(gamepad?.buttons[2]?.pressed);
   if (controllerShoot && !lastControllerShoot) {
     shootSecretGun();
   }
