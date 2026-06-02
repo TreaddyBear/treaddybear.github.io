@@ -2,14 +2,17 @@ import {
   ArcRotateCamera,
   Color3,
   DynamicTexture,
+  Effect,
   Material,
   Mesh,
   MeshBuilder,
   TransformNode,
   VertexData,
   Scene,
+  ShaderMaterial,
   StandardMaterial,
   Texture,
+  Vector2,
   Vector3,
 } from "@babylonjs/core";
 import { lawnMaps } from "./config";
@@ -190,98 +193,87 @@ export function createBiomeDebugMaterial(scene: Scene) {
   return material;
 }
 
-function loadTextureImage(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load terrain texture: ${url}`));
-    image.src = url;
-  });
-}
-
-function sampleImage(image: ImageData, u: number, v: number) {
-  const wrappedU = ((u % 1) + 1) % 1;
-  const wrappedV = ((v % 1) + 1) % 1;
-  const x = Math.floor(wrappedU * image.width) % image.width;
-  const y = Math.floor(wrappedV * image.height) % image.height;
-  const index = ((y * image.width) + x) * 4;
-  return [
-    image.data[index],
-    image.data[index + 1],
-    image.data[index + 2],
-  ];
-}
-
 export function createBiomeGroundMaterial(scene: Scene, grassScale = 20, dirtUScale = 42, dirtVScale = 84) {
-  const textureWidth = 768;
-  const textureHeight = 1536;
+  const maskWidth = 768;
+  const maskHeight = 1536;
   const terrainWidth = 300;
   const terrainHeight = 600;
-  const texture = new DynamicTexture("biomeGroundComposite", { width: textureWidth, height: textureHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
-  const context = texture.getContext() as CanvasRenderingContext2D;
-  const image = context.createImageData(textureWidth, textureHeight);
+  const maskTexture = new DynamicTexture("biomeGroundMask", { width: maskWidth, height: maskHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
+  const maskContext = maskTexture.getContext() as CanvasRenderingContext2D;
+  const maskImage = maskContext.createImageData(maskWidth, maskHeight);
 
-  for (let index = 0; index < image.data.length; index += 4) {
-    image.data[index] = 0;
-    image.data[index + 1] = 0;
-    image.data[index + 2] = 0;
-    image.data[index + 3] = 255;
+  for (let y = 0; y < maskHeight; y += 1) {
+    const v = y / (maskHeight - 1);
+    const z = -(terrainHeight / 2) + (v * terrainHeight);
+
+    for (let x = 0; x < maskWidth; x += 1) {
+      const u = x / (maskWidth - 1);
+      const worldX = -(terrainWidth / 2) + (u * terrainWidth);
+      const value = biomeHomeAmount(worldX, z) >= 0.5 ? 255 : 0;
+      const index = ((y * maskWidth) + x) * 4;
+      maskImage.data[index] = value;
+      maskImage.data[index + 1] = value;
+      maskImage.data[index + 2] = value;
+      maskImage.data[index + 3] = 255;
+    }
   }
 
-  context.putImageData(image, 0, 0);
-  texture.update(false);
-  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
-  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  maskContext.putImageData(maskImage, 0, 0);
+  maskTexture.update(false);
+  maskTexture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  maskTexture.wrapV = Texture.CLAMP_ADDRESSMODE;
 
-  void Promise.all([loadTextureImage(grassyGroundTextureUrl), loadTextureImage(dirtGroundTextureUrl)])
-    .then(([grassImage, dirtImage]) => {
-      const grassCanvas = document.createElement("canvas");
-      grassCanvas.width = grassImage.naturalWidth || grassImage.width;
-      grassCanvas.height = grassImage.naturalHeight || grassImage.height;
-      const grassContext = grassCanvas.getContext("2d");
-      const dirtCanvas = document.createElement("canvas");
-      dirtCanvas.width = dirtImage.naturalWidth || dirtImage.width;
-      dirtCanvas.height = dirtImage.naturalHeight || dirtImage.height;
-      const dirtContext = dirtCanvas.getContext("2d");
+  if (!Effect.ShadersStore.biomeGroundVertexShader) {
+    Effect.ShadersStore.biomeGroundVertexShader = `
+      precision highp float;
+      attribute vec3 position;
+      attribute vec2 uv;
+      uniform mat4 worldViewProjection;
+      varying vec2 vUV;
+      varying vec2 vWorldXZ;
 
-      if (!grassContext || !dirtContext) {
-        return;
+      void main(void) {
+        vUV = uv;
+        vWorldXZ = position.xz;
+        gl_Position = worldViewProjection * vec4(position, 1.0);
       }
+    `;
 
-      grassContext.drawImage(grassImage, 0, 0);
-      dirtContext.drawImage(dirtImage, 0, 0);
-      const grassPixels = grassContext.getImageData(0, 0, grassCanvas.width, grassCanvas.height);
-      const dirtPixels = dirtContext.getImageData(0, 0, dirtCanvas.width, dirtCanvas.height);
-      const output = context.createImageData(textureWidth, textureHeight);
+    Effect.ShadersStore.biomeGroundFragmentShader = `
+      precision highp float;
+      varying vec2 vUV;
+      varying vec2 vWorldXZ;
+      uniform sampler2D grassTexture;
+      uniform sampler2D dirtTexture;
+      uniform sampler2D maskTexture;
+      uniform float grassScale;
+      uniform vec2 dirtScale;
 
-      for (let y = 0; y < textureHeight; y += 1) {
-        const v = y / (textureHeight - 1);
-        const z = -(terrainHeight / 2) + (v * terrainHeight);
-
-        for (let x = 0; x < textureWidth; x += 1) {
-          const u = x / (textureWidth - 1);
-          const worldX = -(terrainWidth / 2) + (u * terrainWidth);
-          const isGrass = biomeHomeAmount(worldX, z) >= 0.5;
-          const source = isGrass
-            ? sampleImage(grassPixels, u * grassScale, v * grassScale)
-            : sampleImage(dirtPixels, u * dirtUScale, v * dirtVScale);
-          const index = ((y * textureWidth) + x) * 4;
-          output.data[index] = source[0];
-          output.data[index + 1] = source[1];
-          output.data[index + 2] = source[2];
-          output.data[index + 3] = 255;
-        }
+      void main(void) {
+        vec4 grass = texture2D(grassTexture, vUV * grassScale);
+        vec4 dirt = texture2D(dirtTexture, vec2(vUV.x * dirtScale.x, vUV.y * dirtScale.y));
+        float mask = step(0.5, texture2D(maskTexture, vUV).r);
+        gl_FragColor = mix(dirt, grass, mask);
       }
+    `;
+  }
 
-      context.putImageData(output, 0, 0);
-      texture.update(false);
-    })
-    .catch(() => {});
-
-  const material = new StandardMaterial("biomeGroundMaterial", scene);
-  material.diffuseTexture = texture;
-  material.diffuseColor = Color3.White();
-  material.specularColor = Color3.Black();
+  const material = new ShaderMaterial("biomeGroundMaterial", scene, "biomeGround", {
+    attributes: ["position", "uv"],
+    uniforms: ["worldViewProjection", "grassScale", "dirtScale"],
+    samplers: ["grassTexture", "dirtTexture", "maskTexture"],
+  });
+  const grassTexture = new Texture(grassyGroundTextureUrl, scene, false, false, Texture.TRILINEAR_SAMPLINGMODE);
+  const dirtTexture = new Texture(dirtGroundTextureUrl, scene, false, false, Texture.TRILINEAR_SAMPLINGMODE);
+  grassTexture.wrapU = Texture.WRAP_ADDRESSMODE;
+  grassTexture.wrapV = Texture.WRAP_ADDRESSMODE;
+  dirtTexture.wrapU = Texture.WRAP_ADDRESSMODE;
+  dirtTexture.wrapV = Texture.WRAP_ADDRESSMODE;
+  material.setTexture("grassTexture", grassTexture);
+  material.setTexture("dirtTexture", dirtTexture);
+  material.setTexture("maskTexture", maskTexture);
+  material.setFloat("grassScale", grassScale);
+  material.setVector2("dirtScale", new Vector2(dirtUScale, dirtVScale));
   return material;
 }
 
