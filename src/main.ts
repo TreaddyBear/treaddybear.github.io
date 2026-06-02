@@ -41,7 +41,7 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
-import { createBiomeDebugMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -2761,7 +2761,7 @@ camera.detachControl();
 camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
-createWorldTerrain(scene, createBiomeDebugMaterial(scene));
+createWorldTerrain(scene, createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale));
 createSimpleTrees();
 createSceneryRocks();
 

@@ -8,6 +8,9 @@ import dirtNormalUrl from "./assets/textures/Dirt_02_Nrm.png?url";
 import roadPatternUrl from "./assets/textures/road-pattern.png?url";
 import roadStripeAtlasUrl from "./assets/textures/road-stripes-atlas.png?url";
 
+export const grassyGroundTextureUrl = grassyGroundUrl;
+export const dirtGroundTextureUrl = dirtGroundUrl;
+
 function createTiledTexture(name: string, url: string, scene: Scene, uScale: number, vScale: number, samplingMode = Texture.NEAREST_SAMPLINGMODE) {
   const texture = new Texture(url, scene, false, false, samplingMode);
   texture.name = name;

@@ -15,7 +15,7 @@ import {
 import { lawnMaps } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { valueNoise } from "./utils/noise";
-import { createRoadFileTexture, createRoadStripeAtlasTexture } from "./textures";
+import { createRoadFileTexture, createRoadStripeAtlasTexture, dirtGroundTextureUrl, grassyGroundTextureUrl } from "./textures";
 
 function smoothstep01(value: number) {
   const t = Math.max(0, Math.min(1, value));
@@ -187,6 +187,101 @@ export function createBiomeDebugMaterial(scene: Scene) {
   material.emissiveColor = Color3.White();
   material.specularColor = Color3.Black();
   material.disableLighting = true;
+  return material;
+}
+
+function loadTextureImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Unable to load terrain texture: ${url}`));
+    image.src = url;
+  });
+}
+
+function sampleImage(image: ImageData, u: number, v: number) {
+  const wrappedU = ((u % 1) + 1) % 1;
+  const wrappedV = ((v % 1) + 1) % 1;
+  const x = Math.floor(wrappedU * image.width) % image.width;
+  const y = Math.floor(wrappedV * image.height) % image.height;
+  const index = ((y * image.width) + x) * 4;
+  return [
+    image.data[index],
+    image.data[index + 1],
+    image.data[index + 2],
+  ];
+}
+
+export function createBiomeGroundMaterial(scene: Scene, grassScale = 20, dirtUScale = 42, dirtVScale = 84) {
+  const textureWidth = 768;
+  const textureHeight = 1536;
+  const terrainWidth = 300;
+  const terrainHeight = 600;
+  const texture = new DynamicTexture("biomeGroundComposite", { width: textureWidth, height: textureHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(textureWidth, textureHeight);
+
+  for (let index = 0; index < image.data.length; index += 4) {
+    image.data[index] = 0;
+    image.data[index + 1] = 0;
+    image.data[index + 2] = 0;
+    image.data[index + 3] = 255;
+  }
+
+  context.putImageData(image, 0, 0);
+  texture.update(false);
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  void Promise.all([loadTextureImage(grassyGroundTextureUrl), loadTextureImage(dirtGroundTextureUrl)])
+    .then(([grassImage, dirtImage]) => {
+      const grassCanvas = document.createElement("canvas");
+      grassCanvas.width = grassImage.naturalWidth || grassImage.width;
+      grassCanvas.height = grassImage.naturalHeight || grassImage.height;
+      const grassContext = grassCanvas.getContext("2d");
+      const dirtCanvas = document.createElement("canvas");
+      dirtCanvas.width = dirtImage.naturalWidth || dirtImage.width;
+      dirtCanvas.height = dirtImage.naturalHeight || dirtImage.height;
+      const dirtContext = dirtCanvas.getContext("2d");
+
+      if (!grassContext || !dirtContext) {
+        return;
+      }
+
+      grassContext.drawImage(grassImage, 0, 0);
+      dirtContext.drawImage(dirtImage, 0, 0);
+      const grassPixels = grassContext.getImageData(0, 0, grassCanvas.width, grassCanvas.height);
+      const dirtPixels = dirtContext.getImageData(0, 0, dirtCanvas.width, dirtCanvas.height);
+      const output = context.createImageData(textureWidth, textureHeight);
+
+      for (let y = 0; y < textureHeight; y += 1) {
+        const v = y / (textureHeight - 1);
+        const z = -(terrainHeight / 2) + (v * terrainHeight);
+
+        for (let x = 0; x < textureWidth; x += 1) {
+          const u = x / (textureWidth - 1);
+          const worldX = -(terrainWidth / 2) + (u * terrainWidth);
+          const isGrass = biomeHomeAmount(worldX, z) >= 0.5;
+          const source = isGrass
+            ? sampleImage(grassPixels, u * grassScale, v * grassScale)
+            : sampleImage(dirtPixels, u * dirtUScale, v * dirtVScale);
+          const index = ((y * textureWidth) + x) * 4;
+          output.data[index] = source[0];
+          output.data[index + 1] = source[1];
+          output.data[index + 2] = source[2];
+          output.data[index + 3] = 255;
+        }
+      }
+
+      context.putImageData(output, 0, 0);
+      texture.update(false);
+    })
+    .catch(() => {});
+
+  const material = new StandardMaterial("biomeGroundMaterial", scene);
+  material.diffuseTexture = texture;
+  material.diffuseColor = Color3.White();
+  material.specularColor = Color3.Black();
   return material;
 }
 
