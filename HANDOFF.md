@@ -20,7 +20,9 @@ This document is the compact handoff for starting a fresh conversation without r
 ## Current Working Tree
 
 - As of the `v0.1.2` release push, the working tree was clean.
-- This handoff edit may be uncommitted if a new conversation starts immediately after it; check `git status --short --branch`.
+- Current development has moved beyond `v0.1.2` on `dev`; check `git status --short --branch` and local commits before release work.
+- Recent dev work includes biome-mask terrain, shader-tiled grass/dirt terrain textures, higher terrain texture scale controls, denser but smoother outside grass, multi-tone cut grass coloring, and a completion-card click-through fix.
+- There may be user-owned texture edits such as `src/assets/textures/ground-grassy.png` and a `ground-grassy.png~` backup; do not overwrite or stage those unless explicitly asked.
 - Usual harmless local warning: Git may print `unable to access 'C:\Users\Owner/.config/git/ignore': Permission denied`.
 
 Known non-empty audio files:
@@ -79,6 +81,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Audio system with mower, directional breeze, ambient breeze, cutting loop, reverse beep, weighted random yellow flower pop bank, and wall bump hooks.
 - Hidden gun feedback now includes a placeholder shot sound, a short fuzzy tracer, impact dust, and sparse grass fleck particles when shots cut blades.
 - Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Close` buttons. Current completion audio files are placeholders unless replaced.
+- Completion-card decorative seeds should not intercept clicks, and the overlay should remain visible until the player chooses `Next Level` or `Close`.
 - Mistakes meter increments when protected tulips are destroyed.
 
 ## Current Tuning Defaults

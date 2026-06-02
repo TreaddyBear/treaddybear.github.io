@@ -4,6 +4,10 @@ This is the parking lot for ideas that came up during iteration but are not the 
 
 ## Near-Term Polish
 
+- Verify the completion card in real play after the click-through fix. `#celebrationSeeds` no longer accepts pointer events and the overlay no longer fades to invisible, but the full 100% flow should be smoke-tested by actually completing a level.
+- Keep tuning terrain texture/mask readability. The current terrain uses a baked biome mask plus shader-tiled grass/dirt textures, but the grass/dirt art, texture scale, and ground visibility are still active visual risks.
+- Continue tuning medium/outside grass. The rectangular near-fence density pass was replaced with a smoother distance/noise falloff, but it still needs visual review in play so outside grass is dense enough without square transitions or mindless uniform thickness.
+- Verify the new three-tone cut grass in real mowing. Cut grass now has root/top vertex tones and per-instance neutral variation, but the final mowed patch needs eyes-on tuning.
 - Improve the `Flower Court` map. It exists, but the layout, flower-bed feel, mistake tuning, and grass buffer around the bed need real design passes.
 - Revisit the white dandelion art. Seed heads should look more spherical and wispy, not like blocky pieces clustered around a stem.
 - Revisit yellow dandelion destruction. First hit should pop the whole head off; second hit should obliterate it. The head movement should feel punchy without the petals being the main flying object.
