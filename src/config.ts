@@ -10,7 +10,7 @@ export const bladeCount = 30000;
 export const mediumGrassCount = 24000;
 export const wheatGrassCount = 7000;
 export const cellSize = 1;
-export const debugBiomeMaskOnly = true;
+export const debugBiomeMaskOnly = false;
 
 export const settings = {
   minHeight: 0.38,

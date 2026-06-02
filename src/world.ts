@@ -110,39 +110,47 @@ function grassMaskValue(x: number, z: number, u: number, v: number) {
 }
 
 function biomeMaskNoise(x: number, z: number) {
-  const warpX = (valueNoise((x * 0.026) + 17.4, (z * 0.026) - 31.2) - 0.5) * 34;
-  const warpZ = (valueNoise((x * 0.023) - 42.7, (z * 0.023) + 8.9) - 0.5) * 34;
-  const broad = valueNoise(((x + warpX) * 0.026) + 9.5, ((z + warpZ) * 0.026) - 14.8);
-  const middle = valueNoise(((x - (warpZ * 0.35)) * 0.072) - 61.3, ((z + (warpX * 0.35)) * 0.072) + 23.1);
-  const tight = valueNoise(((x + warpX) * 0.16) + 101.5, ((z + warpZ) * 0.16) - 77.4);
-  const pepper = valueNoise((x * 0.34) - 18.2, (z * 0.34) + 52.6);
-  return Math.max(0, Math.min(1, (broad * 0.46) + (middle * 0.31) + (tight * 0.16) + (pepper * 0.07)));
+  const warpX = (valueNoise((x * 0.021) + 17.4, (z * 0.021) - 31.2) - 0.5) * 42;
+  const warpZ = (valueNoise((x * 0.019) - 42.7, (z * 0.019) + 8.9) - 0.5) * 42;
+  const wx = x + warpX;
+  const wz = z + warpZ;
+  const continent = valueNoise((wx * 0.018) + 9.5, (wz * 0.018) - 14.8);
+  const region = valueNoise(((x - (warpZ * 0.45)) * 0.045) - 61.3, ((z + (warpX * 0.45)) * 0.045) + 23.1);
+  const lake = valueNoise((wx * 0.095) + 101.5, (wz * 0.095) - 77.4);
+  const island = valueNoise((wx * 0.2) - 18.2, (wz * 0.2) + 52.6);
+  const nestedLakes = smoothstep01((0.4 - lake) / 0.22) * 0.2;
+  const nestedIslands = smoothstep01((island - 0.56) / 0.24) * 0.22;
+  const base = (continent * 0.48) + (region * 0.29) + (lake * 0.15) + (island * 0.08);
+  return Math.max(0, Math.min(1, base - nestedLakes + nestedIslands));
 }
 
 function biomeHomeAmount(x: number, z: number) {
   const distance = distanceToAnyLawn(x, z);
+  const safeDistance = 24;
+  const awayDistance = 145;
 
-  if (distance <= 10) {
+  if (distance <= safeDistance) {
     return 1;
   }
 
-  if (distance >= 135) {
+  if (distance >= awayDistance) {
     return 0;
   }
 
-  const transition = smoothstep01((distance - 10) / 125);
+  const transition = smoothstep01((distance - safeDistance) / (awayDistance - safeDistance));
+  const breakupFade = smoothstep01((distance - safeDistance) / 22);
   const noise = biomeMaskNoise(x, z);
   const borderNoise = valueNoise((x * 0.095) + 13.7, (z * 0.095) - 44.1);
   const pocketNoise = valueNoise((x * 0.22) - 90.2, (z * 0.22) + 6.8);
-  const patchBreakup = ((borderNoise - 0.5) * 0.18) + ((pocketNoise - 0.5) * 0.08);
-  const threshold = 0.24 + (transition * 0.74) + patchBreakup;
-  const edgeSoftness = 0.036;
+  const patchBreakup = (((borderNoise - 0.5) * 0.22) + ((pocketNoise - 0.5) * 0.13)) * breakupFade;
+  const threshold = 0.18 + (transition * 0.8) + patchBreakup;
+  const edgeSoftness = 0.028;
   return 1 - smoothstep01((threshold - noise + edgeSoftness) / (edgeSoftness * 2));
 }
 
 export function createBiomeDebugMaterial(scene: Scene) {
-  const textureWidth = 1536;
-  const textureHeight = 3072;
+  const textureWidth = 384;
+  const textureHeight = 768;
   const terrainWidth = 300;
   const terrainHeight = 600;
   const home = { r: 255, g: 225, b: 0 };
@@ -418,13 +426,7 @@ export function createMapGrounds(scene: Scene, map: LawnMap, groundMaterial: Mat
   bedMaterial.diffuseColor = new Color3(0.27, 0.15, 0.07);
   bedMaterial.specularColor = new Color3(0.03, 0.02, 0.01);
 
-  for (const [index, segment] of map.segments.entries()) {
-    const ground = MeshBuilder.CreateGround(`ground-${index}`, { width: segment.width, height: segment.height }, scene);
-    ground.position = segment.center;
-    ground.material = groundMaterial;
-    ground.receiveShadows = true;
-    ground.parent = root;
-  }
+  void groundMaterial;
 
   for (const [index, bed] of map.flowerBeds.entries()) {
     const width = bed.xMax - bed.xMin;
