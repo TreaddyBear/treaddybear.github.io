@@ -1336,13 +1336,14 @@ function grassFenceFalloff(x: number, z: number) {
     distance = Math.min(distance, distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
   }
 
-  // Keep a clear dirt margin against the fence: no grass within ~0.16m of the
-  // fence line, then ramp back to full grass over the next ~0.18m.
-  if (distance < 0.16) {
+  // Keep a clear dirt margin against the fence: no grass within ~0.22m of the
+  // fence line, then ramp back to full grass over the next ~0.2m. Grass ends up
+  // starting ~0.42m in, well within the mower's reach from the fence.
+  if (distance < 0.22) {
     return 0;
   }
 
-  const open = Math.min(1, Math.max(0, (distance - 0.16) / 0.18));
+  const open = Math.min(1, Math.max(0, (distance - 0.22) / 0.2));
   return open * open * (3 - (2 * open));
 }
 
@@ -1405,6 +1406,19 @@ function placeGrass() {
       ({ x, z } = randomYardPoint());
       fenceFalloff = grassFenceFalloff(x, z);
       bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
+    }
+
+    // If no legal spot was found, retire this blade instead of dropping it in
+    // the fence margin or a flower bed where the mower can never reach it.
+    // Count it as already mowed and hide it so it can't block 100% completion.
+    if (fenceFalloff < 0.98 || !bedOpen) {
+      isMowed[i] = true;
+      mowedCount += 1;
+      writeMatrix(longGrassMatrices, i, hiddenMatrix);
+      writeMatrix(cutGrassMatrices, i, hiddenMatrix);
+      writeColor(longGrassColors, i, [0, 0, 0, 0]);
+      writeColor(cutGrassColors, i, [0, 0, 0, 0]);
+      continue;
     }
 
     const clumpNoise = grassNoiseAt(x, z);
