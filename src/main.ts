@@ -465,9 +465,27 @@ function makeCutBladeMesh() {
   vertexData.positions = positions;
   vertexData.indices = indices;
   vertexData.normals = normals;
+  vertexData.colors = cutBladeVertexColors();
   vertexData.applyToMesh(mesh);
   mesh.material = cutBladeMaterial;
   return mesh;
+}
+
+function cutBladeVertexColors() {
+  const root = hexToColor3(settings.cutGrassRootColor);
+  const topA = hexToColor3(settings.cutGrassTopColorA);
+  const topB = hexToColor3(settings.cutGrassTopColorB);
+
+  return [
+    root.r, root.g, root.b, 1,
+    root.r, root.g, root.b, 1,
+    topA.r, topA.g, topA.b, 1,
+    topB.r, topB.g, topB.b, 1,
+  ];
+}
+
+function refreshCutBladeVertexColors() {
+  cutGrass.setVerticesData(VertexBuffer.ColorKind, cutBladeVertexColors(), true);
 }
 
 function makeWheatBladeMesh() {
@@ -1226,16 +1244,20 @@ function matrixForBlade(index: number, cut: boolean, yawOverride = grassRotation
 
 function colorForBlade(index: number, cut: boolean) {
   const base = color3ToHsl(hexToColor3(settings.grassBaseColor));
-  const cutColor = hexToColor3(settings.cutGrassColor);
   const perBladeNoise = randomHash(index, index * 0.37) - 0.5;
   const colorNoise = Math.min(1, Math.max(0, grassNoise[index] + (perBladeNoise * 0.12)));
+
+  if (cut) {
+    const shade = 0.9 + (colorNoise * 0.16) + (perBladeNoise * 0.05);
+    return [shade, shade, shade, 1];
+  }
+
   const hue = base.h + ((colorNoise - 0.5) * settings.hueVariance);
   const saturation = base.s + ((colorNoise - 0.5) * settings.satVariance);
   const lightness = base.l + ((colorNoise - 0.5) * settings.lightVariance);
   const longColor = hslToColor3(hue, saturation, lightness);
-  const color = cut ? mixColor(cutColor, longColor, 0.16) : longColor;
 
-  return [color.r, color.g, color.b, 1];
+  return [longColor.r, longColor.g, longColor.b, 1];
 }
 
 function placeGrass() {
@@ -2510,6 +2532,8 @@ function refreshGrassColors() {
     return;
   }
 
+  refreshCutBladeVertexColors();
+
   for (let i = 0; i < bladeCount; i += 1) {
     writeColor(longGrassColors, i, colorForBlade(i, false));
     writeColor(cutGrassColors, i, colorForBlade(i, true));
@@ -2654,7 +2678,9 @@ function setupSettings() {
   ] as const;
   const colorControls = [
     "grassBaseColor",
-    "cutGrassColor",
+    "cutGrassRootColor",
+    "cutGrassTopColorA",
+    "cutGrassTopColorB",
     "groundColor",
   ] as const;
   const checkboxControls = [
