@@ -1173,34 +1173,50 @@ function updateGunEffects(deltaSeconds: number) {
   }
 }
 
-// 2D separating-axis test between two oriented boxes. Each box is its center,
-// a primary unit axis (uX,uZ), and half extents along that axis and its
-// perpendicular. Boxes overlap unless some axis separates their projections.
-function orientedBoxesOverlap(
-  aCx: number, aCz: number, aUx: number, aUz: number, aHalfU: number, aHalfV: number,
-  bCx: number, bCz: number, bUx: number, bUz: number, bHalfU: number, bHalfV: number,
+// Minimum push that separates the mower box from one plank box, or null when
+// they don't overlap. A 2D separating-axis test: if any axis separates the
+// projections there is no collision; otherwise the shallowest-overlap axis is
+// the push that slides the mower off the thin face of the fence.
+function mowerPlankPushOut(
+  cx: number, cz: number, sideX: number, sideZ: number, halfSide: number, halfForward: number,
+  piece: FenceDamageState,
 ) {
-  const aVx = -aUz;
-  const aVz = aUx;
-  const bVx = -bUz;
-  const bVz = bUx;
-  const dx = bCx - aCx;
-  const dz = bCz - aCz;
+  const aUx = sideX;
+  const aUz = sideZ;
+  const aVx = -sideZ;
+  const aVz = sideX;
+  const bUx = piece.axisX;
+  const bUz = piece.axisZ;
+  const bVx = -piece.axisZ;
+  const bVz = piece.axisX;
+  const dx = cx - piece.x;
+  const dz = cz - piece.z;
   const axes = [aUx, aUz, aVx, aVz, bUx, bUz, bVx, bVz];
+  let bestDepth = Number.POSITIVE_INFINITY;
+  let bestX = 0;
+  let bestZ = 0;
 
   for (let i = 0; i < axes.length; i += 2) {
     const lx = axes[i];
     const lz = axes[i + 1];
-    const centerDistance = Math.abs((dx * lx) + (dz * lz));
-    const aReach = (aHalfU * Math.abs((aUx * lx) + (aUz * lz))) + (aHalfV * Math.abs((aVx * lx) + (aVz * lz)));
-    const bReach = (bHalfU * Math.abs((bUx * lx) + (bUz * lz))) + (bHalfV * Math.abs((bVx * lx) + (bVz * lz)));
+    const centerProjection = (dx * lx) + (dz * lz);
+    const aReach = (halfSide * Math.abs((aUx * lx) + (aUz * lz))) + (halfForward * Math.abs((aVx * lx) + (aVz * lz)));
+    const bReach = (piece.halfAlong * Math.abs((bUx * lx) + (bUz * lz))) + (piece.halfAcross * Math.abs((bVx * lx) + (bVz * lz)));
+    const overlap = aReach + bReach - Math.abs(centerProjection);
 
-    if (centerDistance > aReach + bReach) {
-      return false;
+    if (overlap <= 0) {
+      return null;
+    }
+
+    if (overlap < bestDepth) {
+      bestDepth = overlap;
+      const sign = centerProjection >= 0 ? 1 : -1;
+      bestX = lx * sign;
+      bestZ = lz * sign;
     }
   }
 
-  return true;
+  return { x: bestX * bestDepth, z: bestZ * bestDepth };
 }
 
 function collidingFencePiece(x: number, z: number) {
@@ -1223,10 +1239,7 @@ function collidingFencePiece(x: number, z: number) {
       continue;
     }
 
-    if (!orientedBoxesOverlap(
-      x, z, sideX, sideZ, halfSide, halfForward,
-      piece.x, piece.z, piece.axisX, piece.axisZ, piece.halfAlong, piece.halfAcross,
-    )) {
+    if (!mowerPlankPushOut(x, z, sideX, sideZ, halfSide, halfForward, piece)) {
       continue;
     }
 
@@ -1240,6 +1253,58 @@ function collidingFencePiece(x: number, z: number) {
   }
 
   return hit;
+}
+
+// Slides the mower out of any plank it has rotated or drifted into, so it can
+// never wedge inside the wall. Turning against a fence now nudges the mower
+// away instead of trapping it. Resolving the deepest overlap first and
+// iterating keeps corners stable.
+function resolveFenceOverlap() {
+  if (settings.disableFenceCollision) {
+    return;
+  }
+
+  const sideX = Math.cos(playerYaw);
+  const sideZ = -Math.sin(playerYaw);
+  const halfSide = player.scaling.x / 2;
+  const halfForward = player.scaling.z / 2;
+
+  for (let iteration = 0; iteration < 4; iteration += 1) {
+    let pushX = 0;
+    let pushZ = 0;
+    let deepest = 0;
+
+    for (let index = 0; index < fenceDamage.length; index += 1) {
+      const piece = fenceDamage[index];
+
+      if (!piece || piece.broken) {
+        continue;
+      }
+
+      const push = mowerPlankPushOut(player.position.x, player.position.z, sideX, sideZ, halfSide, halfForward, piece);
+
+      if (!push) {
+        continue;
+      }
+
+      const depth = (push.x * push.x) + (push.z * push.z);
+
+      if (depth > deepest) {
+        deepest = depth;
+        pushX = push.x;
+        pushZ = push.z;
+      }
+    }
+
+    if (deepest <= 0) {
+      break;
+    }
+
+    player.position.x += pushX;
+    player.position.z += pushZ;
+  }
+
+  player.position.y = groundHeightAt(player.position.x, player.position.z);
 }
 
 function collidingRock(x: number, z: number) {
@@ -1271,11 +1336,13 @@ function grassFenceFalloff(x: number, z: number) {
     distance = Math.min(distance, distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
   }
 
-  if (distance < 0.09) {
+  // Keep a clear dirt margin against the fence: no grass within ~0.16m of the
+  // fence line, then ramp back to full grass over the next ~0.18m.
+  if (distance < 0.16) {
     return 0;
   }
 
-  const open = Math.min(1, Math.max(0, (distance - 0.09) / 0.2));
+  const open = Math.min(1, Math.max(0, (distance - 0.16) / 0.18));
   return open * open * (3 - (2 * open));
 }
 
@@ -2644,6 +2711,21 @@ function effectiveInputMode(): InputMode {
   return "keyboard";
 }
 
+// One-time startup pick: a controller or a genuine touch device that is already
+// present wins, otherwise keyboard. A keyboard-only machine stays on keyboard,
+// not a generic "auto".
+function detectInitialInputMode(): InputMode {
+  if (hasControllerInput()) {
+    return "controller";
+  }
+
+  if (isTouchPrimaryDevice()) {
+    return "touch";
+  }
+
+  return "keyboard";
+}
+
 // Pushes the resolved device into analogInput, but only when it changes, so a
 // connected controller or a touch device engages automatically and we never
 // reset touch state every frame.
@@ -2915,6 +2997,7 @@ player.scaling = new Vector3(0.85, 0.28, 1.1);
 shadowGenerator.addShadowCaster(player);
 
 setupSettings();
+setInputMode(detectInitialInputMode());
 refreshGroundColor();
 refreshTextureScales();
 resetGame();
@@ -3111,6 +3194,7 @@ engine.runRenderLoop(() => {
   lastControllerShoot = controllerShoot;
   updateCameraInput(deltaSeconds);
   movePlayer(deltaSeconds);
+  resolveFenceOverlap();
   updateFollowCamera(camera, player.position, playerYaw, deltaSeconds, cameraOrbitYaw, cameraOrbitHeight, cameraDistanceOffset);
   updateGrassMotion(timeSeconds);
   updateWindWisps(deltaSeconds);

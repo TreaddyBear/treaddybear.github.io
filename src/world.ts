@@ -498,9 +498,23 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
 
 export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {
   const root = new TransformNode("fence-root", scene);
+  const dirtMaterial = new StandardMaterial("fenceDirtMaterial", scene);
+  dirtMaterial.diffuseColor = new Color3(0.28, 0.19, 0.1);
+  dirtMaterial.specularColor = Color3.Black();
 
   for (const [index, segment] of segments.entries()) {
     createFencePlanks(scene, fenceMaterial, index, segment.start, segment.end);
+
+    // A bare dirt strip runs under each fence run so the cleared margin reads
+    // as soil rather than mown grass.
+    const dx = segment.end.x - segment.start.x;
+    const dz = segment.end.z - segment.start.z;
+    const length = Math.sqrt((dx * dx) + (dz * dz));
+    const dirt = MeshBuilder.CreateBox(`fence-dirt-${index}`, { width: length + 0.34, height: 0.04, depth: 0.62 }, scene);
+    dirt.position = new Vector3((segment.start.x + segment.end.x) / 2, 0.012, (segment.start.z + segment.end.z) / 2);
+    dirt.rotation.y = Math.atan2(dx, dz);
+    dirt.material = dirtMaterial;
+    dirt.receiveShadows = true;
 
     for (const position of [segment.start, segment.end]) {
       createFencePost(scene, fenceMaterial, new Vector3(position.x, 0.35, position.z), new Vector3(0.18, 0.7, 0.18));
