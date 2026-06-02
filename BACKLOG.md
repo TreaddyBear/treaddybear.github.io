@@ -2,6 +2,22 @@
 
 This is the parking lot for ideas that came up during iteration but are not the current active task. Items here are not promises for the next commit; they are meant to keep good ideas from evaporating between context resets.
 
+## Known Broken (confirmed in play, needs fixing)
+
+These were observed broken/wrong in actual play during the input + fence-collision pass and are NOT fixed yet:
+
+- **Fence dirt is in the wrong place and uses the wrong approach.** The bare-soil margin under the fence is currently built as flat dirt-textured ground strips, one per fence segment (`createFence` in `src/world.ts`, marked `BROKEN` in code). In play the strips land in the wrong locations and read as scattered patches rather than a clean border under the fence. The intended approach is a texture swap painted into the ground layer (grass -> dirt) along the fence line, not separate mesh strips. This needs to be redone, not tuned. Tried twice this pass (raised brown box, then flat textured strip); both landed wrong.
+- **Clearance around the fence may still be too tight.** Even after widening the no-grass margin (`grassFenceFalloff` in `src/main.ts`, ~0.22m clear), the fence can still feel crowded / lacking room. Needs a visual pass, ideally together with the dirt-approach rewrite above.
+
+## Believed Fixed This Pass (verify in real play)
+
+Changed during the same pass and believed working, but worth confirming hands-on:
+
+- **Levels are completable again.** Grass that could not be placed clear of the fence margin or a flower bed used to be dropped there anyway, counted toward 100% but unreachable by the mower, making the level impossible to finish. Such blades are now retired (counted as already mowed and hidden), so every remaining cuttable blade is reachable. This was the cause of "a piece of grass too close to the fence I couldn't cut".
+- **Keyboard is the default input** when no controller or touch device is present (confirmed in preview: the K input chip is selected on load). A present controller or a genuine touch device still auto-selects at startup.
+- **Fence collision matches the visible boxes.** The mower collider is the visible mower box and each plank collider is the visible 0.34 x 0.08 plank, via an oriented-box (SAT) test, plus a push-out so turning against a wall nudges the mower away instead of wedging it. Grass cutting (the 0.42 cut circle) was deliberately left untouched.
+- **The completion card is reachable by every control scheme:** keyboard (Enter/Space advance, Esc close), gamepad (A/B), and mouse/touch click.
+
 ## Near-Term Polish
 
 - Verify the completion card in real play after the click-through fix. `#celebrationSeeds` no longer accepts pointer events and the overlay no longer fades to invisible, but the full 100% flow should be smoke-tested by actually completing a level.

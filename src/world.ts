@@ -498,9 +498,11 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
 
 export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {
   const root = new TransformNode("fence-root", scene);
-  // Flat strip of the real dirt texture laid at ground level under each fence
-  // run, so the cleared margin reads as bare soil (a texture swap) rather than a
-  // raised object on the lawn.
+  // BROKEN: the fence dirt below renders in the wrong places in play. This
+  // per-segment flat-strip approach is also the wrong approach: the dirt margin
+  // should be a texture swap painted into the ground layer (grass -> dirt) along
+  // the fence, not separate mesh strips. Needs a rewrite, not a tweak. See
+  // BACKLOG.md "Known Broken".
   const dirtTexture = new Texture(dirtGroundTextureUrl, scene);
   dirtTexture.uScale = 5;
   dirtTexture.vScale = 0.7;
