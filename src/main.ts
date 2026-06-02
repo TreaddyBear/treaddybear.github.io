@@ -25,6 +25,7 @@ import {
   bladeCount,
   cellSize,
   applyActiveMap,
+  debugBiomeMaskOnly,
   getActiveMap,
   mediumGrassCount,
   mowerCutRadius,
@@ -41,7 +42,7 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
-import { createFence, createMapGrounds, createNeighborhoodLots, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
+import { createBiomeDebugMaterial, createFence, createMapGrounds, createNeighborhoodLots, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -2761,7 +2762,7 @@ camera.detachControl();
 camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
-createWorldTerrain(scene, worldGroundMaterial);
+createWorldTerrain(scene, debugBiomeMaskOnly ? createBiomeDebugMaterial(scene) : worldGroundMaterial);
 createSimpleTrees();
 createSceneryRocks();
 
@@ -2785,6 +2786,23 @@ setupSettings();
 refreshGroundColor();
 refreshTextureScales();
 resetGame();
+
+if (debugBiomeMaskOnly) {
+  document.querySelector("#hud")?.setAttribute("hidden", "true");
+  settingsEl.hidden = true;
+  touchPadElement.hidden = true;
+  celebrationEl.hidden = true;
+  scene.clearColor.set(0.02, 0.025, 0.035, 1);
+  camera.alpha = -Math.PI / 2;
+  camera.beta = 0.08;
+  camera.lowerRadiusLimit = 20;
+  camera.upperRadiusLimit = 360;
+  camera.radius = 245;
+  camera.target = Vector3.Zero();
+  for (const mesh of scene.meshes) {
+    mesh.setEnabled(mesh.name === "world-terrain");
+  }
+}
 
 fullscreenButtonEl.addEventListener("click", () => {
   if (document.fullscreenElement) {
@@ -2919,6 +2937,11 @@ window.addEventListener("resize", () => {
 });
 
 engine.runRenderLoop(() => {
+  if (debugBiomeMaskOnly) {
+    scene.render();
+    return;
+  }
+
   const deltaSeconds = engine.getDeltaTime() / 1000;
   const timeSeconds = performance.now() / 1000;
 

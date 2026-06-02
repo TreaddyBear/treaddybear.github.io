@@ -109,6 +109,75 @@ function grassMaskValue(x: number, z: number, u: number, v: number) {
   return smoothstep01((noise - threshold + transition) / (transition * 2));
 }
 
+function biomeMaskNoise(x: number, z: number) {
+  const warpX = (valueNoise((x * 0.032) + 17.4, (z * 0.032) - 31.2) - 0.5) * 24;
+  const warpZ = (valueNoise((x * 0.029) - 42.7, (z * 0.029) + 8.9) - 0.5) * 24;
+  const wide = valueNoise(((x + warpX) * 0.038) + 9.5, ((z + warpZ) * 0.038) - 14.8);
+  const islands = valueNoise(((x - (warpZ * 0.45)) * 0.072) - 61.3, ((z + (warpX * 0.45)) * 0.072) + 23.1);
+  const detail = valueNoise((x * 0.135) + 101.5, (z * 0.135) - 77.4);
+  return Math.max(0, Math.min(1, (wide * 0.68) + (islands * 0.25) + (detail * 0.07)));
+}
+
+function biomeHomeAmount(x: number, z: number) {
+  const distance = distanceToAnyLawn(x, z);
+
+  if (distance <= 10) {
+    return 1;
+  }
+
+  if (distance >= 115) {
+    return 0;
+  }
+
+  const transition = smoothstep01((distance - 10) / 105);
+  const noise = biomeMaskNoise(x, z);
+  const threshold = 0.12 + (transition * 0.86);
+  const edgeSoftness = 0.012;
+  return 1 - smoothstep01((threshold - noise + edgeSoftness) / (edgeSoftness * 2));
+}
+
+export function createBiomeDebugMaterial(scene: Scene) {
+  const textureWidth = 1536;
+  const textureHeight = 3072;
+  const terrainWidth = 300;
+  const terrainHeight = 600;
+  const home = { r: 255, g: 225, b: 0 };
+  const away = { r: 0, g: 82, b: 255 };
+  const texture = new DynamicTexture("biomeDebugMask", { width: textureWidth, height: textureHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(textureWidth, textureHeight);
+
+  for (let y = 0; y < textureHeight; y += 1) {
+    const v = y / (textureHeight - 1);
+    const z = -(terrainHeight / 2) + (v * terrainHeight);
+
+    for (let x = 0; x < textureWidth; x += 1) {
+      const u = x / (textureWidth - 1);
+      const worldX = -(terrainWidth / 2) + (u * terrainWidth);
+      const homeAmount = biomeHomeAmount(worldX, z);
+      const index = ((y * textureWidth) + x) * 4;
+      image.data[index] = away.r + ((home.r - away.r) * homeAmount);
+      image.data[index + 1] = away.g + ((home.g - away.g) * homeAmount);
+      image.data[index + 2] = away.b + ((home.b - away.b) * homeAmount);
+      image.data[index + 3] = 255;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  texture.update(false);
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  const material = new StandardMaterial("biomeDebugMaterial", scene);
+  material.diffuseTexture = texture;
+  material.emissiveTexture = texture;
+  material.diffuseColor = Color3.White();
+  material.emissiveColor = Color3.White();
+  material.specularColor = Color3.Black();
+  material.disableLighting = true;
+  return material;
+}
+
 function createGrassOverlayMask(scene: Scene) {
   const width = 1024;
   const height = 2048;
