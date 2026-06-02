@@ -1332,6 +1332,10 @@ function placeMediumGrass() {
   mediumGrassMatrices = new Float32Array(mediumGrassCount * 16);
   mediumGrassColors = new Float32Array(mediumGrassCount * 4);
   const base = hexToColor3(settings.grassBaseColor);
+  const smooth01 = (value: number) => {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * (3 - (2 * t));
+  };
 
   for (let i = 0; i < mediumGrassCount; i += 1) {
     let x = 0;
@@ -1341,36 +1345,16 @@ function placeMediumGrass() {
     let placed = false;
 
     for (let attempt = 0; attempt < 100; attempt += 1) {
-      const nearRing = Math.random() < 0.72;
-      if (nearRing) {
-        const segment = yardSegments[Math.floor(Math.random() * yardSegments.length)];
-        const side = Math.floor(Math.random() * 4);
-        const offset = Math.pow(Math.random(), 1.8) * 17;
-
-        if (side === 0) {
-          x = segment.xMin + (Math.random() * segment.width);
-          z = segment.zMin - offset;
-        } else if (side === 1) {
-          x = segment.xMin + (Math.random() * segment.width);
-          z = segment.zMax + offset;
-        } else if (side === 2) {
-          x = segment.xMin - offset;
-          z = segment.zMin + (Math.random() * segment.height);
-        } else {
-          x = segment.xMax + offset;
-          z = segment.zMin + (Math.random() * segment.height);
-        }
-      } else {
-        x = -64 + (Math.random() * 128);
-        z = -58 + (Math.random() * 116);
-      }
+      x = -66 + (Math.random() * 132);
+      z = -60 + (Math.random() * 120);
 
       distance = distanceToMainYard(x, z);
-      const edgeDensity = Math.max(0, 1 - (distance / 18));
-      const fade = Math.max(0, 1 - (distance / 42));
-      const patch = grassNoiseAt((x * 0.12) + 6, (z * 0.12) - 3);
-      const clump = Math.max(0, (patch - 0.18) / 0.82);
-      density = Math.min(1, Math.max(0.08, (edgeDensity * 0.92) + (fade * fade * 0.78) + (clump * 0.42)));
+      const nearFade = 1 - smooth01(distance / 30);
+      const farFade = 1 - smooth01((distance - 18) / 42);
+      const broadPatch = grassNoiseAt((x * 0.075) + 6, (z * 0.075) - 3);
+      const tightPatch = grassNoiseAt((x * 0.23) - 11, (z * 0.23) + 17);
+      const clump = Math.max(0, ((broadPatch * 0.78) + (tightPatch * 0.22) - 0.34) / 0.66);
+      density = Math.min(0.98, Math.max(0, (nearFade * 0.5) + (farFade * clump * 0.62) + (nearFade * clump * 0.28)));
 
       if (!isInsideYard(x, z) && !isOnRoad(x) && Math.random() < density) {
         placed = true;
@@ -1385,13 +1369,15 @@ function placeMediumGrass() {
     }
 
     const rotation = Quaternion.FromEulerAngles(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.08);
-    const distanceFade = Math.max(0.18, 1 - (distance * 0.024));
+    const distanceFade = Math.max(0.16, 1 - (distance * 0.02));
     const patchNoise = grassNoiseAt(x, z);
-    const edgeBoost = Math.max(0, 1 - (distance / 14));
+    const broadPatch = grassNoiseAt((x * 0.075) + 6, (z * 0.075) - 3);
+    const edgeBoost = 1 - smooth01(distance / 24);
+    const clumpHeight = Math.max(0, (broadPatch - 0.35) / 0.65);
     const scale = new Vector3(
-      1.08 + (edgeBoost * 0.22),
-      (0.3 + (0.42 * patchNoise) + (edgeBoost * 0.16) + (Math.random() * 0.18)) * distanceFade,
-      1.08 + (edgeBoost * 0.22),
+      0.82 + (clumpHeight * 0.22) + (edgeBoost * 0.1),
+      (0.18 + (0.22 * patchNoise) + (0.16 * clumpHeight) + (edgeBoost * 0.06) + (Math.random() * 0.12)) * distanceFade,
+      0.82 + (clumpHeight * 0.22) + (edgeBoost * 0.1),
     );
     const matrix = Matrix.Compose(scale, rotation, new Vector3(x, groundHeightAt(x, z), z));
     const shade = 0.8 + (patchNoise * 0.22) + (Math.random() * 0.12);
