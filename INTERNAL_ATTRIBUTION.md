@@ -25,6 +25,7 @@ Most current audio assets are expected to be CC0 or original/placeholder materia
 | `src/assets/completion-loop.mp3` | Placeholder | Project placeholder | N/A | Empty placeholder file. | No | Looping level-complete chill bed; replace with sourced/original audio. |
 | `src/assets/reverse-beep.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Comical reverse loop. |
 | `src/assets/wall-bump.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | One-shot boundary bump. |
+| `src/assets/gun-shot.mp3` | Placeholder | Project placeholder | N/A | Empty placeholder file. | No | One-shot hidden gun sound; replace with sourced/original audio. |
 | `src/assets/flower-pop-1.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 28. |
 | `src/assets/flower-pop-2.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 24. |
 | `src/assets/flower-pop-3.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 20. |
@@ -41,6 +42,11 @@ Most current audio assets are expected to be CC0 or original/placeholder materia
 | Ground texture | Procedural | Project code | Created at runtime in `src/textures.ts`; no external source. |
 | Road texture | Procedural | Project code | Created at runtime in `src/textures.ts`; no external source. |
 | Grass, dandelions, wind wisps | Procedural meshes | Project code | Built in Babylon.js from local mesh/material code. |
+| `src/assets/textures/ground-grassy.png` | Generated placeholder | Project code | Tiny replaceable tiled placeholder. |
+| `src/assets/textures/Dirt_02.png` | Needs source | TODO | CC0 dirt albedo texture supplied by project owner; preserve source texture as-is. |
+| `src/assets/textures/Dirt_02_Nrm.png` | Needs source | TODO | CC0 dirt normal map supplied by project owner; preserve source texture as-is. |
+| `src/assets/textures/road-pattern.png` | Generated placeholder | Project code | Tiny replaceable tiled placeholder based on the road-noise direction. |
+| `src/assets/textures/road-stripes-atlas.png` | Generated placeholder | Project code | 1024x1024 hand-editable atlas with eight vertical road-stripe paint variants. |
 
 ## Release Checklist
 

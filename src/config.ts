@@ -4,6 +4,7 @@ import type { RectLike } from "./utils/yard";
 export const playerSpeed = 1.65;
 export const playerBoost = 1.45;
 export const playerRadius = 0.75;
+export const playerFenceRadius = 0.72;
 export const mowerCutRadius = 0.42;
 export const bladeCount = 30000;
 export const mediumGrassCount = 24000;
@@ -22,6 +23,7 @@ export const settings = {
   controllerTurnAccelThreshold: 0.7,
   fenceMaxHealth: 100,
   showFenceHealth: false,
+  disableFenceCollision: false,
   seedPopRate: 0.001,
   mowerVolume: 0.4,
   breezeVolume: 0.6,
@@ -36,19 +38,26 @@ export const settings = {
   reverseBeepVolume: 0.04,
   completionFanfareVolume: 0.7,
   completionLoopVolume: 0.35,
+  gunShotVolume: 0.35,
   grassRoughness: 0.22,
   grassMetallic: 0,
   grassClearCoat: 0.009,
   cutGrassRoughness: 0.36,
   cutGrassMetallic: 0,
   cutGrassClearCoat: 0.003,
-  inputMode: "auto",
-  grassBaseColor: "#0A2E05",
+  inputMode: "keyboard",
+  grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
   satVariance: 0.18,
   lightVariance: 0.16,
-  cutGrassColor: "#051E03",
+  cutGrassColor: "#152b03",
   groundColor: "#295c00",
+  grassyTextureScale: 20,
+  dirtTextureUScale: 42,
+  dirtTextureVScale: 84,
+  dirtNormalStrength: 0.42,
+  roadTextureUScale: 1,
+  roadTextureVScale: 48,
   mapId: "main",
 };
 

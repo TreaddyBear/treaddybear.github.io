@@ -1,7 +1,43 @@
-import { Color3, DynamicTexture, Scene } from "@babylonjs/core";
+import { Color3, DynamicTexture, Scene, Texture } from "@babylonjs/core";
 import { settings } from "./config";
 import { clamp01, color3ToHsl, hexToColor3, hslToColor3 } from "./utils/color";
 import { valueNoise } from "./utils/noise";
+import grassyGroundUrl from "./assets/textures/ground-grassy.png?url";
+import dirtGroundUrl from "./assets/textures/Dirt_02.png?url";
+import dirtNormalUrl from "./assets/textures/Dirt_02_Nrm.png?url";
+import roadPatternUrl from "./assets/textures/road-pattern.png?url";
+import roadStripeAtlasUrl from "./assets/textures/road-stripes-atlas.png?url";
+
+function createTiledTexture(name: string, url: string, scene: Scene, uScale: number, vScale: number, samplingMode = Texture.NEAREST_SAMPLINGMODE) {
+  const texture = new Texture(url, scene, false, false, samplingMode);
+  texture.name = name;
+  texture.uScale = uScale;
+  texture.vScale = vScale;
+  texture.anisotropicFilteringLevel = samplingMode === Texture.NEAREST_SAMPLINGMODE ? 1 : 8;
+  return texture;
+}
+
+export function createGrassyGroundTexture(scene: Scene) {
+  return createTiledTexture("groundGrassyFile", grassyGroundUrl, scene, settings.grassyTextureScale, settings.grassyTextureScale);
+}
+
+export function createDirtGroundTexture(scene: Scene) {
+  return createTiledTexture("groundDirtFile", dirtGroundUrl, scene, settings.dirtTextureUScale, settings.dirtTextureVScale);
+}
+
+export function createDirtNormalTexture(scene: Scene) {
+  const texture = createTiledTexture("groundDirtNormalFile", dirtNormalUrl, scene, settings.dirtTextureUScale, settings.dirtTextureVScale);
+  texture.level = settings.dirtNormalStrength;
+  return texture;
+}
+
+export function createRoadFileTexture(scene: Scene) {
+  return createTiledTexture("roadPatternFile", roadPatternUrl, scene, settings.roadTextureUScale, settings.roadTextureVScale, Texture.TRILINEAR_SAMPLINGMODE);
+}
+
+export function createRoadStripeAtlasTexture(scene: Scene) {
+  return createTiledTexture("roadStripeAtlasFile", roadStripeAtlasUrl, scene, 1, 1, Texture.TRILINEAR_SAMPLINGMODE);
+}
 
 export function createGroundTexture(scene: Scene) {
   const texture = new DynamicTexture("groundNoise", { width: 128, height: 128 }, scene);

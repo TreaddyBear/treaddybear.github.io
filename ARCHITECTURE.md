@@ -5,9 +5,10 @@ The prototype is still intentionally small, but the big one-file scene has been 
 ## Current Snapshot
 
 - Active development branch: `dev`.
-- Latest release tag: `v0.1.1` at commit `97687ff`.
+- Latest release tag: `v0.1.2` at commit `63d61b8`.
 - GitHub Pages deploys from pushes to `master`; tags are release markers, but tag-triggered deploys were blocked by `github-pages` environment protection.
 - Use `HANDOFF.md` for fresh-conversation context and `RELEASE.md` for the exact release/deploy procedure.
+- Use `BACKLOG.md` for deferred gameplay, art, input, and technical ideas that should not be lost between sessions.
 
 ## Code Map
 
@@ -30,7 +31,7 @@ The mower is a short, low box with arcade steering. `W` drives forward in the mo
 
 Keyboard steering always uses the original hold-to-build turn acceleration curve, starting gently and building up. Controller steering is split from keyboard input and only adds acceleration once the left stick passes `controllerTurnAccelThreshold`, currently `0.7`; below that threshold it keeps the natural analog turn speed and does not reset/drop the existing turn response.
 
-The mowing blade cuts a smaller circular area near the center of the mower, while the mower body paints pressure into the grass so grass can be pressed down separately from being cut. Wall collisions play a bump sound, nudge the mower back a little, and zero its momentum so it can ramp up again from input. Each fence plank has its own hidden damage and disappears independently when broken.
+The mowing blade cuts a smaller circular area near the center of the mower, while the mower body paints pressure into the grass so grass can be pressed down separately from being cut. Wall collisions play a bump sound, nudge the mower back based on impact speed, and zero its momentum so it can ramp up again from input. Gentle contact should stop without a visible shove; full boosted impacts should get the full bump-back. Each fence plank has its own hidden damage and disappears independently when broken.
 
 Progress is a percentage and smooth meter based on cuttable grass completion. Settings are available in development for tuning and hidden in production builds. The settings element is hidden in HTML by default and only unhidden in dev so production builds do not briefly flash the tuning panel.
 
@@ -38,13 +39,17 @@ Protected flowers are a new map objective type. Tulips can be destroyed by the m
 
 ## Grass And World
 
-The road material uses a generated dynamic texture rather than asset loading. It layers broad value noise with much finer noise, then darkens soft bands at both road edges and down the center so the surface reads less flat without adding textures or dependencies. The road mesh extends roughly 3x farther than the original prototype road.
+Ground and road materials now use file-backed textures in `src/assets/textures/`: `ground-grassy.png`, `Dirt_02.png`, `Dirt_02_Nrm.png`, `road-pattern.png`, and `road-stripes-atlas.png`. The dirt color and normal map are preserved as source files so they can be tested or replaced without baking them into procedural output. The older dynamic texture helpers remain useful as procedural references, but the active materials load files so art can be swapped without code changes. The road mesh extends roughly 3x farther than the original prototype road, and each center stripe chooses one of eight atlas slices from `road-stripes-atlas.png`.
 
-The outer ground is a generated terrain mesh rather than a flat ground plane. `terrainHeightAt()` keeps the area near the yard mostly flat for about 10 meters, increases rolling noise farther out, damps height near the road corridor, and includes a deliberate concealment mound between the main yard and the hidden gun. Future idea: add trees farther beyond the hilly area.
+Outer dirt uses the dirt albedo/normal material as the base layer, plus a separate transparent grass-texture overlay mesh. The overlay uses a generated high-resolution opacity texture, not terrain vertex alpha. The mask is built from tileable layered noise, with a threshold that changes by distance to lawn areas and terrain height: it is almost fully grass near lawn edges, fades toward mostly dirt over roughly 10-20 meters, and favors lower valleys over exposed hilltops. The mask is intentionally high contrast, so most pixels are near full grass or full dirt with only a narrow transition band. This keeps the dirt source texture and normal map intact while still letting dirt areas read grassy near yards.
+
+Road and stripe textures use filtered sampling at runtime to reduce harsh high-frequency aliasing without touching the source texture files. Stripe rendering uses the stripe atlas as both diffuse and opacity, with opacity taken from RGB luminance so black atlas background acts transparent instead of painting over the road.
+
+The outer ground is a generated terrain mesh rather than a flat ground plane. `terrainHeightAt()` keeps the area near the yard mostly flat for about 10 meters, increases much taller rolling noise farther out, damps height near the road corridor, and includes a deliberate concealment mound between the main yard and the hidden gun. Outside the authored flat lawn and road surfaces, mower height and medium/wheat grass placement reference the same terrain surface. The mower rides slopes below the steepness cutoff and treats too-steep hills like collision. Future idea: add trees farther beyond the hilly area.
 
 The main lawn grass tracks two influences per blade: wind sway and mower pressure. Mower pressure is painted onto blades as the mower body passes over them, and wind is reduced on blades that have been pressed down so wheel/body tracks can read separately from the ambient breeze.
 
-The grass is rendered with thin instances and should stay dense. The main lawn uses long, noisy, clumpy grass that becomes short when cut instead of disappearing. Neighbor yards should visually meet the main lawn with no visible ground gap, use mid-length grass, and must thin out with distance. Far out-of-bounds areas should read more like patchy wheat/wilderness grass than manicured lawn, with irregular taller edge patches so the transition is not a hard box. The expanded outer world currently has five simple procedural trees as placeholders for future art direction.
+The grass is rendered with thin instances and should stay dense. The main lawn uses long, noisy, clumpy grass that becomes short when cut instead of disappearing. Neighbor yards should visually meet the main lawn with no visible ground gap, use mid-length grass, and must thin out with distance. Far out-of-bounds areas should read more like patchy wheat/wilderness grass than manicured lawn, with irregular taller edge patches so the transition is not a hard box. The expanded outer world currently has five simple procedural trees and several simple boulders as placeholders for future art direction. Boulders have simple circular ground-plane collision against the mower body.
 
 Dandelions are part of the game feel. Yellow dandelions should be canary yellow and roughly dandelion-shaped. On first mow, the whole head pops off and flies farther than the current tiny petals; on the second mow it can obliterate into particles. White seed heads should be spherical and wispy rather than blocky. Breeze-triggered seed release should pull individual seeds or small random groups into the wind without fading every matching flower instance at once.
 
@@ -63,6 +68,7 @@ Audio uses MP3 files in `src/assets/`. The current intended audio set is:
 - `reverse-beep.mp3`: looping reverse truck-beep gag, active only while moving backward.
 - `flower-pop-1.mp3` through `flower-pop-7.mp3`: weighted random one-shots for yellow dandelion first-pop. The current distribution is intentionally skewed common-to-rare: 28%, 24%, 20%, 16%, 8%, 3%, and 1%.
 - `wall-bump.mp3`: one-shot for fence/wall collision.
+- `gun-shot.mp3`: one-shot for the hidden gun; currently an empty placeholder with default volume `0.35`.
 
 The audio loader trims loop silence for Web Audio loops and falls back gracefully for missing, empty, or malformed assets. Empty placeholder MP3 files are valid during prototyping and should not surface errors to the game. The grass-cutting loop uses a short tunable onset delay plus attack/decay smoothing so it does not snap abruptly on and off or smear too long after mowing stops; current defaults are `0.2` delay, `0.03` attack, and `0.17` decay. The reverse beep starts from reverse intent as well as actual negative speed so it feels responsive.
 
@@ -82,11 +88,15 @@ The settings panel has a map selector plus an input mode selector with `auto`, `
 
 Camera/input control layers are prototype-simple: mouse position steers the mower while the canvas is focused in `auto` or controller-oriented modes, but not in forced `keyboard` or `touch` mode. Right mouse drag orbits the follow camera; mouse wheel zooms; controller right stick adjusts camera orbit/height. In forced `keyboard` mode, arrow keys adjust camera orbit/height. After manual camera adjustment, the camera rests for a short delay, then slowly interpolates back behind the mower; repeated manual adjustments extend the rest delay, and after enough repeats the camera stays where the player put it.
 
-Development settings are grouped into collapsible submenus for input, debug, grass shape, grass color, grass shine, dandelions, and audio. The HUD also has a quick input-mode selector that shows only modes available on the current system, while the hidden/dev settings selector keeps all modes for forced testing.
+Development settings are grouped into collapsible submenus for input, debug, grass shape, grass color, textures, grass shine, dandelions, and audio. The HUD also has a quick input-mode selector that shows only modes available on the current system, while the hidden/dev settings selector keeps all modes for forced testing. Texture tiling settings currently tune grassy ground scale, dirt albedo/normal U/V scale, dirt normal strength, and road pattern U/V scale live without a reset.
 
-Fence pieces are the collision source now, not an abstract yard-boundary gate. Each unbroken plank has an AABB-style blocker expanded by the mower footprint, and movement tests those boxes from every direction. Bumping a plank damages that exact plank, harder hits do more damage, and once its configurable max HP reaches zero only that plank disappears and stops blocking. The Debug settings group can show billboard health labels over unbroken planks and tune `fenceMaxHealth`, currently `100`. There is intentionally no special content beyond the fence yet.
+Fence pieces are the collision source now, not an abstract yard-boundary gate. Each unbroken plank has an AABB-style blocker expanded by `playerFenceRadius`, currently `0.72`, which is intentionally larger than the blade collider so the mower body stops before it visibly overlaps the fence. Fence hits should stop and bump the mower rather than axis-sliding along the planks. Bumping a plank damages that exact plank, harder hits do more damage, and once its configurable max HP reaches zero only that plank disappears and stops blocking. The Debug settings group can show billboard health labels over unbroken planks, tune `fenceMaxHealth`, and disable fence collision entirely as a fallback. There is intentionally no special content beyond the fence yet.
 
-There is one hidden gun pickup outside the fence behind a terrain mound, currently around `(-33.5, -21.5)`. It should not be visible from the main yard. Once collected, the mower can shoot forward with left click, `E`, or controller face button 2. Shots cut grass, damage fences, pop dandelions, and destroy protected tulips as mistakes.
+Cloud-shadow ambience is currently simulated by slowly modulating the directional sun intensity and specular color. It is not a real projected cloud texture yet, but it should make grass shine breathe a little under imagined passing clouds.
+
+Asset-size note: Vite fingerprints imported assets for caching. GitHub Pages generally serves compressed text assets, but image/audio compression comes from the formats themselves; keep replacement textures as small, tiled, and already compressed as practical. The current CC0 dirt texture pair is much larger than the generated placeholders, so revisit image dimensions/compression before a size-sensitive release if it remains in use.
+
+There is one hidden gun pickup outside the fence behind a terrain mound, currently around `(-33.5, -21.5)`. It should not be visible from the main yard. Once collected, the mower can shoot forward with left click, `E`, or controller face button 2. Shots cut grass, damage fences, pop dandelions, and destroy protected tulips as mistakes. Gun feedback is intentionally lightweight: an optional one-shot audio hook, a short fuzzy tracer box, impact dust at the stopping point, flower/tulip impact puffs, and rare grass flecks capped per shot so the effect does not become visually noisy.
 
 ## Package And Build Notes
 

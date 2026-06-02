@@ -9,16 +9,17 @@ This document is the compact handoff for starting a fresh conversation without r
 - Public releases should be made from tested commits using version tags like `v0.1.1`.
 - GitHub Pages deploys are handled by `.github/workflows/deploy-gh-pages.yml` on pushes to `master` or manual workflow dispatch.
 - Tags remain the release markers, but Pages deploys from `master` because the `github-pages` environment protection blocked tag-triggered deploys. The failed `v0.1.0` tag workflow can be ignored.
-- Current published release marker: `v0.1.1` at commit `97687ff` (`Deploy Pages from release branch`).
-- `dev`, `master`, `origin/dev`, and `origin/master` currently point to the same `v0.1.1` commit.
+- Current published release marker: `v0.1.2` at commit `63d61b8` (`Add terrain hiding and fence debug tools`).
+- `dev`, `master`, `origin/dev`, and `origin/master` were aligned at the same `v0.1.2` commit before the current uncommitted development work.
 - The project is a Vite TypeScript Babylon.js app using `@babylonjs/core` only for runtime dependencies.
 - Package manager is `pnpm@11.0.0`.
 - Dependency security policy currently requires `minimumReleaseAge: 57600` in `pnpm-workspace.yaml`.
 - Internal asset/source tracking lives in `INTERNAL_ATTRIBUTION.md`.
+- Deferred ideas and non-active follow-ups live in `BACKLOG.md`.
 
 ## Current Working Tree
 
-- As of the `v0.1.1` release push, the working tree was clean.
+- As of the `v0.1.2` release push, the working tree was clean.
 - This handoff edit may be uncommitted if a new conversation starts immediately after it; check `git status --short --branch`.
 - Usual harmless local warning: Git may print `unable to access 'C:\Users\Owner/.config/git/ignore': Permission denied`.
 
@@ -36,16 +37,18 @@ Known empty placeholder audio files:
 
 - `src/assets/completion-fanfare.mp3`
 - `src/assets/completion-loop.mp3`
+- `src/assets/gun-shot.mp3`
 
 Empty placeholders are intentional during prototyping; the audio layer must handle missing, empty, or malformed MP3s gracefully.
 
 ## Last Verified State
 
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
-- `pnpm run build` passed after the latest terrain, gun hiding, fence debug, and tree changes.
+- `pnpm run build` passed after the latest terrain, gun hiding, fence debug, tree, and gun feedback changes.
 - A browser smoke test confirmed the terrain/gun scene loaded, the canvas rendered, and no console errors were reported. A later debug-toggle smoke test was attempted but hit a browser automation variable redeclare before completing; the production build passed.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
-- `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags, then pushed `dev`, `master`, and the `v0.1.1` tag.
+- `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags.
+- `v0.1.2` added terrain hiding, fence debug controls, simple trees, and related world polish, then pushed `dev`, `master`, and the `v0.1.2` tag.
 
 ## Current Features
 
@@ -60,7 +63,8 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Neighbor lawns and far out-of-bounds grass/wheat dressing.
 - Large outer terrain mesh with procedural bumpy height variation.
 - Five simple procedural trees in the expanded outer world, using low-poly trunks and leafy crowns at varied scales.
-- Procedural ground and road materials.
+- Simple procedural boulders in the expanded outer world.
+- File-backed textures for grassy ground, CC0 dirt with normal map, road pattern, and road stripe atlas in `src/assets/textures/`.
 - Dandelions with yellow and white seed-head behavior.
 - Sparse large wind wisps and tiny wind particles.
 - Development settings panel with numeric value readouts.
@@ -73,6 +77,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Right mouse drag orbits the follow camera, mouse wheel zooms, and controller right stick controls camera orbit/height.
 - In forced `keyboard` input mode, arrow keys adjust camera orbit/height.
 - Audio system with mower, directional breeze, ambient breeze, cutting loop, reverse beep, weighted random yellow flower pop bank, and wall bump hooks.
+- Hidden gun feedback now includes a placeholder shot sound, a short fuzzy tracer, impact dust, and sparse grass fleck particles when shots cut blades.
 - Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Close` buttons. Current completion audio files are placeholders unless replaced.
 - Mistakes meter increments when protected tulips are destroyed.
 
@@ -83,11 +88,18 @@ Important defaults in `src/config.ts`:
 - `playerSpeed = 1.65`
 - `playerBoost = 1.45`
 - `playerRadius = 0.75`
+- `playerFenceRadius = 0.72`
 - `mowerCutRadius = 0.42`
 - `bladeCount = 30000`
 - `mediumGrassCount = 24000`
 - `wheatGrassCount = 7000`
 - `mapId = "main"`
+- `grassyTextureScale = 20`
+- `dirtTextureUScale = 42`
+- `dirtTextureVScale = 84`
+- `dirtNormalStrength = 0.42`
+- `roadTextureUScale = 1`
+- `roadTextureVScale = 48`
 - `turnBuild = 0.77`
 - `turnMaxSpeed = 2.25`
 - `controllerTurnAccelThreshold = 0.7`
@@ -104,6 +116,9 @@ Important defaults in `src/config.ts`:
 - `reverseBeepVolume = 0.04`
 - `completionFanfareVolume = 0.7`
 - `completionLoopVolume = 0.35`
+- `gunShotVolume = 0.35`
+- `grassBaseColor = "#0d2c02"`
+- `cutGrassColor = "#152b03"`
 - `grassRoughness = 0.22`
 - `grassMetallic = 0`
 - `grassClearCoat = 0.009`
@@ -133,11 +148,18 @@ Important defaults in `src/config.ts`:
 - Grass-cutting audio should use a short onset delay plus attack/decay smoothing because abrupt loop gating sounds bad, but the decay should stay tight enough that the layer does not smear after mowing stops.
 - Reverse movement should play a comical backing-up loop.
 - Protected flower beds are allowed to be destructible, but destroying them should count as mistakes rather than progress.
-- Fence planks each have hidden damage and AABB-style collision from every direction. Bumps deal `1`, medium hits deal `3`, and near-full-speed hits deal `5` against `settings.fenceMaxHealth`, currently `100`. Broken planks disappear individually and stop blocking. Escaping the yard should be possible only with sustained intentional damage, not casual play.
-- Dev settings include a Debug group with `showFenceHealth` and `fenceMaxHealth`. The health overlay creates billboard text labels over unbroken planks only while enabled, and changing max health schedules a reset so planks get the new max.
-- There is a hidden gun pickup outside the fence at roughly `(-33.5, -21.5)`, behind a terrain mound centered roughly near `(-25.5, -16.5)`. It should be impossible to see from the main yard area. Once picked up, HUD shows `Armed`; left click, `E`, or controller face button 2 shoots a forward line that cuts grass, damages fences, pops dandelions, and destroys protected tulips as mistakes.
-- Outer ground and road now extend roughly 3x farther than before. The world terrain uses procedural value-noise height variation: mostly flat for about the first 10 meters beyond the yard, stronger farther out, and damped around the road corridor so the road does not visibly fight the terrain.
+- Fence planks each have hidden damage and AABB-style collision from every direction. Fence collision uses `playerFenceRadius = 0.72`, larger than the blade collider, so the mower body should stop before visibly overlapping the planks. Bumps deal `1`, medium hits deal `3`, and near-full-speed hits deal `5` against `settings.fenceMaxHealth`, currently `100`. Broken planks disappear individually and stop blocking. Fence hits should not axis-slide; the mower should stop/bump instead. Bump-back distance scales by impact speed: low-speed contact should stop with no visible shove, while full boosted hits get the full bump-back distance.
+- Dev settings include a Debug group with `showFenceHealth`, `fenceMaxHealth`, and `disableFenceCollision`. The health overlay creates billboard text labels over unbroken planks only while enabled, changing max health schedules a reset so planks get the new max, and disabling fence collision is an emergency fallback if the fence interaction breaks again.
+- There is a hidden gun pickup outside the fence at roughly `(-33.5, -21.5)`, behind a terrain mound centered roughly near `(-25.5, -16.5)`. It should be impossible to see from the main yard area. Once picked up, HUD shows `Armed`; left click, `E`, or controller face button 2 shoots a forward line that cuts grass, damages fences, pops dandelions, and destroys protected tulips as mistakes. Shots also play `gun-shot.mp3`, draw a very short-lived fuzzy tracer, spawn dust at the final impact, and emit rare tiny grass flecks from cut blades.
+- Outer ground and road now extend roughly 3x farther than before. The world terrain uses procedural value-noise height variation: mostly flat for about the first 10 meters beyond the yard, much taller farther out, and damped around the road corridor so the road does not visibly fight the terrain. Outside the flat authored lawn/road, mower height and medium/wheat grass placement reference the terrain surface. The mower rides slopes below the current steepness cutoff and blocks on too-steep hill faces.
+- Dirt terrain has a transparent grass-texture overlay rather than a baked mixed texture. The overlay uses a generated high-resolution black/white-ish opacity texture, not coarse terrain vertex alpha. The mask comes from tileable layered noise whose threshold changes by distance and height: nearly solid grass near lawn edges, fading toward mostly dirt by roughly 10-20m out, with less grass on hilltops and more in lower spaces between hills. Most mask pixels should resolve close to full grass or full dirt, with only a narrow transition band.
+- Texture tiling for grassy ground, dirt albedo/normal, dirt normal strength, and road pattern are exposed in the dev settings `Textures` group.
+- Road and stripe texture files should not be modified by code. Runtime sampling uses filtered road textures to reduce harsh aliasing, and stripe atlas black is treated as opacity so it does not paint black rectangles over the road.
+- Procedural boulders have simple circular mower-body collision in the ground plane.
 - Trees farther out beyond the hilly area are on the future docket, but not implemented yet.
+- Cloud shadows are currently approximated by slow directional-light intensity/specular modulation, not a real projected cloud texture.
+- Keep future art additions small and cache-friendly. Current placeholders are tiny PNGs; if replacing them, prefer small tiled textures and already-compressed files. Vite fingerprints imported assets for browser caching.
+- When an idea is deferred instead of implemented, add it to `BACKLOG.md` so it survives context resets.
 - Keyboard steering should use the original gentle-to-fast turn acceleration curve. Controller steering should stay stable for small stick movements and only add acceleration once the left stick passes the tunable threshold, currently `0.7`.
 - The HUD has a quick input-mode selector. It should only show currently available modes such as keyboard, detected controller, and detected touch; the full dev settings menu still keeps all modes for forced testing.
 - The dev settings menu starts hidden in raw HTML and is only unhidden by script in dev mode, so production builds should not flicker the settings panel.
@@ -158,10 +180,10 @@ For release:
 ```bash
 git checkout dev
 pnpm run build:gh-pages
-git tag v0.1.2
+git tag v0.1.3
 git push origin dev
-git push origin v0.1.2
+git push origin v0.1.3
 git checkout master
-git merge --ff-only v0.1.2
+git merge --ff-only v0.1.3
 git push origin master
 ```

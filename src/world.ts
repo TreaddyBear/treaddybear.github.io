@@ -1,6 +1,7 @@
 import {
   ArcRotateCamera,
   Color3,
+  DynamicTexture,
   Material,
   Mesh,
   MeshBuilder,
@@ -8,11 +9,13 @@ import {
   VertexData,
   Scene,
   StandardMaterial,
+  Texture,
   Vector3,
 } from "@babylonjs/core";
+import { lawnMaps } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { valueNoise } from "./utils/noise";
-import { createRoadTexture } from "./textures";
+import { createRoadFileTexture, createRoadStripeAtlasTexture } from "./textures";
 
 function smoothstep01(value: number) {
   const t = Math.max(0, Math.min(1, value));
@@ -32,11 +35,109 @@ export function terrainHeightAt(x: number, z: number) {
   const roadFade = smoothstep01(Math.max(0, Math.abs(x - 14.5) - 4.2) / 8);
   const broad = valueNoise((x * 0.035) + 12, (z * 0.035) - 8) - 0.5;
   const mid = valueNoise((x * 0.095) - 4, (z * 0.095) + 19) - 0.5;
-  const rolling = ((broad * 2.7) + (mid * 0.75)) * distanceFade * roadFade;
+  const rolling = ((broad * 6.8) + (mid * 1.9)) * distanceFade * roadFade;
   const concealDx = x + 25.5;
   const concealDz = z + 16.5;
   const concealHill = Math.max(0, 1 - (((concealDx * concealDx) / 74) + ((concealDz * concealDz) / 34)));
-  return rolling + (concealHill * concealHill * 2.4);
+  return rolling + (concealHill * concealHill * 4.1);
+}
+
+function distanceToAnyLawn(x: number, z: number) {
+  let closest = Number.POSITIVE_INFINITY;
+
+  for (const map of lawnMaps) {
+    for (const segment of map.segments) {
+      const clampedX = Math.min(segment.xMax, Math.max(segment.xMin, x));
+      const clampedZ = Math.min(segment.zMax, Math.max(segment.zMin, z));
+      const dx = x - clampedX;
+      const dz = z - clampedZ;
+      const inside = x >= segment.xMin && x <= segment.xMax && z >= segment.zMin && z <= segment.zMax;
+      const distance = inside ? 0 : Math.sqrt((dx * dx) + (dz * dz));
+      closest = Math.min(closest, distance);
+    }
+  }
+
+  return closest;
+}
+
+function grassOverlayAlpha(x: number, z: number, height: number) {
+  if (Math.abs(x - 14.5) < 4.1) {
+    return 0;
+  }
+
+  const distance = distanceToAnyLawn(x, z);
+  const distanceMask = 1 - smoothstep01((distance - 1.5) / 18);
+  const valleyMask = 1 - smoothstep01((height - 0.35) / 4.8);
+  const broadPatch = valueNoise((x * 0.055) + 4, (z * 0.055) - 12);
+  const detailPatch = valueNoise((x * 0.18) - 20, (z * 0.18) + 7);
+  const patch = Math.max(0, Math.min(1, ((broadPatch - 0.28) / 0.54) * 0.82 + ((detailPatch - 0.45) * 0.28)));
+  const nearSolid = 1 - smoothstep01(distance / 3.5);
+  return Math.max(0, Math.min(0.96, Math.max(nearSolid, patch) * distanceMask * valleyMask));
+}
+
+function tileableNoise(u: number, v: number, frequencyX: number, frequencyZ: number) {
+  const x = u * frequencyX;
+  const z = v * frequencyZ;
+  const blendX = smoothstep01(u);
+  const blendZ = smoothstep01(v);
+  const a = valueNoise(x, z);
+  const b = valueNoise(x - frequencyX, z);
+  const c = valueNoise(x, z - frequencyZ);
+  const d = valueNoise(x - frequencyX, z - frequencyZ);
+  const x1 = a + ((b - a) * blendX);
+  const x2 = c + ((d - c) * blendX);
+  return x1 + ((x2 - x1) * blendZ);
+}
+
+function grassMaskValue(x: number, z: number, u: number, v: number) {
+  if (Math.abs(x - 14.5) < 4.1) {
+    return 0;
+  }
+
+  const terrainHeight = terrainHeightAt(x, z);
+  const distance = distanceToAnyLawn(x, z);
+  const nearLawn = 1 - smoothstep01((distance - 0.5) / 18);
+  const valley = 1 - smoothstep01((terrainHeight - 0.15) / 5.4);
+  const coarse = tileableNoise(u, v, 10, 20);
+  const mid = tileableNoise((u + 0.37) % 1, (v + 0.19) % 1, 27, 54);
+  const fine = tileableNoise((u + 0.11) % 1, (v + 0.61) % 1, 73, 146);
+  const noise = Math.max(0, Math.min(1, (coarse * 0.62) + (mid * 0.28) + (fine * 0.1)));
+  const grassBias = Math.max(0, Math.min(1, nearLawn * (0.72 + (valley * 0.3))));
+  const threshold = 0.06 + ((1 - grassBias) * 0.92);
+  const transition = 0.035;
+
+  return smoothstep01((noise - threshold + transition) / (transition * 2));
+}
+
+function createGrassOverlayMask(scene: Scene) {
+  const width = 1024;
+  const height = 2048;
+  const texture = new DynamicTexture("worldGrassMask", { width, height }, scene, false, Texture.NEAREST_SAMPLINGMODE);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(width, height);
+
+  for (let y = 0; y < height; y += 1) {
+    const v = y / (height - 1);
+    const z = -300 + (v * 600);
+
+    for (let x = 0; x < width; x += 1) {
+      const u = x / (width - 1);
+      const worldX = -150 + (u * 300);
+      const mask = grassMaskValue(worldX, z, u, v);
+      const value = mask * 255;
+      const index = ((y * width) + x) * 4;
+      image.data[index] = value;
+      image.data[index + 1] = value;
+      image.data[index + 2] = value;
+      image.data[index + 3] = value;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  texture.update();
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  return texture;
 }
 
 export function createWorldTerrain(scene: Scene, material: Material) {
@@ -83,13 +184,65 @@ export function createWorldTerrain(scene: Scene, material: Material) {
   return mesh;
 }
 
+export function createWorldGrassOverlay(scene: Scene, material: StandardMaterial) {
+  const width = 300;
+  const height = 600;
+  const subdivisionsX = 80;
+  const subdivisionsZ = 132;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
+
+  for (let zIndex = 0; zIndex <= subdivisionsZ; zIndex += 1) {
+    const z = -height / 2 + ((zIndex / subdivisionsZ) * height);
+
+    for (let xIndex = 0; xIndex <= subdivisionsX; xIndex += 1) {
+      const x = -width / 2 + ((xIndex / subdivisionsX) * width);
+      const y = terrainHeightAt(x, z) - 0.066;
+      positions.push(x, y, z);
+      uvs.push(xIndex / subdivisionsX, zIndex / subdivisionsZ);
+    }
+  }
+
+  const row = subdivisionsX + 1;
+
+  for (let zIndex = 0; zIndex < subdivisionsZ; zIndex += 1) {
+    for (let xIndex = 0; xIndex < subdivisionsX; xIndex += 1) {
+      const base = (zIndex * row) + xIndex;
+      indices.push(base, base + 1, base + row);
+      indices.push(base + 1, base + row + 1, base + row);
+    }
+  }
+
+  const normals: number[] = [];
+  VertexData.ComputeNormals(positions, indices, normals);
+
+  const mesh = new Mesh("world-grass-overlay", scene);
+  const vertexData = new VertexData();
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.normals = normals;
+  vertexData.uvs = uvs;
+  vertexData.applyToMesh(mesh);
+  material.opacityTexture?.dispose();
+  material.opacityTexture = createGrassOverlayMask(scene);
+  (material.opacityTexture as { getAlphaFromRGB?: boolean }).getAlphaFromRGB = true;
+  mesh.material = material;
+  return mesh;
+}
+
 function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   const mesh = new Mesh("road-stripe", scene);
   const steps = 8;
   const halfWidth = 0.07;
   const halfLength = 1.86;
+  const sectionCount = 8;
+  const section = Math.floor(Math.abs(valueNoise((z * 0.071) + 22, 6.5) * sectionCount)) % sectionCount;
+  const uMin = section / sectionCount;
+  const uMax = (section + 1) / sectionCount;
   const positions: number[] = [];
   const indices: number[] = [];
+  const uvs: number[] = [];
 
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
@@ -98,6 +251,8 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
     const rightNoise = (valueNoise(80 + (z * 0.11), i * 1.9) - 0.5) * 0.045;
     positions.push(-halfWidth + leftNoise, 0, localZ);
     positions.push(halfWidth + rightNoise, 0, localZ);
+    uvs.push(uMin, t);
+    uvs.push(uMax, t);
 
     if (i < steps) {
       const offset = i * 2;
@@ -112,6 +267,7 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   vertexData.positions = positions;
   vertexData.indices = indices;
   vertexData.normals = normals;
+  vertexData.uvs = uvs;
   vertexData.applyToMesh(mesh);
   mesh.position = new Vector3(14.5, 0.018, z);
   mesh.material = material;
@@ -120,7 +276,16 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
 export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeMaterial: StandardMaterial) {
   roadMaterial.diffuseColor.set(1, 1, 1);
   roadMaterial.diffuseTexture?.dispose();
-  roadMaterial.diffuseTexture = createRoadTexture(scene);
+  roadMaterial.diffuseTexture = createRoadFileTexture(scene);
+  stripeMaterial.diffuseColor.set(1, 1, 1);
+  stripeMaterial.diffuseTexture?.dispose();
+  stripeMaterial.diffuseTexture = createRoadStripeAtlasTexture(scene);
+  stripeMaterial.opacityTexture?.dispose();
+  stripeMaterial.opacityTexture = stripeMaterial.diffuseTexture;
+  stripeMaterial.useAlphaFromDiffuseTexture = false;
+  stripeMaterial.backFaceCulling = false;
+  stripeMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  (stripeMaterial.opacityTexture as { getAlphaFromRGB?: boolean }).getAlphaFromRGB = true;
 
   const road = MeshBuilder.CreateGround("road", { width: 5.2, height: 540 }, scene);
   road.position = new Vector3(14.5, 0.006, 0);

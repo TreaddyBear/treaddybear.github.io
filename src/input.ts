@@ -9,7 +9,7 @@ export type AnalogInput = {
   setMode: (mode: InputMode) => void;
 };
 
-export type InputMode = "auto" | "keyboard" | "controller" | "touch";
+export type InputMode = "auto" | "keyboard" | "mouse" | "controller" | "touch";
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));

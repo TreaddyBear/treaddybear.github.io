@@ -14,6 +14,7 @@ import flowerPop6Url from "./assets/flower-pop-6.mp3?url";
 import flowerPop7Url from "./assets/flower-pop-7.mp3?url";
 import wallBumpUrl from "./assets/wall-bump.mp3?url";
 import reverseBeepUrl from "./assets/reverse-beep.mp3?url";
+import gunShotUrl from "./assets/gun-shot.mp3?url";
 
 type AudioSettings = {
   mowerVolume: number;
@@ -29,6 +30,7 @@ type AudioSettings = {
   reverseBeepVolume: number;
   completionFanfareVolume: number;
   completionLoopVolume: number;
+  gunShotVolume: number;
 };
 
 type LoopWindow = {
@@ -249,6 +251,7 @@ export function createPrototypeAudio() {
   const flowerPops = flowerPopBank.map((entry) => createOneShotTrack(entry.src));
   const flowerPopWeights = flowerPopBank.map((entry) => entry.weight);
   const wallBump = createOneShotTrack(wallBumpUrl);
+  const gunShot = createOneShotTrack(gunShotUrl);
   let unlocked = false;
   let cuttingActive = false;
   let cuttingStartedAt = 0;
@@ -271,6 +274,7 @@ export function createPrototypeAudio() {
       flowerPop.unlock();
     }
     wallBump.unlock();
+    gunShot.unlock();
   };
 
   window.addEventListener("pointerdown", unlock, { once: true });
@@ -294,6 +298,10 @@ export function createPrototypeAudio() {
 
     playWallBump(volume: number) {
       wallBump.play(volume);
+    },
+
+    playGunShot(volume: number) {
+      gunShot.play(volume);
     },
 
     playCompletionFanfare(volume: number) {

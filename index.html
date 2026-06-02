@@ -11,7 +11,7 @@
       <div id="meter"><div id="meterFill"></div></div>
       <div id="mistakes">Mistakes: 0</div>
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
-      <label id="hudInputLabel">Input <select id="quickInputMode"></select></label>
+      <div id="hudInputLabel">Input <div id="quickInputMode" role="group" aria-label="Input mode"></div></div>
       <button id="fullscreenButton" type="button">Full screen</button>
     </div>
     <div id="celebration" hidden>
@@ -29,7 +29,7 @@
       <details class="settings-group" open>
         <summary>Input</summary>
         <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
-        <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard">Keyboard</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
+        <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
         <label>Turn speed <span data-value-for="turnMaxSpeed"></span><input id="turnMaxSpeed" type="range" min="0.8" max="4" step="0.01" value="2.25" /></label>
         <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.77" /></label>
         <label>Controller accel threshold <span data-value-for="controllerTurnAccelThreshold"></span><input id="controllerTurnAccelThreshold" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
@@ -37,6 +37,7 @@
       <details class="settings-group">
         <summary>Debug</summary>
         <label>Show fence health <input id="showFenceHealth" type="checkbox" /></label>
+        <label>Disable fence collision <input id="disableFenceCollision" type="checkbox" /></label>
         <label>Max fence health <span data-value-for="fenceMaxHealth"></span><input id="fenceMaxHealth" type="range" min="1" max="1000" step="1" value="100" /></label>
       </details>
       <details class="settings-group">
@@ -50,12 +51,21 @@
       </details>
       <details class="settings-group">
         <summary>Grass Color</summary>
-        <label>Grass base color <input id="grassBaseColor" type="color" value="#0A2E05" /></label>
+        <label>Grass base color <input id="grassBaseColor" type="color" value="#0d2c02" /></label>
         <label>Hue variance <span data-value-for="hueVariance"></span><input id="hueVariance" type="range" min="0" max="0.25" step="0.005" value="0.035" /></label>
         <label>Saturation variance <span data-value-for="satVariance"></span><input id="satVariance" type="range" min="0" max="0.8" step="0.01" value="0.18" /></label>
         <label>Lightness variance <span data-value-for="lightVariance"></span><input id="lightVariance" type="range" min="0" max="0.8" step="0.01" value="0.16" /></label>
-        <label>Cut color <input id="cutGrassColor" type="color" value="#051E03" /></label>
+        <label>Cut color <input id="cutGrassColor" type="color" value="#152b03" /></label>
         <label>Ground color <input id="groundColor" type="color" value="#295c00" /></label>
+      </details>
+      <details class="settings-group">
+        <summary>Textures</summary>
+        <label>Grass texture scale <span data-value-for="grassyTextureScale"></span><input id="grassyTextureScale" type="range" min="1" max="120" step="1" value="20" /></label>
+        <label>Dirt texture width <span data-value-for="dirtTextureUScale"></span><input id="dirtTextureUScale" type="range" min="1" max="180" step="1" value="42" /></label>
+        <label>Dirt texture length <span data-value-for="dirtTextureVScale"></span><input id="dirtTextureVScale" type="range" min="1" max="240" step="1" value="84" /></label>
+        <label>Dirt normal strength <span data-value-for="dirtNormalStrength"></span><input id="dirtNormalStrength" type="range" min="0" max="2" step="0.01" value="0.42" /></label>
+        <label>Road texture width <span data-value-for="roadTextureUScale"></span><input id="roadTextureUScale" type="range" min="0.1" max="12" step="0.1" value="1" /></label>
+        <label>Road texture length <span data-value-for="roadTextureVScale"></span><input id="roadTextureVScale" type="range" min="1" max="180" step="1" value="48" /></label>
       </details>
       <details class="settings-group">
         <summary>Grass Shine</summary>
@@ -85,6 +95,7 @@
         <label>Reverse beep <span data-value-for="reverseBeepVolume"></span><input id="reverseBeepVolume" type="range" min="0" max="1" step="0.01" value="0.04" /></label>
         <label>Completion fanfare <span data-value-for="completionFanfareVolume"></span><input id="completionFanfareVolume" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
         <label>Completion loop <span data-value-for="completionLoopVolume"></span><input id="completionLoopVolume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+        <label>Gun shot <span data-value-for="gunShotVolume"></span><input id="gunShotVolume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
       </details>
     </details>
     <canvas id="renderCanvas"></canvas>

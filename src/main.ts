@@ -29,13 +29,14 @@ import {
   mediumGrassCount,
   mowerCutRadius,
   playerBoost,
+  playerFenceRadius,
   playerSpeed,
   settings,
   wheatGrassCount,
   yardSegments,
 } from "./config";
 import type { YardSegment } from "./config";
-import { createGroundTexture } from "./textures";
+import { createDirtGroundTexture, createDirtNormalTexture, createGrassyGroundTexture } from "./textures";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
@@ -47,7 +48,7 @@ const scoreElement = document.querySelector<HTMLDivElement>("#score");
 const meterFillElement = document.querySelector<HTMLDivElement>("#meterFill");
 const mistakesElement = document.querySelector<HTMLDivElement>("#mistakes");
 const mistakeMeterFillElement = document.querySelector<HTMLDivElement>("#mistakeMeterFill");
-const quickInputModeElement = document.querySelector<HTMLSelectElement>("#quickInputMode");
+const quickInputModeElement = document.querySelector<HTMLDivElement>("#quickInputMode");
 const settingsElement = document.querySelector<HTMLDetailsElement>("#settings");
 const fullscreenButtonElement = document.querySelector<HTMLButtonElement>("#fullscreenButton");
 const celebrationElement = document.querySelector<HTMLDivElement>("#celebration");
@@ -141,6 +142,7 @@ let bumpCooldown = 0;
 let grassCuttingAudioTimer = 0;
 let mouseTurn = 0;
 let mouseSteeringActive = false;
+let mouseSteeringPointer = false;
 let cameraOrbitYaw = 0;
 let cameraOrbitHeight = 0;
 let cameraDistanceOffset = 0;
@@ -163,8 +165,11 @@ const dandelions: Dandelion[] = [];
 const floatingSeeds: FloatingSeed[] = [];
 const fallingPetals: FallingPetal[] = [];
 const tulips: Tulip[] = [];
+const gunTracers: GunTracer[] = [];
+const gunParticles: GunParticle[] = [];
 let fenceDamage: FenceDamageState[] = [];
 const fenceHealthLabels: FenceHealthLabel[] = [];
+const rockColliders: RockCollider[] = [];
 
 type WindWisp = {
   mesh: Mesh;
@@ -245,6 +250,25 @@ type FenceHealthLabel = {
   mesh: Mesh;
   material: StandardMaterial;
   texture: DynamicTexture;
+};
+type RockCollider = {
+  x: number;
+  z: number;
+  radius: number;
+};
+type GunTracer = {
+  mesh: Mesh;
+  material: StandardMaterial;
+  age: number;
+  duration: number;
+};
+type GunParticle = {
+  mesh: Mesh;
+  material: StandardMaterial;
+  velocity: Vector3;
+  age: number;
+  duration: number;
+  spin: number;
 };
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
@@ -338,8 +362,10 @@ fenceMaterial.diffuseColor = new Color3(0.92, 0.9, 0.84);
 fenceMaterial.specularColor = Color3.Black();
 
 const worldGroundMaterial = new StandardMaterial("worldGroundMaterial", scene);
-worldGroundMaterial.diffuseColor = new Color3(0.08, 0.16, 0.03);
+worldGroundMaterial.diffuseColor = Color3.White();
 worldGroundMaterial.specularColor = Color3.Black();
+worldGroundMaterial.diffuseTexture = createDirtGroundTexture(scene);
+worldGroundMaterial.bumpTexture = createDirtNormalTexture(scene);
 
 const secretGunMaterial = new StandardMaterial("secretGunMaterial", scene);
 secretGunMaterial.diffuseColor = new Color3(0.035, 0.038, 0.04);
@@ -361,6 +387,17 @@ const treeLeafMaterials = [
   const material = new StandardMaterial(`treeLeafMaterial-${index}`, scene);
   material.diffuseColor = color;
   material.specularColor = Color3.Black();
+  return material;
+});
+
+const rockMaterials = [
+  new Color3(0.28, 0.28, 0.25),
+  new Color3(0.43, 0.4, 0.34),
+  new Color3(0.18, 0.3, 0.12),
+].map((color, index) => {
+  const material = new StandardMaterial(`rockMaterial-${index}`, scene);
+  material.diffuseColor = color;
+  material.specularColor = new Color3(0.03, 0.035, 0.03);
   return material;
 });
 
@@ -550,6 +587,35 @@ function createSimpleTrees() {
   }
 }
 
+function createBoulder(x: number, z: number, scale: number, material: StandardMaterial) {
+  const rock = MeshBuilder.CreateSphere("boulder", { diameter: 1, segments: 7 }, scene);
+  const horizontalScaleX = scale * (1.1 + (Math.random() * 0.35));
+  const horizontalScaleZ = scale * (0.8 + (Math.random() * 0.4));
+  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.18 * scale), z);
+  rock.scaling = new Vector3(horizontalScaleX, scale * (0.42 + (Math.random() * 0.22)), horizontalScaleZ);
+  rock.rotation = new Vector3(Math.random() * 0.22, Math.random() * Math.PI, Math.random() * 0.28);
+  rock.material = material;
+  shadowGenerator.addShadowCaster(rock);
+  rockColliders.push({ x, z, radius: Math.max(horizontalScaleX, horizontalScaleZ) * 0.56 });
+  return rock;
+}
+
+function createSceneryRocks() {
+  const rocks = [
+    { x: -39, z: -25, scale: 1.3, material: rockMaterials[2] },
+    { x: -47, z: -31, scale: 0.72, material: rockMaterials[0] },
+    { x: 24, z: -28, scale: 0.9, material: rockMaterials[1] },
+    { x: 39, z: 19, scale: 1.6, material: rockMaterials[0] },
+    { x: -18, z: 42, scale: 0.8, material: rockMaterials[2] },
+    { x: 55, z: -54, scale: 1.9, material: rockMaterials[1] },
+    { x: -64, z: 18, scale: 1.2, material: rockMaterials[0] },
+  ];
+
+  for (const rock of rocks) {
+    createBoulder(rock.x, rock.z, rock.scale, rock.material);
+  }
+}
+
 function updateSecretGunPickup() {
   if (hasSecretGun || !secretGunRoot || !secretGunRoot.isEnabled()) {
     return;
@@ -694,6 +760,22 @@ function distanceToMainYard(x: number, z: number) {
 
 function isOnRoad(x: number) {
   return x > 11.8 && x < 17.2;
+}
+
+function groundHeightAt(x: number, z: number) {
+  if (isInsideYard(x, z)) {
+    return 0;
+  }
+
+  if (isOnRoad(x)) {
+    return 0.006;
+  }
+
+  return terrainHeightAt(x, z) - 0.08;
+}
+
+function snapPlayerToGround() {
+  player.position.y = groundHeightAt(player.position.x, player.position.z);
 }
 
 function distanceToSegment(x: number, z: number, startX: number, startZ: number, endX: number, endZ: number) {
@@ -913,11 +995,165 @@ function shootFenceAlongRay(origin: Vector3, direction: Vector3, range: number) 
   if (best.index >= 0 && best.distanceToRay < 0.42) {
     const hit = origin.add(direction.scale(best.forwardDistance));
     damageFenceAt(hit.x, hit.z, playerSpeed * playerBoost);
+    return best.forwardDistance;
+  }
+
+  return null;
+}
+
+function disposeGunTracer(tracer: GunTracer) {
+  tracer.mesh.dispose();
+  tracer.material.dispose();
+}
+
+function disposeGunParticle(particle: GunParticle) {
+  particle.mesh.dispose();
+  particle.material.dispose();
+}
+
+function createGunEffectMaterial(name: string, color: Color3, alpha: number) {
+  const material = new StandardMaterial(name, scene);
+  material.diffuseColor = color;
+  material.emissiveColor = color.scale(0.22);
+  material.specularColor = Color3.Black();
+  material.alpha = alpha;
+  return material;
+}
+
+function spawnGunTracer(origin: Vector3, direction: Vector3, length: number) {
+  const safeLength = Math.max(0.1, length);
+  const material = createGunEffectMaterial("gun-tracer-material", new Color3(1, 0.92, 0.58), 0.52);
+  const mesh = MeshBuilder.CreateBox("gun-tracer", { width: 0.035, height: 0.028, depth: safeLength }, scene);
+
+  mesh.position = origin.add(direction.scale(safeLength * 0.5));
+  mesh.position.y = Math.max(mesh.position.y + 0.42, terrainHeightAt(mesh.position.x, mesh.position.z) + 0.38);
+  mesh.rotation.y = Math.atan2(direction.x, direction.z);
+  mesh.material = material;
+  gunTracers.push({ mesh, material, age: 0, duration: 0.11 });
+}
+
+function pushGunParticle(particle: GunParticle) {
+  gunParticles.push(particle);
+
+  while (gunParticles.length > 180) {
+    const oldParticle = gunParticles.shift();
+    if (oldParticle) {
+      disposeGunParticle(oldParticle);
+    }
+  }
+}
+
+function spawnGunParticle(
+  name: string,
+  x: number,
+  z: number,
+  color: Color3,
+  velocity: Vector3,
+  size: number,
+  duration: number,
+  alpha = 0.78,
+) {
+  const material = createGunEffectMaterial(`${name}-material`, color, alpha);
+  const mesh = MeshBuilder.CreateSphere(name, { diameter: size, segments: 4 }, scene);
+
+  mesh.position = new Vector3(x, terrainHeightAt(x, z) + 0.08 + (Math.random() * 0.06), z);
+  mesh.material = material;
+  pushGunParticle({
+    mesh,
+    material,
+    velocity,
+    age: 0,
+    duration,
+    spin: (Math.random() - 0.5) * 8,
+  });
+}
+
+function spawnGunImpactDust(x: number, z: number, strength = 1) {
+  const count = 5 + Math.floor(Math.random() * 5 * strength);
+
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.25 + (Math.random() * 0.75 * strength);
+    spawnGunParticle(
+      "gun-impact-dust",
+      x + ((Math.random() - 0.5) * 0.16),
+      z + ((Math.random() - 0.5) * 0.16),
+      new Color3(0.62 + (Math.random() * 0.12), 0.54 + (Math.random() * 0.1), 0.38 + (Math.random() * 0.08)),
+      new Vector3(Math.cos(angle) * speed, 0.35 + (Math.random() * 0.55 * strength), Math.sin(angle) * speed),
+      0.035 + (Math.random() * 0.055),
+      0.38 + (Math.random() * 0.28),
+      0.58,
+    );
+  }
+}
+
+function spawnGunGrassFleck(x: number, z: number, direction: Vector3) {
+  const side = new Vector3(direction.z, 0, -direction.x);
+  const sideAmount = (Math.random() - 0.5) * 1.1;
+  const forwardAmount = 0.25 + (Math.random() * 0.45);
+  const color = Math.random() > 0.35
+    ? new Color3(0.24, 0.62 + (Math.random() * 0.14), 0.1)
+    : new Color3(0.42, 0.5, 0.14);
+
+  spawnGunParticle(
+    "gun-grass-fleck",
+    x,
+    z,
+    color,
+    new Vector3(
+      (direction.x * forwardAmount) + (side.x * sideAmount),
+      0.45 + (Math.random() * 0.45),
+      (direction.z * forwardAmount) + (side.z * sideAmount),
+    ),
+    0.025 + (Math.random() * 0.035),
+    0.28 + (Math.random() * 0.22),
+    0.72,
+  );
+}
+
+function updateGunEffects(deltaSeconds: number) {
+  for (let i = gunTracers.length - 1; i >= 0; i -= 1) {
+    const tracer = gunTracers[i];
+    tracer.age += deltaSeconds;
+    const life = 1 - (tracer.age / tracer.duration);
+
+    if (life <= 0) {
+      gunTracers.splice(i, 1);
+      disposeGunTracer(tracer);
+      continue;
+    }
+
+    tracer.material.alpha = 0.52 * life;
+    tracer.mesh.scaling.x = 0.65 + (life * 0.35);
+    tracer.mesh.scaling.y = 0.65 + (life * 0.35);
+  }
+
+  for (let i = gunParticles.length - 1; i >= 0; i -= 1) {
+    const particle = gunParticles[i];
+    particle.age += deltaSeconds;
+    const life = 1 - (particle.age / particle.duration);
+
+    if (life <= 0) {
+      gunParticles.splice(i, 1);
+      disposeGunParticle(particle);
+      continue;
+    }
+
+    particle.velocity.y -= 2.4 * deltaSeconds;
+    particle.mesh.position.addInPlace(particle.velocity.scale(deltaSeconds));
+    particle.mesh.rotation.x += particle.spin * deltaSeconds;
+    particle.mesh.rotation.z += particle.spin * 0.6 * deltaSeconds;
+    particle.mesh.scaling.setAll(0.35 + (life * 0.65));
+    particle.material.alpha = 0.72 * life;
   }
 }
 
 function collidingFencePiece(x: number, z: number) {
-  const mowerHalfSize = 0.46;
+  if (settings.disableFenceCollision) {
+    return { index: -1, distance: Number.POSITIVE_INFINITY };
+  }
+
+  const hitRadius = playerFenceRadius + 0.16;
   let hit = { index: -1, distance: Number.POSITIVE_INFINITY };
 
   for (let index = 0; index < fenceDamage.length; index += 1) {
@@ -927,20 +1163,33 @@ function collidingFencePiece(x: number, z: number) {
       continue;
     }
 
-    if (
-      x < piece.minX - mowerHalfSize
-      || x > piece.maxX + mowerHalfSize
-      || z < piece.minZ - mowerHalfSize
-      || z > piece.maxZ + mowerHalfSize
-    ) {
-      continue;
-    }
-
     const dx = x - piece.x;
     const dz = z - piece.z;
     const distance = Math.sqrt((dx * dx) + (dz * dz));
 
-    if (distance < hit.distance) {
+    if (distance < hitRadius && distance < hit.distance) {
+      hit = { index, distance };
+    }
+  }
+
+  return hit;
+}
+
+function collidingRock(x: number, z: number) {
+  if (settings.disableFenceCollision) {
+    return { index: -1, distance: Number.POSITIVE_INFINITY };
+  }
+
+  let hit = { index: -1, distance: Number.POSITIVE_INFINITY };
+
+  for (let index = 0; index < rockColliders.length; index += 1) {
+    const rock = rockColliders[index];
+    const dx = x - rock.x;
+    const dz = z - rock.z;
+    const distance = Math.sqrt((dx * dx) + (dz * dz));
+    const combinedRadius = rock.radius + playerFenceRadius;
+
+    if (distance < combinedRadius && distance < hit.distance) {
       hit = { index, distance };
     }
   }
@@ -1093,7 +1342,7 @@ function placeMediumGrass() {
     const distanceFade = Math.max(0.08, 1 - (distance * 0.035));
     const patchNoise = grassNoiseAt(x, z);
     const scale = new Vector3(1, (0.22 + (0.34 * patchNoise) + (Math.random() * 0.16)) * distanceFade, 1);
-    const matrix = Matrix.Compose(scale, rotation, new Vector3(x, 0, z));
+    const matrix = Matrix.Compose(scale, rotation, new Vector3(x, groundHeightAt(x, z), z));
     const shade = 0.8 + (patchNoise * 0.22) + (Math.random() * 0.12);
     writeMatrix(mediumGrassMatrices, i, matrix);
     writeColor(mediumGrassColors, i, [
@@ -1151,7 +1400,7 @@ function placeWheatGrass() {
     const rotation = Quaternion.FromEulerAngles((Math.random() - 0.5) * 0.28, Math.random() * Math.PI, (Math.random() - 0.5) * 0.55);
     const height = 0.28 + (patchNoise * (0.45 + (wilderness * 0.55))) + (clumpWeight * (0.45 + (wilderness * 0.8))) + (Math.random() * (0.18 + (clumpWeight * 0.6)));
     const width = 0.45 + (clumpWeight * 0.45) + (Math.random() * 0.3);
-    const matrix = Matrix.Compose(new Vector3(width, height, width), rotation, new Vector3(x, 0, z));
+    const matrix = Matrix.Compose(new Vector3(width, height, width), rotation, new Vector3(x, groundHeightAt(x, z), z));
     const edgeGreen = mixColor(hexToColor3(settings.grassBaseColor), new Color3(0.46, 0.46, 0.28), 0.38 + (patchNoise * 0.2));
     const wheatColor = mixColor(new Color3(0.42, 0.4, 0.28), new Color3(0.9, 0.82, 0.52), Math.min(1, patchNoise + (clumpWeight * 0.28)));
     const color = mixColor(edgeGreen, wheatColor, wilderness);
@@ -1355,6 +1604,7 @@ function resetGame() {
   fenceDamage = createFenceDamageStates();
   syncFenceHealthLabels();
   player.position = getActiveMap().spawn.clone();
+  snapPlayerToGround();
   playerYaw = 0;
   player.rotation.y = playerYaw;
   cameraOrbitYaw = 0;
@@ -1377,39 +1627,39 @@ function resetGame() {
   updateHud();
 }
 
-function moveWithinYard(nextPosition: Vector3, movement: Vector3) {
-  const hit = collidingFencePiece(nextPosition.x, nextPosition.z);
-
-  if (hit.index < 0) {
+function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: number) {
+  if (settings.disableFenceCollision) {
+    nextPosition.y = groundHeightAt(nextPosition.x, nextPosition.z);
     player.position.copyFrom(nextPosition);
     return -1;
   }
 
-  let collided = true;
-  const xOnly = new Vector3(nextPosition.x, player.position.y, player.position.z);
-  const zOnly = new Vector3(player.position.x, player.position.y, nextPosition.z);
+  const fenceHit = collidingFencePiece(nextPosition.x, nextPosition.z);
+  const rockHit = collidingRock(nextPosition.x, nextPosition.z);
+  const currentGround = groundHeightAt(player.position.x, player.position.z);
+  const nextGround = groundHeightAt(nextPosition.x, nextPosition.z);
+  const horizontalDistance = Math.sqrt((movement.x * movement.x) + (movement.z * movement.z));
+  const slope = horizontalDistance > 0.0001 ? Math.abs(nextGround - currentGround) / horizontalDistance : 0;
+  const steepTerrainHit = !isInsideYard(nextPosition.x, nextPosition.z) && !isOnRoad(nextPosition.x) && slope > 0.72;
 
-  if (collidingFencePiece(xOnly.x, xOnly.z).index < 0) {
-    player.position.x = xOnly.x;
-    collided = false;
+  if (fenceHit.index < 0 && rockHit.index < 0 && !steepTerrainHit) {
+    nextPosition.y = nextGround;
+    player.position.copyFrom(nextPosition);
+    return -1;
   }
 
-  if (collidingFencePiece(zOnly.x, zOnly.z).index < 0) {
-    player.position.z = zOnly.z;
-    collided = false;
-  }
+  const bumpDirection = movement.lengthSquared() > 0.000001 ? movement.normalize() : new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
+  const maxImpactSpeed = playerSpeed * playerBoost;
+  const speedRatio = Math.min(1, Math.abs(impactSpeed) / maxImpactSpeed);
+  const bumpRatio = speedRatio <= 0.08 ? 0 : (speedRatio - 0.08) / 0.92;
+  player.position.subtractInPlace(bumpDirection.scale(0.1 * bumpRatio));
 
-  if (collided) {
-    const bumpDirection = movement.lengthSquared() > 0.000001 ? movement.normalize() : new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
-    player.position.subtractInPlace(bumpDirection.scale(0.12));
-  }
-
-  return collided ? hit.index : -1;
+  return fenceHit.index >= 0 ? fenceHit.index : -2;
 }
 
 function movePlayer(deltaSeconds: number) {
-  const useKeyboard = settings.inputMode === "auto" || settings.inputMode === "keyboard";
-  const useMouseSteering = settings.inputMode !== "keyboard" && settings.inputMode !== "touch" && mouseSteeringActive && document.hasFocus() && !cameraDrag.active;
+  const useKeyboard = settings.inputMode === "auto" || settings.inputMode === "keyboard" || settings.inputMode === "mouse";
+  const useMouseSteering = (settings.inputMode === "auto" || settings.inputMode === "mouse") && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraDrag.active;
   const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
   const controllerTurn = analogInput.controllerTurn;
   const touchTurn = analogInput.touchTurn;
@@ -1462,6 +1712,7 @@ function movePlayer(deltaSeconds: number) {
 
   if (Math.abs(driveSpeed) < 0.01) {
     driveSpeed = 0;
+    snapPlayerToGround();
     return;
   }
 
@@ -1470,13 +1721,20 @@ function movePlayer(deltaSeconds: number) {
 
   const nextPosition = player.position.add(direction);
 
-  const hitFenceIndex = moveWithinYard(nextPosition, direction);
+  const hitFenceIndex = moveWithinYard(nextPosition, direction, driveSpeed);
 
-  if (hitFenceIndex >= 0 && bumpCooldown <= 0) {
-    damageFencePiece(hitFenceIndex, driveSpeed);
+  if (hitFenceIndex !== -1) {
+    const impactSpeed = driveSpeed;
     driveSpeed = 0;
-    prototypeAudio.playWallBump(settings.wallBumpVolume);
-    bumpCooldown = 0.35;
+
+    if (bumpCooldown <= 0) {
+      if (hitFenceIndex >= 0) {
+        damageFencePiece(hitFenceIndex, impactSpeed);
+      }
+
+      prototypeAudio.playWallBump(settings.wallBumpVolume);
+      bumpCooldown = 0.35;
+    }
   }
 }
 
@@ -1660,11 +1918,13 @@ function shootSecretGun() {
   }
 
   shootCooldown = 0.22;
+  prototypeAudio.playGunShot(settings.gunShotVolume);
   const origin = player.position.add(new Vector3(Math.sin(playerYaw) * 0.8, 0, Math.cos(playerYaw) * 0.8));
   const direction = new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
   const range = 18;
   const shotWidth = 0.28;
   let changedGrass = false;
+  let grassFleckCount = 0;
 
   for (let distance = 0; distance <= range; distance += 0.45) {
     const x = origin.x + (direction.x * distance);
@@ -1690,6 +1950,11 @@ function shootSecretGun() {
           writeMatrix(longGrassMatrices, index, emptyMatrix());
           writeMatrix(cutGrassMatrices, index, matrixForBlade(index, true));
           changedGrass = true;
+
+          if (grassFleckCount < 28 && Math.random() < 0.065) {
+            spawnGunGrassFleck(grassX[index], grassZ[index], direction);
+            grassFleckCount += 1;
+          }
         }
       }
     }
@@ -1708,6 +1973,7 @@ function shootSecretGun() {
 
     if (distanceToShot(x, z, origin, direction, range) < 0.42) {
       mowDandelion(dandelion);
+      spawnGunImpactDust(x, z, 0.75);
     }
   }
 
@@ -1715,6 +1981,7 @@ function shootSecretGun() {
   for (const tulip of tulips) {
     if (!tulip.destroyed && distanceToShot(tulip.x, tulip.z, origin, direction, range) < 0.42) {
       destroyTulip(tulip);
+      spawnGunImpactDust(tulip.x, tulip.z, 0.9);
       hitTulip = true;
     }
   }
@@ -1723,7 +1990,11 @@ function shootSecretGun() {
     updateHud();
   }
 
-  shootFenceAlongRay(origin, direction, range);
+  const fenceHitDistance = shootFenceAlongRay(origin, direction, range);
+  const tracerLength = fenceHitDistance ?? range;
+  const impact = origin.add(direction.scale(tracerLength));
+  spawnGunTracer(origin, direction, tracerLength);
+  spawnGunImpactDust(impact.x, impact.z, fenceHitDistance === null ? 0.65 : 1.15);
 }
 
 function updateGrassMotion(timeSeconds: number) {
@@ -2196,6 +2467,15 @@ function updateFallingPetals(deltaSeconds: number) {
   }
 }
 
+function updateCloudShadows(timeSeconds: number) {
+  const broad = 0.5 + (Math.sin((timeSeconds * 0.035) + 0.8) * 0.5);
+  const detail = 0.5 + (Math.sin((timeSeconds * 0.083) - 1.7) * 0.5);
+  const cloud = Math.max(0, ((broad * 0.75) + (detail * 0.25)) - 0.42) / 0.58;
+  const shade = 1 - (cloud * 0.18);
+  sun.intensity = baseSunIntensity * shade;
+  sun.specular = baseSunSpecular.scale(1 - (cloud * 0.32));
+}
+
 function refreshGrassColors() {
   if (!longGrassColors || !cutGrassColors) {
     return;
@@ -2213,7 +2493,28 @@ function refreshGrassColors() {
 function refreshGroundColor() {
   groundMaterial.albedoColor = hexToColor3(settings.groundColor);
   groundMaterial.albedoTexture?.dispose();
-  groundMaterial.albedoTexture = createGroundTexture(scene);
+  groundMaterial.albedoTexture = createGrassyGroundTexture(scene);
+}
+
+function setTextureScale(texture: unknown, uScale: number, vScale: number, level?: number) {
+  if (!texture) {
+    return;
+  }
+
+  const tiledTexture = texture as { uScale: number; vScale: number; level?: number };
+  tiledTexture.uScale = uScale;
+  tiledTexture.vScale = vScale;
+
+  if (level !== undefined) {
+    tiledTexture.level = level;
+  }
+}
+
+function refreshTextureScales() {
+  setTextureScale(groundMaterial.albedoTexture, settings.grassyTextureScale, settings.grassyTextureScale);
+  setTextureScale(worldGroundMaterial.diffuseTexture, settings.dirtTextureUScale, settings.dirtTextureVScale);
+  setTextureScale(worldGroundMaterial.bumpTexture, settings.dirtTextureUScale, settings.dirtTextureVScale, settings.dirtNormalStrength);
+  setTextureScale(roadMaterial.diffuseTexture, settings.roadTextureUScale, settings.roadTextureVScale);
 }
 
 function hasTouchInput() {
@@ -2233,20 +2534,23 @@ function setInputMode(mode: InputMode) {
     inputModeControl.value = mode;
   }
 
-  if (quickInputModeEl.querySelector(`option[value="${mode}"]`)) {
-    quickInputModeEl.value = mode;
+  syncQuickInputSelection();
+}
+
+function syncQuickInputSelection() {
+  for (const button of quickInputModeEl.querySelectorAll<HTMLButtonElement>(".quick-input-button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === settings.inputMode));
   }
 }
 
 function syncQuickInputModes() {
-  const modes: Array<{ value: InputMode; label: string; available: boolean }> = [
-    { value: "auto", label: "Auto", available: true },
-    { value: "keyboard", label: "Keyboard", available: true },
-    { value: "controller", label: "Controller", available: hasControllerInput() },
-    { value: "touch", label: "Touchpad", available: hasTouchInput() },
+  const modes: Array<{ value: InputMode; icon: string; label: string; available: boolean }> = [
+    { value: "auto", icon: "A", label: "Auto input", available: true },
+    { value: "keyboard", icon: "K", label: "Keyboard", available: true },
+    { value: "mouse", icon: "M", label: "Mouse", available: matchMedia("(pointer: fine)").matches },
+    { value: "controller", icon: "G", label: "Controller", available: hasControllerInput() },
+    { value: "touch", icon: "T", label: "Touchpad", available: hasTouchInput() },
   ];
-
-  const currentValue = quickInputModeEl.value;
   quickInputModeEl.replaceChildren();
 
   for (const mode of modes) {
@@ -2254,18 +2558,25 @@ function syncQuickInputModes() {
       continue;
     }
 
-    const option = document.createElement("option");
-    option.value = mode.value;
-    option.textContent = mode.label;
-    quickInputModeEl.append(option);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "quick-input-button";
+    button.dataset.mode = mode.value;
+    button.textContent = mode.icon;
+    button.title = mode.label;
+    button.setAttribute("aria-label", mode.label);
+    button.addEventListener("click", () => {
+      setInputMode(mode.value);
+    });
+    quickInputModeEl.append(button);
   }
 
-  const nextValue = quickInputModeEl.querySelector(`option[value="${settings.inputMode}"]`)
-    ? settings.inputMode
-    : quickInputModeEl.querySelector(`option[value="${currentValue}"]`)
-      ? currentValue
-      : "auto";
-  quickInputModeEl.value = nextValue;
+  if (!quickInputModeEl.querySelector(`[data-mode="${settings.inputMode}"]`)) {
+    setInputMode("auto");
+    return;
+  }
+
+  syncQuickInputSelection();
 }
 
 function setupSettings() {
@@ -2294,6 +2605,7 @@ function setupSettings() {
     "reverseBeepVolume",
     "completionFanfareVolume",
     "completionLoopVolume",
+    "gunShotVolume",
     "grassRoughness",
     "grassMetallic",
     "grassClearCoat",
@@ -2303,6 +2615,12 @@ function setupSettings() {
     "hueVariance",
     "satVariance",
     "lightVariance",
+    "grassyTextureScale",
+    "dirtTextureUScale",
+    "dirtTextureVScale",
+    "dirtNormalStrength",
+    "roadTextureUScale",
+    "roadTextureVScale",
   ] as const;
   const colorControls = [
     "grassBaseColor",
@@ -2311,6 +2629,7 @@ function setupSettings() {
   ] as const;
   const checkboxControls = [
     "showFenceHealth",
+    "disableFenceCollision",
   ] as const;
   const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
   const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
@@ -2356,6 +2675,15 @@ function setupSettings() {
         "cutGrassClearCoat",
       ].includes(id)) {
         refreshGrassMaterial();
+      } else if ([
+        "grassyTextureScale",
+        "dirtTextureUScale",
+        "dirtTextureVScale",
+        "dirtNormalStrength",
+        "roadTextureUScale",
+        "roadTextureVScale",
+      ].includes(id)) {
+        refreshTextureScales();
       }
     });
   }
@@ -2399,9 +2727,6 @@ function setupSettings() {
   }
 
   syncQuickInputModes();
-  quickInputModeEl.addEventListener("input", () => {
-    setInputMode(quickInputModeEl.value as InputMode);
-  });
   window.addEventListener("gamepadconnected", syncQuickInputModes);
   window.addEventListener("gamepaddisconnected", syncQuickInputModes);
 
@@ -2415,15 +2740,17 @@ function setupSettings() {
 }
 
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
-ambientLight.intensity = 0.38;
-ambientLight.diffuse = new Color3(0.78, 0.9, 1);
-ambientLight.groundColor = new Color3(0.5, 0.78, 0.34);
+ambientLight.intensity = 0.42;
+ambientLight.diffuse = new Color3(0.66, 0.78, 1);
+ambientLight.groundColor = new Color3(0.34, 0.58, 0.26);
 
 const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.24), scene);
 sun.position = new Vector3(10, 15, -7);
-sun.intensity = 1.18;
-sun.diffuse = new Color3(1, 0.94, 0.78);
-sun.specular = new Color3(1, 0.96, 0.82);
+sun.intensity = 1.2;
+sun.diffuse = new Color3(1, 0.88, 0.62);
+sun.specular = new Color3(1, 0.88, 0.66);
+const baseSunIntensity = sun.intensity;
+const baseSunSpecular = sun.specular.clone();
 
 const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
@@ -2436,6 +2763,7 @@ camera.upperRadiusLimit = 24;
 
 createWorldTerrain(scene, worldGroundMaterial);
 createSimpleTrees();
+createSceneryRocks();
 
 createRoad(scene, roadMaterial, stripeMaterial);
 createNeighborhoodLots(scene, groundMaterial);
@@ -2455,6 +2783,7 @@ shadowGenerator.addShadowCaster(player);
 
 setupSettings();
 refreshGroundColor();
+refreshTextureScales();
 resetGame();
 
 fullscreenButtonEl.addEventListener("click", () => {
@@ -2486,6 +2815,7 @@ canvas.addEventListener("pointerenter", () => {
 
 canvas.addEventListener("pointerleave", () => {
   mouseSteeringActive = false;
+  mouseSteeringPointer = false;
   mouseTurn = 0;
 });
 
@@ -2500,7 +2830,9 @@ canvas.addEventListener("pointermove", (event) => {
     return;
   }
 
-  if (settings.inputMode === "touch") {
+  mouseSteeringPointer = event.pointerType === "mouse";
+
+  if (settings.inputMode === "touch" || event.pointerType !== "mouse") {
     mouseTurn = 0;
     return;
   }
@@ -2511,6 +2843,7 @@ canvas.addEventListener("pointermove", (event) => {
 
 canvas.addEventListener("pointerdown", (event) => {
   mouseSteeringActive = true;
+  mouseSteeringPointer = event.pointerType === "mouse";
 
   if (event.button === 0) {
     shootSecretGun();
@@ -2604,9 +2937,11 @@ engine.runRenderLoop(() => {
   updateGrassMotion(timeSeconds);
   updateWindWisps(deltaSeconds);
   updateWindMotes(deltaSeconds);
+  updateGunEffects(deltaSeconds);
   updateDandelions(deltaSeconds);
   updateFloatingSeeds(deltaSeconds);
   updateFallingPetals(deltaSeconds);
+  updateCloudShadows(timeSeconds);
   mowTouchedGrass();
   damageProtectedTulips();
   updateSecretGunPickup();
