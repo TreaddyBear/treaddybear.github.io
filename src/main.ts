@@ -244,10 +244,10 @@ type FenceDamageState = {
   pieceIndex: number;
   x: number;
   z: number;
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
+  axisX: number;
+  axisZ: number;
+  halfAlong: number;
+  halfAcross: number;
   health: number;
   broken: boolean;
 };
@@ -832,17 +832,18 @@ function nearestFenceSegment(x: number, z: number) {
 
 function createFenceDamageStates() {
   const states: FenceDamageState[] = [];
-  const plankWidth = 0.34;
-  const plankDepth = 0.08;
+  // Match the visible plank mesh exactly: width 0.34 runs along the fence,
+  // depth 0.08 runs across it (see createFencePlanks in world.ts).
+  const halfAlong = 0.34 / 2;
+  const halfAcross = 0.08 / 2;
 
   for (const [segmentIndex, segment] of getActiveMap().fenceSegments.entries()) {
     const dx = segment.end.x - segment.start.x;
     const dz = segment.end.z - segment.start.z;
     const length = Math.sqrt((dx * dx) + (dz * dz));
     const steps = Math.floor(length / 0.55);
-    const horizontal = Math.abs(dx) >= Math.abs(dz);
-    const halfX = horizontal ? plankWidth / 2 : plankDepth / 2;
-    const halfZ = horizontal ? plankDepth / 2 : plankWidth / 2;
+    const axisX = length > 0 ? dx / length : 1;
+    const axisZ = length > 0 ? dz / length : 0;
 
     for (let pieceIndex = 0; pieceIndex <= steps; pieceIndex += 1) {
       const t = steps === 0 ? 0 : pieceIndex / steps;
@@ -853,10 +854,10 @@ function createFenceDamageStates() {
         pieceIndex,
         x,
         z,
-        minX: x - halfX,
-        maxX: x + halfX,
-        minZ: z - halfZ,
-        maxZ: z + halfZ,
+        axisX,
+        axisZ,
+        halfAlong,
+        halfAcross,
         health: settings.fenceMaxHealth,
         broken: false,
       });
@@ -1172,12 +1173,47 @@ function updateGunEffects(deltaSeconds: number) {
   }
 }
 
+// 2D separating-axis test between two oriented boxes. Each box is its center,
+// a primary unit axis (uX,uZ), and half extents along that axis and its
+// perpendicular. Boxes overlap unless some axis separates their projections.
+function orientedBoxesOverlap(
+  aCx: number, aCz: number, aUx: number, aUz: number, aHalfU: number, aHalfV: number,
+  bCx: number, bCz: number, bUx: number, bUz: number, bHalfU: number, bHalfV: number,
+) {
+  const aVx = -aUz;
+  const aVz = aUx;
+  const bVx = -bUz;
+  const bVz = bUx;
+  const dx = bCx - aCx;
+  const dz = bCz - aCz;
+  const axes = [aUx, aUz, aVx, aVz, bUx, bUz, bVx, bVz];
+
+  for (let i = 0; i < axes.length; i += 2) {
+    const lx = axes[i];
+    const lz = axes[i + 1];
+    const centerDistance = Math.abs((dx * lx) + (dz * lz));
+    const aReach = (aHalfU * Math.abs((aUx * lx) + (aUz * lz))) + (aHalfV * Math.abs((aVx * lx) + (aVz * lz)));
+    const bReach = (bHalfU * Math.abs((bUx * lx) + (bUz * lz))) + (bHalfV * Math.abs((bVx * lx) + (bVz * lz)));
+
+    if (centerDistance > aReach + bReach) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function collidingFencePiece(x: number, z: number) {
   if (settings.disableFenceCollision) {
     return { index: -1, distance: Number.POSITIVE_INFINITY };
   }
 
-  const hitRadius = playerFenceRadius + 0.16;
+  // Mower oriented box, sized to the visible player mesh: local X (side) is the
+  // primary axis, local Z (forward) is the perpendicular.
+  const sideX = Math.cos(playerYaw);
+  const sideZ = -Math.sin(playerYaw);
+  const halfSide = player.scaling.x / 2;
+  const halfForward = player.scaling.z / 2;
   let hit = { index: -1, distance: Number.POSITIVE_INFINITY };
 
   for (let index = 0; index < fenceDamage.length; index += 1) {
@@ -1187,11 +1223,18 @@ function collidingFencePiece(x: number, z: number) {
       continue;
     }
 
+    if (!orientedBoxesOverlap(
+      x, z, sideX, sideZ, halfSide, halfForward,
+      piece.x, piece.z, piece.axisX, piece.axisZ, piece.halfAlong, piece.halfAcross,
+    )) {
+      continue;
+    }
+
     const dx = x - piece.x;
     const dz = z - piece.z;
     const distance = Math.sqrt((dx * dx) + (dz * dz));
 
-    if (distance < hitRadius && distance < hit.distance) {
+    if (distance < hit.distance) {
       hit = { index, distance };
     }
   }
