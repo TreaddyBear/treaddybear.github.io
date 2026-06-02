@@ -2796,8 +2796,8 @@ if (debugBiomeMaskOnly) {
   camera.alpha = -Math.PI / 2;
   camera.beta = 0.08;
   camera.lowerRadiusLimit = 20;
-  camera.upperRadiusLimit = 360;
-  camera.radius = 245;
+  camera.upperRadiusLimit = 480;
+  camera.radius = 355;
   camera.target = Vector3.Zero();
   for (const mesh of scene.meshes) {
     mesh.setEnabled(mesh.name === "world-terrain");

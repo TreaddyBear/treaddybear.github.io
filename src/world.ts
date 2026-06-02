@@ -110,12 +110,13 @@ function grassMaskValue(x: number, z: number, u: number, v: number) {
 }
 
 function biomeMaskNoise(x: number, z: number) {
-  const warpX = (valueNoise((x * 0.032) + 17.4, (z * 0.032) - 31.2) - 0.5) * 24;
-  const warpZ = (valueNoise((x * 0.029) - 42.7, (z * 0.029) + 8.9) - 0.5) * 24;
-  const wide = valueNoise(((x + warpX) * 0.038) + 9.5, ((z + warpZ) * 0.038) - 14.8);
-  const islands = valueNoise(((x - (warpZ * 0.45)) * 0.072) - 61.3, ((z + (warpX * 0.45)) * 0.072) + 23.1);
-  const detail = valueNoise((x * 0.135) + 101.5, (z * 0.135) - 77.4);
-  return Math.max(0, Math.min(1, (wide * 0.68) + (islands * 0.25) + (detail * 0.07)));
+  const warpX = (valueNoise((x * 0.026) + 17.4, (z * 0.026) - 31.2) - 0.5) * 34;
+  const warpZ = (valueNoise((x * 0.023) - 42.7, (z * 0.023) + 8.9) - 0.5) * 34;
+  const broad = valueNoise(((x + warpX) * 0.026) + 9.5, ((z + warpZ) * 0.026) - 14.8);
+  const middle = valueNoise(((x - (warpZ * 0.35)) * 0.072) - 61.3, ((z + (warpX * 0.35)) * 0.072) + 23.1);
+  const tight = valueNoise(((x + warpX) * 0.16) + 101.5, ((z + warpZ) * 0.16) - 77.4);
+  const pepper = valueNoise((x * 0.34) - 18.2, (z * 0.34) + 52.6);
+  return Math.max(0, Math.min(1, (broad * 0.46) + (middle * 0.31) + (tight * 0.16) + (pepper * 0.07)));
 }
 
 function biomeHomeAmount(x: number, z: number) {
@@ -125,14 +126,17 @@ function biomeHomeAmount(x: number, z: number) {
     return 1;
   }
 
-  if (distance >= 115) {
+  if (distance >= 135) {
     return 0;
   }
 
-  const transition = smoothstep01((distance - 10) / 105);
+  const transition = smoothstep01((distance - 10) / 125);
   const noise = biomeMaskNoise(x, z);
-  const threshold = 0.12 + (transition * 0.86);
-  const edgeSoftness = 0.012;
+  const borderNoise = valueNoise((x * 0.095) + 13.7, (z * 0.095) - 44.1);
+  const pocketNoise = valueNoise((x * 0.22) - 90.2, (z * 0.22) + 6.8);
+  const patchBreakup = ((borderNoise - 0.5) * 0.18) + ((pocketNoise - 0.5) * 0.08);
+  const threshold = 0.24 + (transition * 0.74) + patchBreakup;
+  const edgeSoftness = 0.036;
   return 1 - smoothstep01((threshold - noise + edgeSoftness) / (edgeSoftness * 2));
 }
 
