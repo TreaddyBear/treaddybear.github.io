@@ -277,6 +277,13 @@ export function createBiomeGroundMaterial(scene: Scene, grassScale = 20, dirtUSc
   return material;
 }
 
+export function updateBiomeGroundMaterialScale(material: Material, grassScale: number, dirtUScale: number, dirtVScale: number) {
+  if (material instanceof ShaderMaterial) {
+    material.setFloat("grassScale", grassScale);
+    material.setVector2("dirtScale", new Vector2(dirtUScale, dirtVScale));
+  }
+}
+
 function createGrassOverlayMask(scene: Scene) {
   const width = 1024;
   const height = 2048;

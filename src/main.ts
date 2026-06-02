@@ -41,7 +41,7 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateFollowCamera } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -2515,6 +2515,7 @@ function refreshTextureScales() {
   setTextureScale(worldGroundMaterial.diffuseTexture, settings.dirtTextureUScale, settings.dirtTextureVScale);
   setTextureScale(worldGroundMaterial.bumpTexture, settings.dirtTextureUScale, settings.dirtTextureVScale, settings.dirtNormalStrength);
   setTextureScale(roadMaterial.diffuseTexture, settings.roadTextureUScale, settings.roadTextureVScale);
+  updateBiomeGroundMaterialScale(biomeGroundMaterial, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 }
 
 function hasTouchInput() {
@@ -2761,7 +2762,8 @@ camera.detachControl();
 camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
-createWorldTerrain(scene, createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale));
+const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
+createWorldTerrain(scene, biomeGroundMaterial);
 createSimpleTrees();
 createSceneryRocks();
 
