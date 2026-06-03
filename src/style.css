@@ -210,6 +210,44 @@ body {
   display: block;
 }
 
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-auto-flow: row;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: #f7ffcf;
+  background: rgb(8 18 4 / 72%);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+#loading[hidden] {
+  display: none;
+}
+
+#loadingSpinner {
+  width: 54px;
+  height: 54px;
+  border: 6px solid rgb(247 255 207 / 22%);
+  border-top-color: #d8f5b0;
+  border-radius: 999px;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+#loadingText {
+  text-shadow: 0 2px 10px rgb(0 0 0 / 50%);
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 #celebration {
   position: fixed;
   inset: 0;

@@ -11,6 +11,10 @@ Changed during the same pass and believed working, but worth confirming hands-on
 - **Keyboard is the default input** when no controller or touch device is present (confirmed in preview: the K input chip is selected on load). A present controller or a genuine touch device still auto-selects at startup.
 - **Fence collision matches the visible boxes.** The mower collider is the visible mower box and each plank collider is the visible 0.34 x 0.08 plank, via an oriented-box (SAT) test, plus a push-out so turning against a wall nudges the mower away instead of wedging it. Grass cutting (the 0.42 cut circle) was deliberately left untouched.
 - **The completion card is reachable by every control scheme:** keyboard (Enter/Space advance, Esc close), gamepad (A/B), and mouse/touch click.
+- **Find-the-last-strands highlight.** When under 1% of the lawn is left and ~30s pass with nothing cut, the remaining blades gently pulse brighter so they are easy to locate (`updateRemainingHighlight` in `src/main.ts`).
+- **Loading overlay on Next Level.** Building the next lawn blocks for a beat (felt like a dead button on mobile); a spinner now shows while it generates (`#loading`, deferred regen in `goToNextLevel`).
+- **Mistakes meter hidden on flowerless maps.** The first level has nothing to mis-do, so the meter is hidden there (`syncMistakesVisibility`); fence hits remain non-punishing.
+- **Dandelion destruction bounces.** Popped heads and obliterated petals now bounce on the ground and linger before fading, instead of fading mid-air.
 
 ## Near-Term Polish
 

@@ -159,6 +159,11 @@ let lastCelebrationDismiss = false;
 // The concrete device currently pushed into analogInput. Starts as "auto" (a
 // value effectiveInputMode never returns) so the first resolve always applies.
 let lastAppliedInputMode: InputMode = "auto";
+// Seconds (performance.now based) of the last blade cut, and whether the
+// "find the last strands" highlight is currently pulsing.
+let lastMowSeconds = 0;
+let remainingHighlightActive = false;
+const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 const cameraDrag = {
   active: false,
   pointerId: -1,
@@ -231,6 +236,7 @@ type FallingPetal = {
   age: number;
   duration: number;
   velocity: Vector3;
+  settled: boolean;
 };
 type Tulip = {
   root: TransformNode;
@@ -718,6 +724,18 @@ function goToNextLevel() {
 
   if (mapControl) {
     mapControl.value = nextMap;
+  }
+
+  // Building the next lawn (30k blades + dirt mask) blocks for a beat, which on
+  // mobile looked like a dead button. Show a spinner and let it paint before the
+  // synchronous regen runs.
+  if (loadingEl) {
+    loadingEl.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      resetGame();
+      loadingEl.hidden = true;
+    }));
+    return;
   }
 
   resetGame();
@@ -1797,6 +1815,8 @@ function resetGame() {
   mistakeCount = 0;
   hasSecretGun = false;
   shootCooldown = 0;
+  lastMowSeconds = performance.now() / 1000;
+  remainingHighlightActive = false;
   secretGunRoot?.setEnabled(true);
   placeMediumGrass();
   placeWheatGrass();
@@ -1804,7 +1824,20 @@ function resetGame() {
   placeDandelions();
   placeTulips();
   mowTouchedGrass();
+  syncMistakesVisibility();
   updateHud();
+}
+
+// The mistakes meter only makes sense where mistakes are possible (maps with
+// protected flowers). On a plain mow-only map it is just confusing, so hide it.
+function syncMistakesVisibility() {
+  const show = getActiveMap().flowerBeds.length > 0;
+  mistakesEl.style.display = show ? "" : "none";
+  const meter = document.querySelector<HTMLDivElement>("#mistakeMeter");
+
+  if (meter) {
+    meter.style.display = show ? "" : "none";
+  }
 }
 
 function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: number) {
@@ -2024,6 +2057,7 @@ function mowTouchedGrass() {
   }
 
   if (mowedThisFrame) {
+    lastMowSeconds = performance.now() / 1000;
     grassCuttingAudioTimer = 0.16;
     longGrass.thinInstanceBufferUpdated("matrix");
     cutGrass.thinInstanceBufferUpdated("matrix");
@@ -2507,16 +2541,17 @@ function releaseYellowPetals(dandelion: Dandelion) {
     dandelion.detachedPieces.push(piece);
 
     const angle = Math.random() * Math.PI * 2;
-    const burst = 0.45 + (Math.random() * 0.65);
+    const burst = 0.6 + (Math.random() * 0.85);
     fallingPetals.push({
       mesh: piece,
       age: 0,
-      duration: 1.2 + (Math.random() * 0.9),
+      duration: 2.6 + (Math.random() * 1.4),
       velocity: new Vector3(
         Math.cos(angle) * burst + 0.2,
-        0.55 + (Math.random() * 0.5),
+        1.1 + (Math.random() * 0.7),
         Math.sin(angle) * burst,
       ),
+      settled: false,
     });
   }
 }
@@ -2583,16 +2618,24 @@ function updateWindMotes(deltaSeconds: number) {
 function updateDandelions(deltaSeconds: number) {
   for (const dandelion of dandelions) {
     if (dandelion.headFalling) {
-      dandelion.headVelocity.y -= 2.6 * deltaSeconds;
+      dandelion.headVelocity.y -= 4.4 * deltaSeconds;
       dandelion.head.position.addInPlace(dandelion.headVelocity.scale(deltaSeconds));
       dandelion.head.rotation.x += deltaSeconds * 2.1;
       dandelion.head.rotation.z += deltaSeconds * 1.4;
 
-      if (dandelion.head.position.y <= 0.08) {
+      if (dandelion.head.position.y <= 0.08 && dandelion.headVelocity.y < 0) {
         dandelion.head.position.y = 0.08;
-        dandelion.headVelocity.set(0, 0, 0);
-        dandelion.headFalling = false;
-        dandelion.headSettled = true;
+
+        if (dandelion.headVelocity.y < -0.6) {
+          // Bounce off the ground a few times before coming to rest.
+          dandelion.headVelocity.y = -dandelion.headVelocity.y * 0.42;
+          dandelion.headVelocity.x *= 0.55;
+          dandelion.headVelocity.z *= 0.55;
+        } else {
+          dandelion.headVelocity.set(0, 0, 0);
+          dandelion.headFalling = false;
+          dandelion.headSettled = true;
+        }
       }
     }
 
@@ -2629,26 +2672,79 @@ function updateFloatingSeeds(deltaSeconds: number) {
 }
 
 function updateFallingPetals(deltaSeconds: number) {
+  const groundY = 0.03;
+
   for (let i = fallingPetals.length - 1; i >= 0; i -= 1) {
     const petal = fallingPetals[i];
     petal.age += deltaSeconds;
-    petal.velocity.y -= 1.8 * deltaSeconds;
-    petal.velocity.x += 0.08 * deltaSeconds;
-    petal.mesh.position.addInPlace(petal.velocity.scale(deltaSeconds));
-    petal.mesh.rotation.y += deltaSeconds * 2.5;
-    petal.mesh.rotation.z += deltaSeconds * 1.7;
 
-    const t = petal.age / petal.duration;
-    const nearGround = Math.max(0, Math.min(1, petal.mesh.position.y / 0.35));
-    const material = petal.mesh.material;
-    if (material instanceof StandardMaterial) {
-      material.alpha = Math.max(0, (1 - t) * nearGround);
+    if (!petal.settled) {
+      petal.velocity.y -= 4.2 * deltaSeconds;
+      petal.mesh.position.addInPlace(petal.velocity.scale(deltaSeconds));
+      petal.mesh.rotation.y += deltaSeconds * 3.2;
+      petal.mesh.rotation.z += deltaSeconds * 2.1;
+
+      if (petal.mesh.position.y <= groundY && petal.velocity.y < 0) {
+        petal.mesh.position.y = groundY;
+
+        if (petal.velocity.y < -0.55) {
+          // Bounce: reflect upward with damping, scrub sideways speed.
+          petal.velocity.y = -petal.velocity.y * 0.45;
+          petal.velocity.x *= 0.6;
+          petal.velocity.z *= 0.6;
+        } else {
+          // Too slow to bounce again: settle on the ground, then fade.
+          petal.velocity.setAll(0);
+          petal.settled = true;
+        }
+      }
     }
 
-    if (t >= 1 || petal.mesh.position.y <= 0.02) {
+    // Stay fully visible while it pops and bounces; only fade over the last
+    // third of its life so it never vanishes mid-air.
+    const t = petal.age / petal.duration;
+    const material = petal.mesh.material;
+    if (material instanceof StandardMaterial) {
+      material.alpha = Math.max(0, Math.min(1, (1 - t) / 0.34));
+    }
+
+    if (t >= 1) {
       petal.mesh.dispose();
       fallingPetals.splice(i, 1);
     }
+  }
+}
+
+// When almost the whole lawn is cut and the player has gone a while without
+// finding the last blades, gently pulse the survivors so they are easy to spot.
+function updateRemainingHighlight(timeSeconds: number) {
+  const remaining = bladeCount - mowedCount;
+  const threshold = Math.max(1, Math.ceil(bladeCount * 0.01));
+  const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > 30;
+
+  if (shouldHighlight) {
+    const pulse = 0.5 + (0.5 * Math.sin(timeSeconds * 3.2));
+    const amount = 0.4 + (pulse * 0.45);
+
+    for (let i = 0; i < bladeCount; i += 1) {
+      if (isMowed[i]) {
+        continue;
+      }
+
+      const base = colorForBlade(i, false);
+      writeColor(longGrassColors, i, [
+        base[0] + ((1 - base[0]) * amount),
+        base[1] + ((1 - base[1]) * amount),
+        base[2] + ((0.55 - base[2]) * amount),
+        1,
+      ]);
+    }
+
+    longGrass.thinInstanceBufferUpdated("color");
+    remainingHighlightActive = true;
+  } else if (remainingHighlightActive) {
+    refreshGrassColors();
+    remainingHighlightActive = false;
   }
 }
 
@@ -3232,6 +3328,7 @@ engine.runRenderLoop(() => {
   updateFallingPetals(deltaSeconds);
   updateCloudShadows(timeSeconds);
   mowTouchedGrass();
+  updateRemainingHighlight(timeSeconds);
   damageProtectedTulips();
   updateSecretGunPickup();
   prototypeAudio.setCuttingActive(grassCuttingAudioTimer > 0);
