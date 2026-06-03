@@ -2,17 +2,11 @@
 
 This is the parking lot for ideas that came up during iteration but are not the current active task. Items here are not promises for the next commit; they are meant to keep good ideas from evaporating between context resets.
 
-## Known Broken (confirmed in play, needs fixing)
-
-These were observed broken/wrong in actual play during the input + fence-collision pass and are NOT fixed yet:
-
-- **Fence dirt is in the wrong place and uses the wrong approach.** The bare-soil margin under the fence is currently built as flat dirt-textured ground strips, one per fence segment (`createFence` in `src/world.ts`, marked `BROKEN` in code). In play the strips land in the wrong locations and read as scattered patches rather than a clean border under the fence. The intended approach is a texture swap painted into the ground layer (grass -> dirt) along the fence line, not separate mesh strips. This needs to be redone, not tuned. Tried twice this pass (raised brown box, then flat textured strip); both landed wrong.
-- **Clearance around the fence may still be too tight.** Even after widening the no-grass margin (`grassFenceFalloff` in `src/main.ts`, ~0.22m clear), the fence can still feel crowded / lacking room. Needs a visual pass, ideally together with the dirt-approach rewrite above.
-
 ## Believed Fixed This Pass (verify in real play)
 
 Changed during the same pass and believed working, but worth confirming hands-on:
 
+- **Fence dirt is now placed correctly via a texture swap.** The previous per-segment mesh strips landed rotated 90 degrees (verified top-down with grass hidden: each strip lanced into the yard instead of lying under its fence). Replaced with a single ground-level dirt overlay (`createFenceDirtOverlay` in `src/world.ts`) whose opacity is a high-resolution mask: opaque dirt within a noise-perturbed band of the fence *segments* (distance based, so orientation can't be wrong), fading to transparent over grass so the lawn shows through. Verified top-down, angled, and in normal play that the soil border now follows the whole fence with ragged, blended edges.
 - **Levels are completable again.** Grass that could not be placed clear of the fence margin or a flower bed used to be dropped there anyway, counted toward 100% but unreachable by the mower, making the level impossible to finish. Such blades are now retired (counted as already mowed and hidden), so every remaining cuttable blade is reachable. This was the cause of "a piece of grass too close to the fence I couldn't cut".
 - **Keyboard is the default input** when no controller or touch device is present (confirmed in preview: the K input chip is selected on load). A present controller or a genuine touch device still auto-selects at startup.
 - **Fence collision matches the visible boxes.** The mower collider is the visible mower box and each plank collider is the visible 0.34 x 0.08 plank, via an oriented-box (SAT) test, plus a push-out so turning against a wall nudges the mower away instead of wedging it. Grass cutting (the 0.42 cut circle) was deliberately left untouched.
@@ -42,6 +36,8 @@ Changed during the same pass and believed working, but worth confirming hands-on
 - Continue improving neighbor yards so grass density thins with distance, but still meets the main lawn without visible gaps.
 - Add real cloud shadows eventually. Current cloud shadow effect only modulates sun intensity/specular; a projected cloud texture would be better.
 - Explore small tiled ground textures and texture blending. Dirt has a normal map now; grassy/dirt mixing could use Perlin masks later.
+- Apply the same edge-randomization to ALL grass/dirt boundaries, not just the fence dirt. The fence dirt overlay now uses noise-wobbled, soft-alpha edges, but the world biome ground (`createBiomeGroundMaterial` in `src/world.ts`) still hard-thresholds its mask with `step(0.5, ...)`, so the biome grass/dirt line is crisper/simpler than the fence dirt. A final pass could soften and noise-up the biome boundary to match.
+- Fence clearance is one knob if it still feels tight: the no-grass margin is `grassFenceFalloff` in `src/main.ts` (~0.22m clear) and the dirt band half-width is `0.3` in `createFenceDirtOverlay`.
 - Keep art additions size-conscious. Prefer small tiled textures and compressed assets before adding multi-megabyte model packs.
 
 ## Game Design

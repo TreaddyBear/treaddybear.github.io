@@ -496,36 +496,115 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
   }
 }
 
+function distanceToSegment2D(x: number, z: number, ax: number, az: number, bx: number, bz: number) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const lengthSquared = (dx * dx) + (dz * dz);
+  const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (((x - ax) * dx) + ((z - az) * dz)) / lengthSquared));
+  const cx = ax + (dx * t);
+  const cz = az + (dz * t);
+  const ox = x - cx;
+  const oz = z - cz;
+  return Math.sqrt((ox * ox) + (oz * oz));
+}
+
+// A single ground-level overlay of the real dirt texture, made opaque only
+// within a noise-perturbed band of the fence *segments* (distance based, so it
+// is orientation-free and cannot land rotated), and transparent over grass so
+// the lawn shows through. This is the grass -> dirt texture swap, with
+// randomized, blended edges rather than straight strips.
+function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
+  let xMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  let zMin = Number.POSITIVE_INFINITY;
+  let zMax = Number.NEGATIVE_INFINITY;
+
+  for (const segment of segments) {
+    for (const point of [segment.start, segment.end]) {
+      xMin = Math.min(xMin, point.x);
+      xMax = Math.max(xMax, point.x);
+      zMin = Math.min(zMin, point.z);
+      zMax = Math.max(zMax, point.z);
+    }
+  }
+
+  const margin = 1.2;
+  xMin -= margin;
+  xMax += margin;
+  zMin -= margin;
+  zMax += margin;
+  const width = xMax - xMin;
+  const depth = zMax - zMin;
+
+  const texelsPerUnit = 28;
+  const maskWidth = Math.min(2048, Math.round(width * texelsPerUnit));
+  const maskHeight = Math.min(2048, Math.round(depth * texelsPerUnit));
+  const mask = new DynamicTexture("fenceDirtMask", { width: maskWidth, height: maskHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
+  mask.hasAlpha = true;
+  const context = mask.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(maskWidth, maskHeight);
+
+  for (let j = 0; j < maskHeight; j += 1) {
+    const worldZ = zMin + ((j / (maskHeight - 1)) * depth);
+
+    for (let i = 0; i < maskWidth; i += 1) {
+      const worldX = xMin + ((i / (maskWidth - 1)) * width);
+      let distance = Number.POSITIVE_INFINITY;
+
+      for (const segment of segments) {
+        distance = Math.min(distance, distanceToSegment2D(worldX, worldZ, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
+      }
+
+      // Wobble the band edge with two octaves of noise so the soil border reads
+      // as a natural ragged edge instead of a clean offset line.
+      const edge = (((valueNoise((worldX * 1.3) + 5, (worldZ * 1.3) - 9) - 0.5) * 0.17))
+        + (((valueNoise((worldX * 3.7) - 2, (worldZ * 3.7) + 4) - 0.5) * 0.08));
+      const band = 0.3 + edge;
+      const dirtAmount = 1 - smoothstep01((distance - band) / 0.22);
+      const index = ((j * maskWidth) + i) * 4;
+      image.data[index] = 255;
+      image.data[index + 1] = 255;
+      image.data[index + 2] = 255;
+      image.data[index + 3] = Math.round(dirtAmount * 255);
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  mask.update();
+  mask.wrapU = Texture.CLAMP_ADDRESSMODE;
+  mask.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  const dirtTexture = new Texture(dirtGroundTextureUrl, scene);
+  dirtTexture.uScale = width * 0.5;
+  dirtTexture.vScale = depth * 0.5;
+
+  const material = new StandardMaterial("fenceDirtMaterial", scene);
+  material.diffuseTexture = dirtTexture;
+  material.opacityTexture = mask;
+  material.specularColor = Color3.Black();
+  material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  material.backFaceCulling = false;
+
+  const overlay = MeshBuilder.CreateGround("fence-dirt-overlay", { width, height: depth }, scene);
+  overlay.position = new Vector3((xMin + xMax) / 2, -0.072, (zMin + zMax) / 2);
+  overlay.material = material;
+  overlay.isPickable = false;
+  overlay.receiveShadows = true;
+  return overlay;
+}
+
 export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {
   const root = new TransformNode("fence-root", scene);
-  // BROKEN: the fence dirt below renders in the wrong places in play. This
-  // per-segment flat-strip approach is also the wrong approach: the dirt margin
-  // should be a texture swap painted into the ground layer (grass -> dirt) along
-  // the fence, not separate mesh strips. Needs a rewrite, not a tweak. See
-  // BACKLOG.md "Known Broken".
-  const dirtTexture = new Texture(dirtGroundTextureUrl, scene);
-  dirtTexture.uScale = 5;
-  dirtTexture.vScale = 0.7;
-  const dirtMaterial = new StandardMaterial("fenceDirtMaterial", scene);
-  dirtMaterial.diffuseTexture = dirtTexture;
-  dirtMaterial.specularColor = Color3.Black();
 
   for (const [index, segment] of segments.entries()) {
     createFencePlanks(scene, fenceMaterial, index, segment.start, segment.end);
-
-    const dx = segment.end.x - segment.start.x;
-    const dz = segment.end.z - segment.start.z;
-    const length = Math.sqrt((dx * dx) + (dz * dz));
-    const dirt = MeshBuilder.CreateGround(`fence-dirt-${index}`, { width: length + 0.34, height: 0.82 }, scene);
-    dirt.position = new Vector3((segment.start.x + segment.end.x) / 2, -0.072, (segment.start.z + segment.end.z) / 2);
-    dirt.rotation.y = Math.atan2(dx, dz);
-    dirt.material = dirtMaterial;
-    dirt.receiveShadows = true;
 
     for (const position of [segment.start, segment.end]) {
       createFencePost(scene, fenceMaterial, new Vector3(position.x, 0.35, position.z), new Vector3(0.18, 0.7, 0.18));
     }
   }
+
+  createFenceDirtOverlay(scene, segments);
 
   for (const mesh of scene.meshes.filter((mesh) => mesh.name.startsWith("fence-"))) {
     mesh.parent = root;

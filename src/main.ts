@@ -99,6 +99,7 @@ let celebrationHideTimer = 0;
 
 if (!import.meta.env.PROD) {
   settingsEl.hidden = false;
+  (window as unknown as { __scene: Scene }).__scene = scene;
 }
 
 const keys = new Set<string>();
