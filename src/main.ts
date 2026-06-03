@@ -1330,12 +1330,24 @@ function collidingRock(x: number, z: number) {
   return hit;
 }
 
-function grassFenceFalloff(x: number, z: number) {
+// World distance to the nearest fence segment of the active map.
+function distanceToFence(x: number, z: number) {
   let distance = Number.POSITIVE_INFINITY;
 
   for (const segment of getActiveMap().fenceSegments) {
     distance = Math.min(distance, distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
   }
+
+  return distance;
+}
+
+// Roughly how far the dirt overlay reaches from the fence line. Any grass
+// (mowable or neighbor) must stay outside this so nothing grows on the bare
+// soil border under the fence.
+const fenceDirtClearRadius = 0.6;
+
+function grassFenceFalloff(x: number, z: number) {
+  const distance = distanceToFence(x, z);
 
   // Keep a clear dirt margin against the fence: no grass within ~0.22m of the
   // fence line, then ramp back to full grass over the next ~0.2m. Grass ends up
@@ -1487,7 +1499,7 @@ function placeMediumGrass() {
       const clump = Math.max(0, ((broadPatch * 0.78) + (tightPatch * 0.22) - 0.34) / 0.66);
       density = Math.min(0.98, Math.max(0, (nearFade * 0.5) + (farFade * clump * 0.62) + (nearFade * clump * 0.28)));
 
-      if (!isInsideYard(x, z) && !isOnRoad(x) && Math.random() < density) {
+      if (!isInsideYard(x, z) && !isOnRoad(x) && distanceToFence(x, z) > fenceDirtClearRadius && Math.random() < density) {
         placed = true;
         break;
       }
