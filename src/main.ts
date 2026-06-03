@@ -55,6 +55,7 @@ import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { distanceToSegment, distanceToShot } from "./utils/geometry";
 import { createMaterials } from "./materials";
+import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
@@ -216,6 +217,7 @@ scene.imageProcessingConfiguration.contrast = 1.12;
 //scene.fogColor = new Color3(0.62, 0.76, 0.9);
 //scene.fogDensity = 0.002;
 
+const materials = createMaterials(scene);
 const {
   playerMaterial,
   groundMaterial,
@@ -233,10 +235,7 @@ const {
   worldGroundMaterial,
   secretGunMaterial,
   secretGunGripMaterial,
-  treeTrunkMaterial,
-  treeLeafMaterials,
-  rockMaterials,
-} = createMaterials(scene);
+} = materials;
 
 function refreshGrassMaterial() {
   bladeMaterial.roughness = settings.grassRoughness;
@@ -405,86 +404,6 @@ function createHiddenGunProp() {
   sight.material = secretGunMaterial;
 
   return root;
-}
-
-function createTree(x: number, z: number, scale: number, leafMaterial: StandardMaterial) {
-  const root = new TransformNode("simple-tree", scene);
-  const groundY = terrainHeightAt(x, z) - 0.06;
-  root.position = new Vector3(x, groundY, z);
-  root.rotation.y = Math.random() * Math.PI * 2;
-
-  const trunkHeight = 1.4 * scale;
-  const trunk = MeshBuilder.CreateCylinder("tree-trunk", {
-    height: trunkHeight,
-    diameterTop: 0.24 * scale,
-    diameterBottom: 0.36 * scale,
-    tessellation: 7,
-  }, scene);
-  trunk.parent = root;
-  trunk.position.y = trunkHeight / 2;
-  trunk.rotation.x = (Math.random() - 0.5) * 0.08;
-  trunk.rotation.z = (Math.random() - 0.5) * 0.08;
-  trunk.material = treeTrunkMaterial;
-  shadowGenerator.addShadowCaster(trunk);
-
-  const lowerLeaves = MeshBuilder.CreateSphere("tree-leaves-lower", { diameter: 1.45 * scale, segments: 7 }, scene);
-  lowerLeaves.parent = root;
-  lowerLeaves.position = new Vector3(0.05 * scale, trunkHeight + (0.32 * scale), 0);
-  lowerLeaves.scaling = new Vector3(1.08, 0.86, 1);
-  lowerLeaves.material = leafMaterial;
-  shadowGenerator.addShadowCaster(lowerLeaves);
-
-  const crown = MeshBuilder.CreateSphere("tree-leaves-crown", { diameter: 1.08 * scale, segments: 7 }, scene);
-  crown.parent = root;
-  crown.position = new Vector3(-0.12 * scale, trunkHeight + (0.88 * scale), 0.06 * scale);
-  crown.scaling = new Vector3(0.92, 1.1, 0.95);
-  crown.material = leafMaterial;
-  shadowGenerator.addShadowCaster(crown);
-
-  return root;
-}
-
-function createSimpleTrees() {
-  const trees = [
-    { x: -52, z: -36, scale: 1.35, material: treeLeafMaterials[0] },
-    { x: -43, z: 42, scale: 0.9, material: treeLeafMaterials[1] },
-    { x: 34, z: -48, scale: 1.15, material: treeLeafMaterials[2] },
-    { x: 58, z: 31, scale: 1.65, material: treeLeafMaterials[0] },
-    { x: -22, z: 64, scale: 0.72, material: treeLeafMaterials[1] },
-  ];
-
-  for (const tree of trees) {
-    createTree(tree.x, tree.z, tree.scale, tree.material);
-  }
-}
-
-function createBoulder(x: number, z: number, scale: number, material: StandardMaterial) {
-  const rock = MeshBuilder.CreateSphere("boulder", { diameter: 1, segments: 7 }, scene);
-  const horizontalScaleX = scale * (1.1 + (Math.random() * 0.35));
-  const horizontalScaleZ = scale * (0.8 + (Math.random() * 0.4));
-  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.18 * scale), z);
-  rock.scaling = new Vector3(horizontalScaleX, scale * (0.42 + (Math.random() * 0.22)), horizontalScaleZ);
-  rock.rotation = new Vector3(Math.random() * 0.22, Math.random() * Math.PI, Math.random() * 0.28);
-  rock.material = material;
-  shadowGenerator.addShadowCaster(rock);
-  rockColliders.push({ x, z, radius: Math.max(horizontalScaleX, horizontalScaleZ) * 0.56 });
-  return rock;
-}
-
-function createSceneryRocks() {
-  const rocks = [
-    { x: -39, z: -25, scale: 1.3, material: rockMaterials[2] },
-    { x: -47, z: -31, scale: 0.72, material: rockMaterials[0] },
-    { x: 24, z: -28, scale: 0.9, material: rockMaterials[1] },
-    { x: 39, z: 19, scale: 1.6, material: rockMaterials[0] },
-    { x: -18, z: 42, scale: 0.8, material: rockMaterials[2] },
-    { x: 55, z: -54, scale: 1.9, material: rockMaterials[1] },
-    { x: -64, z: 18, scale: 1.2, material: rockMaterials[0] },
-  ];
-
-  for (const rock of rocks) {
-    createBoulder(rock.x, rock.z, rock.scale, rock.material);
-  }
 }
 
 function updateSecretGunPickup() {
@@ -2973,8 +2892,8 @@ updateCameraProjection();
 
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 createWorldTerrain(scene, biomeGroundMaterial);
-createSimpleTrees();
-createSceneryRocks();
+createSimpleTrees(scene, materials, shadowGenerator);
+rockColliders.push(...createSceneryRocks(scene, materials, shadowGenerator));
 
 createRoad(scene, roadMaterial, stripeMaterial);
 secretGunRoot = createHiddenGunProp();
