@@ -545,7 +545,10 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
   const image = context.createImageData(maskWidth, maskHeight);
 
   for (let j = 0; j < maskHeight; j += 1) {
-    const worldZ = zMin + ((j / (maskHeight - 1)) * depth);
+    // CreateGround flips V (v = 1 - row), so the ground samples row 0 of this
+    // mask at zMax, not zMin. Generate Z reversed to match, or the whole soil
+    // pattern mirrors along Z (notch dirt lands on the wrong side).
+    const worldZ = zMax - ((j / (maskHeight - 1)) * depth);
 
     for (let i = 0; i < maskWidth; i += 1) {
       const worldX = xMin + ((i / (maskWidth - 1)) * width);
