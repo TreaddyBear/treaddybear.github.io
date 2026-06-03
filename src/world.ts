@@ -18,6 +18,7 @@ import {
 import { lawnMaps } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { valueNoise } from "./utils/noise";
+import { distanceToSegment } from "./utils/geometry";
 import { createRoadFileTexture, createRoadStripeAtlasTexture, dirtGroundTextureUrl, grassyGroundTextureUrl } from "./textures";
 
 function smoothstep01(value: number) {
@@ -496,18 +497,6 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
   }
 }
 
-function distanceToSegment2D(x: number, z: number, ax: number, az: number, bx: number, bz: number) {
-  const dx = bx - ax;
-  const dz = bz - az;
-  const lengthSquared = (dx * dx) + (dz * dz);
-  const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (((x - ax) * dx) + ((z - az) * dz)) / lengthSquared));
-  const cx = ax + (dx * t);
-  const cz = az + (dz * t);
-  const ox = x - cx;
-  const oz = z - cz;
-  return Math.sqrt((ox * ox) + (oz * oz));
-}
-
 // A single ground-level overlay of the real dirt texture, made opaque only
 // within a noise-perturbed band of the fence *segments* (distance based, so it
 // is orientation-free and cannot land rotated), and transparent over grass so
@@ -555,7 +544,7 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
       let distance = Number.POSITIVE_INFINITY;
 
       for (const segment of segments) {
-        distance = Math.min(distance, distanceToSegment2D(worldX, worldZ, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
+        distance = Math.min(distance, distanceToSegment(worldX, worldZ, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
       }
 
       // Wobble the band edge with two octaves of noise so the soil border reads

@@ -37,10 +37,24 @@ import {
   yardSegments,
 } from "./config";
 import type { YardSegment } from "./config";
+import type {
+  Dandelion,
+  FallingPetal,
+  FenceDamageState,
+  FenceHealthLabel,
+  FloatingSeed,
+  GunParticle,
+  GunTracer,
+  RockCollider,
+  Tulip,
+  WindMote,
+  WindWisp,
+} from "./types";
 import { createDirtGroundTexture, createDirtNormalTexture, createGrassyGroundTexture } from "./textures";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { grassNoiseAt, randomHash } from "./utils/noise";
+import { distanceToSegment, distanceToShot } from "./utils/geometry";
 import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
@@ -194,107 +208,6 @@ const gunParticles: GunParticle[] = [];
 let fenceDamage: FenceDamageState[] = [];
 const fenceHealthLabels: FenceHealthLabel[] = [];
 const rockColliders: RockCollider[] = [];
-
-type WindWisp = {
-  mesh: Mesh;
-  material: StandardMaterial;
-  segment: YardSegment;
-  positions: Float32Array;
-  age: number;
-  duration: number;
-  length: number;
-  x: number;
-  z: number;
-  y: number;
-  bend: number;
-  hook: number;
-};
-type WindMote = {
-  mesh: Mesh;
-  material: StandardMaterial;
-  segment: YardSegment;
-  age: number;
-  duration: number;
-  x: number;
-  y: number;
-  z: number;
-  speed: number;
-  drift: number;
-  size: number;
-};
-type Dandelion = {
-  root: TransformNode;
-  stem: Mesh;
-  head: TransformNode;
-  pieces: Mesh[];
-  detachedPieces: Mesh[];
-  x: number;
-  z: number;
-  kind: "yellow" | "seed";
-  cut: boolean;
-  popped: boolean;
-  headVelocity: Vector3;
-  headFalling: boolean;
-  headSettled: boolean;
-};
-type FloatingSeed = {
-  mesh: Mesh;
-  age: number;
-  duration: number;
-  velocity: Vector3;
-  drift: number;
-};
-type FallingPetal = {
-  mesh: Mesh;
-  age: number;
-  duration: number;
-  velocity: Vector3;
-  settled: boolean;
-};
-type Tulip = {
-  root: TransformNode;
-  head: Mesh;
-  stem: Mesh;
-  x: number;
-  z: number;
-  destroyed: boolean;
-};
-type FenceDamageState = {
-  segmentIndex: number;
-  pieceIndex: number;
-  x: number;
-  z: number;
-  axisX: number;
-  axisZ: number;
-  halfAlong: number;
-  halfAcross: number;
-  health: number;
-  broken: boolean;
-};
-type FenceHealthLabel = {
-  mesh: Mesh;
-  material: StandardMaterial;
-  texture: DynamicTexture;
-};
-type RockCollider = {
-  x: number;
-  z: number;
-  radius: number;
-};
-type GunTracer = {
-  mesh: Mesh;
-  material: StandardMaterial;
-  age: number;
-  duration: number;
-};
-type GunParticle = {
-  mesh: Mesh;
-  material: StandardMaterial;
-  velocity: Vector3;
-  age: number;
-  duration: number;
-  spin: number;
-};
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
 scene.imageProcessingConfiguration.exposure = 1.08;
@@ -832,20 +745,6 @@ function groundHeightAt(x: number, z: number) {
 
 function snapPlayerToGround() {
   player.position.y = groundHeightAt(player.position.x, player.position.z);
-}
-
-function distanceToSegment(x: number, z: number, startX: number, startZ: number, endX: number, endZ: number) {
-  const dx = endX - startX;
-  const dz = endZ - startZ;
-  const lengthSquared = (dx * dx) + (dz * dz);
-  const t = lengthSquared === 0
-    ? 0
-    : Math.min(1, Math.max(0, (((x - startX) * dx) + ((z - startZ) * dz)) / lengthSquared));
-  const closestX = startX + (dx * t);
-  const closestZ = startZ + (dz * t);
-  const offsetX = x - closestX;
-  const offsetZ = z - closestZ;
-  return Math.sqrt((offsetX * offsetX) + (offsetZ * offsetZ));
 }
 
 function nearestFenceSegment(x: number, z: number) {
@@ -2130,18 +2029,6 @@ function mowDandelion(dandelion: Dandelion) {
     Math.cos(playerYaw) * 2.2,
   );
   dandelion.headFalling = true;
-}
-
-function distanceToShot(x: number, z: number, origin: Vector3, direction: Vector3, range: number) {
-  const dx = x - origin.x;
-  const dz = z - origin.z;
-  const forwardDistance = (dx * direction.x) + (dz * direction.z);
-
-  if (forwardDistance < 0 || forwardDistance > range) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  return Math.abs((dx * direction.z) - (dz * direction.x));
 }
 
 function shootSecretGun() {
