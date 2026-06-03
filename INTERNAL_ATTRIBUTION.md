@@ -15,38 +15,37 @@ Most current audio assets are expected to be CC0 or original/placeholder materia
 
 ## Audio Assets
 
-| Project File | Status | Source / Author | License | Modifications | Public Credit Needed | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `src/assets/lawn-mower.mp3` | Needs source | TODO | TODO | TODO | TODO | Looping mower engine bed. |
-| `src/assets/breeze.mp3` | Needs source | TODO | TODO | TODO | TODO | Directional wind loop; volume changes based on camera facing wind. |
-| `src/assets/breeze-ambient.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Constant wind bed. |
-| `src/assets/grass-cutting.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Loop active only while cutting grass. |
-| `src/assets/completion-fanfare.mp3` | Placeholder | Project placeholder | N/A | Empty placeholder file. | No | One-shot level-complete fanfare; replace with sourced/original audio. |
-| `src/assets/completion-loop.mp3` | Placeholder | Project placeholder | N/A | Empty placeholder file. | No | Looping level-complete chill bed; replace with sourced/original audio. |
-| `src/assets/reverse-beep.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Comical reverse loop. |
-| `src/assets/wall-bump.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | One-shot boundary bump. |
-| `src/assets/gun-shot.mp3` | Placeholder | Project placeholder | N/A | Empty placeholder file. | No | One-shot hidden gun sound; replace with sourced/original audio. |
-| `src/assets/flower-pop-1.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 28. |
-| `src/assets/flower-pop-2.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 24. |
-| `src/assets/flower-pop-3.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 20. |
-| `src/assets/flower-pop-4.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 16. |
-| `src/assets/flower-pop-5.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 8. |
-| `src/assets/flower-pop-6.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 3. |
-| `src/assets/flower-pop-7.mp3` | Placeholder / needs source | TODO | TODO | TODO | TODO | Yellow dandelion first-pop variant, weight 1. |
-| `src/assets/flower-pop.mp3` | Legacy placeholder | TODO | TODO | TODO | TODO | Old single-pop placeholder; no longer used by current audio code. Remove after confirming it is not needed. |
+| Project File                        | Status                     | Source / Author                                                                                                                                                  | License    | Modifications                       | Public Credit Needed | Notes                                                                  |
+| ----------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------- | -------------------- | ---------------------------------------------------------------------- |
+| `src/assets/lawn-mower.mp3`         | Edited, Added              | https://www.freesound.org/people/craigsmith/sounds/482756/                                                                                                       | CC0        | Yes                                 | No                   | Looping mower engine bed.                                              |
+| `src/assets/breeze.mp3`             | Edited, Added              | https://opengameart.org/content/mild-wind-background-noise (high pass)                                                                                           | CC0        | Yes                                 | No                   | Directional wind loop; volume changes based on camera facing wind.     |
+| `src/assets/breeze-ambient.mp3`     | Edited, Added              | https://opengameart.org/content/mild-wind-background-noise (low pass)                                                                                            | CC0        | Yes                                 | No                   | Constant wind bed.                                                     |
+| `src/assets/grass-cutting.mp3`      | Edited, Added              | https://www.freesound.org/people/mudflea2/sounds/704936/                                                                                                         | CC0        | Yes                                 | No                   | Loop active only while cutting grass.                                  |
+| `src/assets/completion-fanfare.mp3` | Placeholder                | Project placeholder                                                                                                                                              | N/A        | Empty placeholder file.             | No                   | One-shot level-complete fanfare; replace with sourced/original audio.  |
+| `src/assets/completion-loop.mp3`    | Placeholder                | Project placeholder                                                                                                                                              | N/A        | Empty placeholder file.             | No                   | Looping level-complete chill bed; replace with sourced/original audio. |
+| `src/assets/reverse-beep.mp3`       | Added                      | Created from scratch                                                                                                                                             | (C) 2026   | N/A                                 | N/A                  | Comical reverse loop.                                                  |
+| `src/assets/wall-bump.mp3`          | Edited, Added              | Combined from two separate resources: https://www.freesound.org/people/wwstudioswastaken/sounds/616295/ and https://www.freesound.org/people/j1987/sounds/79391/ | CC0 (both) | Combined, clipped, mixed two sounds | No                   | One-shot boundary bump.                                                |
+| `src/assets/gun-shot.mp3`           | Placeholder                | Project placeholder                                                                                                                                              | N/A        | Empty placeholder file.             | No                   | One-shot hidden gun sound; replace with sourced/original audio.        |
+| `src/assets/flower-pop-1.mp3`       | Placeholder / needs source | https://www.freesound.org/people/onehugeeye/sounds/511330/                                                                                                       | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 28.                         |
+| `src/assets/flower-pop-2.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 24.                         |
+| `src/assets/flower-pop-3.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 20.                         |
+| `src/assets/flower-pop-4.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 16.                         |
+| `src/assets/flower-pop-5.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 8.                          |
+| `src/assets/flower-pop-6.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 3.                          |
+| `src/assets/flower-pop-7.mp3`       | Placeholder / needs source | (see first)                                                                                                                                                      | CC0        | Cropped from composition            | No                   | Yellow dandelion first-pop variant, weight 1.                          |
 
 ## Generated Or Procedural Assets
 
-| Asset | Status | Source / Author | Notes |
-| --- | --- | --- | --- |
-| Ground texture | Procedural | Project code | Created at runtime in `src/textures.ts`; no external source. |
-| Road texture | Procedural | Project code | Created at runtime in `src/textures.ts`; no external source. |
-| Grass, dandelions, wind wisps | Procedural meshes | Project code | Built in Babylon.js from local mesh/material code. |
-| `src/assets/textures/ground-grassy.png` | Generated placeholder | Project code | Tiny replaceable tiled placeholder. |
-| `src/assets/textures/Dirt_02.png` | Needs source | TODO | CC0 dirt albedo texture supplied by project owner; preserve source texture as-is. |
-| `src/assets/textures/Dirt_02_Nrm.png` | Needs source | TODO | CC0 dirt normal map supplied by project owner; preserve source texture as-is. |
-| `src/assets/textures/road-pattern.png` | Generated placeholder | Project code | Tiny replaceable tiled placeholder based on the road-noise direction. |
-| `src/assets/textures/road-stripes-atlas.png` | Generated placeholder | Project code | 1024x1024 hand-editable atlas with eight vertical road-stripe paint variants. |
+| Asset                                        | Status                | Source / Author                                              | Notes                                                                         |
+| -------------------------------------------- | --------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Ground texture                               | Procedural            | Project code                                                 | Created at runtime in `src/textures.ts`; no external source.                  |
+| Road texture                                 | Procedural            | Project code                                                 | Created at runtime in `src/textures.ts`; no external source.                  |
+| Grass, dandelions, wind wisps                | Procedural meshes     | Project code                                                 | Built in Babylon.js from local mesh/material code.                            |
+| `src/assets/textures/ground-grassy.png`      | Edited, Added         | https://opengameart.org/content/synthetic-grass-texture-pack | CC0 grass albedo texture                                                      |
+| `src/assets/textures/Dirt_02.png`            | Added                 | https://opengameart.org/content/tileable-dirt-textures       | CC0 dirt albedo texture                                                       |
+| `src/assets/textures/Dirt_02_Nrm.png`        | Added                 | https://opengameart.org/content/tileable-dirt-textures       | CC0 dirt normal map                                                           |
+| `src/assets/textures/road-pattern.png`       | Generated placeholder | Project code                                                 | Tiny replaceable tiled placeholder based on the road-noise direction.         |
+| `src/assets/textures/road-stripes-atlas.png` | Edited/Created        | (C) 2026                                                     | 1024x1024 hand-editable atlas with eight vertical road-stripe paint variants. |
 
 ## Release Checklist
 
