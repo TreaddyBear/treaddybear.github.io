@@ -174,6 +174,9 @@ const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 // engine hardware-scaling level (1 = native; higher = render at lower res).
 let perfSampleTime = 0;
 let currentHardwareScale = 1;
+// True when the viewport is taller than wide (phones in portrait), which uses a
+// tighter, steeper, mower-forward camera framing. Landscape is left untouched.
+let isPortrait = false;
 const cameraDrag = {
   active: false,
   pointerId: -1,
@@ -2968,6 +2971,10 @@ function setupSettings() {
     "roadTextureUScale",
     "roadTextureVScale",
     "targetFps",
+    "portraitFov",
+    "portraitDistance",
+    "portraitHeight",
+    "portraitLookAhead",
   ] as const;
   const colorControls = [
     "grassBaseColor",
@@ -3034,6 +3041,8 @@ function setupSettings() {
         "roadTextureVScale",
       ].includes(id)) {
         refreshTextureScales();
+      } else if (id === "portraitFov") {
+        updateCameraProjection();
       }
     });
   }
@@ -3113,13 +3122,14 @@ camera.upperRadiusLimit = 24;
 
 function updateCameraProjection() {
   const aspect = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight());
+  isPortrait = aspect < 1;
 
-  if (aspect < 1) {
+  if (isPortrait) {
     // Portrait (phones): fix the HORIZONTAL field of view so left/right stay
-    // visible. With the default vertical-fixed FOV a tall, narrow window
-    // squeezes the horizontal view down to a slit, which felt claustrophobic.
+    // visible without the slit you get from a vertical-fixed FOV on a tall
+    // window. The framing (zoom/angle) is handled by the follow camera.
     camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED;
-    camera.fov = 1;
+    camera.fov = settings.portraitFov;
   } else {
     camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED;
     camera.fov = 0.8;
@@ -3381,7 +3391,10 @@ engine.runRenderLoop(() => {
   updateCameraInput(deltaSeconds);
   movePlayer(deltaSeconds);
   resolveFenceOverlap();
-  updateFollowCamera(camera, player.position, playerYaw, deltaSeconds, cameraOrbitYaw, cameraOrbitHeight, cameraDistanceOffset);
+  const baseDistance = isPortrait ? settings.portraitDistance : 7.2;
+  const baseHeight = isPortrait ? settings.portraitHeight : 4.2;
+  const lookAhead = isPortrait ? settings.portraitLookAhead : 0;
+  updateFollowCamera(camera, player.position, playerYaw, deltaSeconds, cameraOrbitYaw, cameraOrbitHeight, cameraDistanceOffset, baseDistance, baseHeight, lookAhead);
   updateGrassMotion(timeSeconds);
   updateWindWisps(deltaSeconds);
   updateWindMotes(deltaSeconds);

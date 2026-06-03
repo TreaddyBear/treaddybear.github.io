@@ -662,12 +662,19 @@ export function updateFollowCamera(
   orbitYaw = 0,
   orbitHeight = 0,
   distanceOffset = 0,
+  baseDistance = 7.2,
+  baseHeight = 4.2,
+  lookAhead = 0,
 ) {
   const cameraYaw = playerYaw + orbitYaw;
   const forward = new Vector3(Math.sin(cameraYaw), 0, Math.cos(cameraYaw));
-  const distance = 7.2 + distanceOffset;
-  const height = 4.2 + orbitHeight;
-  const desiredTarget = playerPosition.add(new Vector3(0, 0.35, 0));
+  const distance = baseDistance + distanceOffset;
+  const height = baseHeight + orbitHeight;
+  // lookAhead pushes the aim point in front of the mower so the mower itself
+  // drops toward the lower part of the frame and more of the lawn ahead shows.
+  const desiredTarget = playerPosition
+    .add(forward.scale(lookAhead))
+    .add(new Vector3(0, 0.35, 0));
   const desiredPosition = playerPosition
     .subtract(forward.scale(distance))
     .add(new Vector3(0, height, 0));

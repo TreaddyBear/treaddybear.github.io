@@ -63,6 +63,10 @@ export const settings = {
   roadTextureVScale: 48,
   dynamicResolution: false,
   targetFps: 58,
+  portraitFov: 0.78,
+  portraitDistance: 5.2,
+  portraitHeight: 5.2,
+  portraitLookAhead: 2.4,
   mapId: "main",
 };
 
