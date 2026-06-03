@@ -61,6 +61,8 @@ export const settings = {
   dirtNormalStrength: 0.42,
   roadTextureUScale: 1,
   roadTextureVScale: 48,
+  dynamicResolution: false,
+  targetFps: 58,
   mapId: "main",
 };
 

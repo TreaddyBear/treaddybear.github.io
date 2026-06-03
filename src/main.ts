@@ -1,5 +1,6 @@
 import {
   ArcRotateCamera,
+  Camera,
   Color3,
   DirectionalLight,
   DynamicTexture,
@@ -94,12 +95,17 @@ const analogInput = createInputController(touchPadElement, touchKnobElement);
 const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
 const prototypeAudio = createPrototypeAudio();
+const perfEl = document.querySelector<HTMLDivElement>("#perf");
 let celebrationShown = false;
 let celebrationHideTimer = 0;
 
 if (!import.meta.env.PROD) {
   settingsEl.hidden = false;
   (window as unknown as { __scene: Scene }).__scene = scene;
+
+  if (perfEl) {
+    perfEl.hidden = false;
+  }
 }
 
 const keys = new Set<string>();
@@ -164,6 +170,10 @@ let lastAppliedInputMode: InputMode = "auto";
 let lastMowSeconds = 0;
 let remainingHighlightActive = false;
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
+// Adaptive-resolution state: seconds since last FPS sample and the current
+// engine hardware-scaling level (1 = native; higher = render at lower res).
+let perfSampleTime = 0;
+let currentHardwareScale = 1;
 const cameraDrag = {
   active: false,
   pointerId: -1,
@@ -2957,6 +2967,7 @@ function setupSettings() {
     "dirtNormalStrength",
     "roadTextureUScale",
     "roadTextureVScale",
+    "targetFps",
   ] as const;
   const colorControls = [
     "grassBaseColor",
@@ -2968,6 +2979,7 @@ function setupSettings() {
   const checkboxControls = [
     "showFenceHealth",
     "disableFenceCollision",
+    "dynamicResolution",
   ] as const;
   const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
   const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
@@ -3099,6 +3111,54 @@ camera.detachControl();
 camera.lowerRadiusLimit = 8;
 camera.upperRadiusLimit = 24;
 
+function updateCameraProjection() {
+  const aspect = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight());
+
+  if (aspect < 1) {
+    // Portrait (phones): fix the HORIZONTAL field of view so left/right stay
+    // visible. With the default vertical-fixed FOV a tall, narrow window
+    // squeezes the horizontal view down to a slit, which felt claustrophobic.
+    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED;
+    camera.fov = 1;
+  } else {
+    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED;
+    camera.fov = 0.8;
+  }
+}
+
+// Optional adaptive resolution: sample FPS twice a second and nudge the engine
+// hardware-scaling level so a struggling device renders at lower resolution
+// (smoother) and a comfortable one returns toward native. Off by default.
+function updateAdaptiveResolution(deltaSeconds: number) {
+  perfSampleTime += deltaSeconds;
+
+  if (perfSampleTime < 0.5) {
+    return;
+  }
+
+  perfSampleTime = 0;
+  const fps = engine.getFps();
+
+  if (settings.dynamicResolution) {
+    if (fps < settings.targetFps - 4 && currentHardwareScale < 2.5) {
+      currentHardwareScale = Math.min(2.5, currentHardwareScale + 0.15);
+      engine.setHardwareScalingLevel(currentHardwareScale);
+    } else if (fps > settings.targetFps + 6 && currentHardwareScale > 1) {
+      currentHardwareScale = Math.max(1, currentHardwareScale - 0.1);
+      engine.setHardwareScalingLevel(currentHardwareScale);
+    }
+  } else if (currentHardwareScale !== 1) {
+    currentHardwareScale = 1;
+    engine.setHardwareScalingLevel(1);
+  }
+
+  if (perfEl && !perfEl.hidden) {
+    perfEl.textContent = `${Math.round(fps)} fps · ${currentHardwareScale.toFixed(2)}x`;
+  }
+}
+
+updateCameraProjection();
+
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 createWorldTerrain(scene, biomeGroundMaterial);
 createSimpleTrees();
@@ -3226,6 +3286,7 @@ canvas.addEventListener("wheel", (event) => {
 document.addEventListener("fullscreenchange", () => {
   fullscreenButtonEl.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
   engine.resize();
+  updateCameraProjection();
 });
 
 window.addEventListener("keydown", (event) => {
@@ -3276,6 +3337,7 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("resize", () => {
   engine.resize();
+  updateCameraProjection();
 });
 
 engine.runRenderLoop(() => {
@@ -3286,6 +3348,7 @@ engine.runRenderLoop(() => {
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   grassCuttingAudioTimer = Math.max(0, grassCuttingAudioTimer - deltaSeconds);
   shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
+  updateAdaptiveResolution(deltaSeconds);
   applyActiveInputMode();
 
   const gamepad = navigator.getGamepads().find(Boolean);

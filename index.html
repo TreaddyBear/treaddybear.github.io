@@ -13,6 +13,7 @@
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
       <div id="hudInputLabel">Input <div id="quickInputMode" role="group" aria-label="Input mode"></div></div>
       <button id="fullscreenButton" type="button">Full screen</button>
+      <div id="perf" hidden></div>
     </div>
     <div id="celebration" hidden>
       <div id="celebrationTitle">Perfect Cut</div>
@@ -43,6 +44,11 @@
         <label>Show fence health <input id="showFenceHealth" type="checkbox" /></label>
         <label>Disable fence collision <input id="disableFenceCollision" type="checkbox" /></label>
         <label>Max fence health <span data-value-for="fenceMaxHealth"></span><input id="fenceMaxHealth" type="range" min="1" max="1000" step="1" value="100" /></label>
+      </details>
+      <details class="settings-group">
+        <summary>Performance</summary>
+        <label>Dynamic resolution <input id="dynamicResolution" type="checkbox" /></label>
+        <label>Target FPS <span data-value-for="targetFps"></span><input id="targetFps" type="range" min="30" max="60" step="1" value="58" /></label>
       </details>
       <details class="settings-group">
         <summary>Grass Shape</summary>

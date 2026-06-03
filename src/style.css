@@ -210,6 +210,17 @@ body {
   display: block;
 }
 
+#perf {
+  margin-top: 8px;
+  color: #cfe9bf;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+#perf[hidden] {
+  display: none;
+}
+
 #loading {
   position: fixed;
   inset: 0;
