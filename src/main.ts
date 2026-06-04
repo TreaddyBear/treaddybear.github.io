@@ -43,7 +43,6 @@ import type {
   FenceHealthLabel,
   FloatingSeed,
   RockCollider,
-  Tulip,
   WindMote,
   WindWisp,
 } from "./types";
@@ -55,7 +54,8 @@ import { distanceToSegment, distanceToShot } from "./utils/geometry";
 import { createMaterials } from "./materials";
 import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { createGunEffects } from "./gunEffects";
-import { gridKey, isInsideSegments, randomPointInSegments, randomRectPoint } from "./utils/yard";
+import { createTulips } from "./tulips";
+import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
@@ -152,7 +152,6 @@ let cutTiltX: Float32Array;
 let cutTiltZ: Float32Array;
 let isMowed: boolean[];
 let mowedCount = 0;
-let mistakeCount = 0;
 let playerYaw = 0;
 let turnHoldSeconds = 0;
 let lastTurnDirection = 0;
@@ -202,7 +201,6 @@ const windMotes: WindMote[] = [];
 const dandelions: Dandelion[] = [];
 const floatingSeeds: FloatingSeed[] = [];
 const fallingPetals: FallingPetal[] = [];
-const tulips: Tulip[] = [];
 let fenceDamage: FenceDamageState[] = [];
 const fenceHealthLabels: FenceHealthLabel[] = [];
 const rockColliders: RockCollider[] = [];
@@ -224,8 +222,6 @@ const {
   dandelionYellowMaterial,
   dandelionSeedMaterial,
   dandelionCenterMaterial,
-  tulipStemMaterial,
-  tulipHeadMaterials,
   roadMaterial,
   stripeMaterial,
   fenceMaterial,
@@ -251,6 +247,7 @@ function refreshGrassMaterial() {
 refreshGrassMaterial();
 
 const gunEffects = createGunEffects(scene);
+const tulips = createTulips(scene, materials);
 
 function makeLongBladeMesh(name = "longGrass") {
   const mesh = new Mesh(name, scene);
@@ -429,8 +426,8 @@ function updateHud() {
     scoreEl.textContent += " | Armed";
   }
   meterFillEl.style.width = `${(mowedCount / bladeCount) * 100}%`;
-  mistakesEl.textContent = `Mistakes: ${mistakeCount}`;
-  mistakeMeterFillEl.style.width = `${Math.min(100, mistakeCount * 12)}%`;
+  mistakesEl.textContent = `Mistakes: ${tulips.mistakeCount}`;
+  mistakeMeterFillEl.style.width = `${Math.min(100, tulips.mistakeCount * 12)}%`;
 
   if (percentage === 100 && !celebrationShown) {
     showCelebration();
@@ -1310,85 +1307,6 @@ function placeDandelions() {
   }
 }
 
-function clearTulips() {
-  while (tulips.length > 0) {
-    const tulip = tulips.pop();
-    tulip?.root.dispose(false, true);
-  }
-}
-
-function createTulip(x: number, z: number) {
-  const root = new TransformNode("tulip", scene);
-  root.position = new Vector3(x, 0.09, z);
-
-  const stem = MeshBuilder.CreateCylinder("tulip-stem", { height: 0.58, diameter: 0.035, tessellation: 5 }, scene);
-  stem.parent = root;
-  stem.position.y = 0.29;
-  stem.rotation.x = (Math.random() - 0.5) * 0.18;
-  stem.rotation.z = (Math.random() - 0.5) * 0.18;
-  stem.material = tulipStemMaterial;
-
-  const head = MeshBuilder.CreateSphere("tulip-head", { diameter: 0.18, segments: 7 }, scene);
-  head.parent = root;
-  head.position.y = 0.64;
-  head.scaling = new Vector3(0.85, 1.25, 0.85);
-  head.material = tulipHeadMaterials[Math.floor(Math.random() * tulipHeadMaterials.length)];
-
-  const leaf = MeshBuilder.CreatePlane("tulip-leaf", { width: 0.16, height: 0.34 }, scene);
-  leaf.parent = root;
-  leaf.position = new Vector3(0.08, 0.28, 0);
-  leaf.rotation.z = -0.75;
-  leaf.material = tulipStemMaterial;
-
-  tulips.push({ root, head, stem, x, z, destroyed: false });
-}
-
-function placeTulips() {
-  clearTulips();
-
-  for (const bed of getActiveMap().flowerBeds) {
-    for (let i = 0; i < bed.count; i += 1) {
-      const { x, z } = randomRectPoint(bed);
-      createTulip(x, z);
-    }
-  }
-}
-
-function damageProtectedTulips() {
-  const radiusSquared = (mowerCutRadius * 1.35) ** 2;
-  let changed = false;
-
-  for (const tulip of tulips) {
-    if (tulip.destroyed) {
-      continue;
-    }
-
-    const dx = tulip.x - player.position.x;
-    const dz = tulip.z - player.position.z;
-
-    if ((dx * dx) + (dz * dz) > radiusSquared) {
-      continue;
-    }
-
-    destroyTulip(tulip);
-    changed = true;
-  }
-
-  if (changed) {
-    updateHud();
-  }
-}
-
-function destroyTulip(tulip: Tulip) {
-  tulip.destroyed = true;
-  tulip.head.scaling = new Vector3(1.4, 0.24, 1.4);
-  tulip.head.position.y = 0.12;
-  tulip.head.rotation.x = 1.4 + (Math.random() * 0.7);
-  tulip.stem.scaling.y = 0.18;
-  tulip.stem.position.y = 0.05;
-  mistakeCount += 1;
-}
-
 function resetGame() {
   applyActiveMap();
   resetCelebration();
@@ -1410,7 +1328,6 @@ function resetGame() {
   cameraAdjustmentCooldown = 0;
   cameraReturnDelay = 0;
   cameraReturning = false;
-  mistakeCount = 0;
   hasSecretGun = false;
   shootCooldown = 0;
   lastMowSeconds = performance.now() / 1000;
@@ -1420,7 +1337,7 @@ function resetGame() {
   placeWheatGrass();
   placeGrass();
   placeDandelions();
-  placeTulips();
+  tulips.place();
   mowTouchedGrass();
   syncMistakesVisibility();
   updateHud();
@@ -1782,16 +1699,12 @@ function shootSecretGun() {
     }
   }
 
-  let hitTulip = false;
-  for (const tulip of tulips) {
-    if (!tulip.destroyed && distanceToShot(tulip.x, tulip.z, origin, direction, range) < 0.42) {
-      destroyTulip(tulip);
-      gunEffects.spawnImpactDust(tulip.x, tulip.z, 0.9);
-      hitTulip = true;
-    }
+  const tulipHits = tulips.damageAlongShot(origin, direction, range);
+  for (const hit of tulipHits) {
+    gunEffects.spawnImpactDust(hit.x, hit.z, 0.9);
   }
 
-  if (hitTulip) {
+  if (tulipHits.length > 0) {
     updateHud();
   }
 
@@ -2978,7 +2891,11 @@ engine.runRenderLoop(() => {
   updateCloudShadows(timeSeconds);
   mowTouchedGrass();
   updateRemainingHighlight(timeSeconds);
-  damageProtectedTulips();
+
+  if (tulips.update(player.position.x, player.position.z)) {
+    updateHud();
+  }
+
   updateSecretGunPickup();
   prototypeAudio.setCuttingActive(grassCuttingAudioTimer > 0);
   prototypeAudio.setReversingActive(driveSpeed < -0.01 || currentThrottle < -0.05);
