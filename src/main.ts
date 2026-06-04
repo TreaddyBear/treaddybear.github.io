@@ -37,11 +37,8 @@ import {
 } from "./config";
 import type { YardSegment } from "./config";
 import type {
-  Dandelion,
-  FallingPetal,
   FenceDamageState,
   FenceHealthLabel,
-  FloatingSeed,
   RockCollider,
 } from "./types";
 import { createGrassyGroundTexture } from "./textures";
@@ -54,6 +51,7 @@ import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { createGunEffects } from "./gunEffects";
 import { createTulips } from "./tulips";
 import { createWind } from "./wind";
+import { createDandelions } from "./dandelions";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
@@ -195,9 +193,6 @@ const cameraDrag = {
   lastX: 0,
   lastY: 0,
 };
-const dandelions: Dandelion[] = [];
-const floatingSeeds: FloatingSeed[] = [];
-const fallingPetals: FallingPetal[] = [];
 let fenceDamage: FenceDamageState[] = [];
 const fenceHealthLabels: FenceHealthLabel[] = [];
 const rockColliders: RockCollider[] = [];
@@ -1204,106 +1199,6 @@ function placeWheatGrass() {
   wheatGrass.thinInstanceSetBuffer("color", wheatGrassColors, 4, true);
 }
 
-function clearDandelions() {
-  while (dandelions.length > 0) {
-    const dandelion = dandelions.pop();
-    dandelion?.root.dispose(false, true);
-  }
-}
-
-function createDandelion(x: number, z: number, kind: Dandelion["kind"]) {
-  const root = new TransformNode(`dandelion-${kind}`, scene);
-  root.position = new Vector3(x, 0, z);
-  const pieces: Mesh[] = [];
-
-  const height = kind === "seed" ? 0.95 : 0.72;
-  const stem = MeshBuilder.CreateCylinder(`${kind}-stem`, {
-    height,
-    diameter: 0.025,
-    tessellation: 5,
-  }, scene);
-  stem.parent = root;
-  stem.position.y = height / 2;
-  stem.rotation.x = (Math.random() - 0.5) * 0.25;
-  stem.rotation.z = (Math.random() - 0.5) * 0.25;
-  stem.material = dandelionStemMaterial;
-
-  const head = new TransformNode(`${kind}-head`, scene);
-  head.parent = root;
-  head.position.y = height + 0.02;
-
-  if (kind === "yellow") {
-    const center = MeshBuilder.CreateSphere("yellow-center", { diameter: 0.13, segments: 6 }, scene);
-    center.parent = head;
-    center.material = dandelionCenterMaterial;
-    pieces.push(center);
-
-    for (let i = 0; i < 22; i += 1) {
-      const angle = (i / 22) * Math.PI * 2;
-      const petal = MeshBuilder.CreateSphere(`yellow-petal-${i}`, { diameter: 0.085, segments: 5 }, scene);
-      petal.parent = head;
-      petal.position = new Vector3(Math.cos(angle) * 0.085, Math.sin(angle * 3) * 0.018, Math.sin(angle) * 0.085);
-      petal.scaling = new Vector3(1.6, 0.45, 0.65);
-      petal.rotation.y = -angle;
-      petal.material = dandelionYellowMaterial;
-      pieces.push(petal);
-    }
-  } else {
-    const core = MeshBuilder.CreateSphere("seed-core", { diameter: 0.06, segments: 5 }, scene);
-    core.parent = head;
-    core.material = dandelionStemMaterial;
-    pieces.push(core);
-
-    const fuzzCount = 120 + Math.floor(Math.random() * 58);
-
-    for (let i = 0; i < fuzzCount; i += 1) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos((Math.random() * 2) - 1);
-      const radius = 0.14 + (Math.random() * 0.07);
-      const fuzz = MeshBuilder.CreateSphere(`seed-fuzz-${i}`, { diameter: 0.018 + (Math.random() * 0.014), segments: 4 }, scene);
-      fuzz.parent = head;
-      fuzz.position = new Vector3(
-        Math.sin(phi) * Math.cos(theta) * radius,
-        Math.cos(phi) * radius,
-        Math.sin(phi) * Math.sin(theta) * radius,
-      );
-      fuzz.scaling = new Vector3(1, 0.55, 1);
-      fuzz.billboardMode = Mesh.BILLBOARDMODE_ALL;
-      fuzz.material = dandelionSeedMaterial;
-      pieces.push(fuzz);
-    }
-  }
-
-  dandelions.push({
-    root,
-    stem,
-    head,
-    pieces,
-    detachedPieces: [],
-    x,
-    z,
-    kind,
-    cut: false,
-    popped: false,
-    headVelocity: Vector3.Zero(),
-    headFalling: false,
-    headSettled: false,
-  });
-}
-
-function placeDandelions() {
-  clearDandelions();
-
-  for (let i = 0; i < getActiveMap().dandelionCount; i += 1) {
-    const { x, z } = randomYardPoint();
-    const kind = i % 3 === 0 ? "seed" : "yellow";
-
-    if ((x * x) + (z * z) > 1.4) {
-      createDandelion(x, z, kind);
-    }
-  }
-}
-
 function resetGame() {
   applyActiveMap();
   resetCelebration();
@@ -1333,7 +1228,7 @@ function resetGame() {
   placeMediumGrass();
   placeWheatGrass();
   placeGrass();
-  placeDandelions();
+  dandelions.place();
   tulips.place();
   mowTouchedGrass();
   syncMistakesVisibility();
@@ -1581,54 +1476,7 @@ function mowTouchedGrass() {
     }
   }
 
-  for (const dandelion of dandelions) {
-    const headPosition = dandelion.head.getAbsolutePosition();
-    const targetX = dandelion.kind === "yellow" && dandelion.cut ? headPosition.x : dandelion.x;
-    const targetZ = dandelion.kind === "yellow" && dandelion.cut ? headPosition.z : dandelion.z;
-    const dx = player.position.x - targetX;
-    const dz = player.position.z - targetZ;
-
-    if ((dx * dx) + (dz * dz) <= mowRadiusSquared) {
-      mowDandelion(dandelion);
-    }
-  }
-}
-
-function mowDandelion(dandelion: Dandelion) {
-  if (dandelion.kind === "yellow" && dandelion.cut && !dandelion.popped) {
-    if (dandelion.headSettled) {
-      releaseYellowPetals(dandelion);
-      wind.burstMowerClippings(true);
-    }
-
-    return;
-  }
-
-  if (dandelion.cut) {
-    return;
-  }
-
-  dandelion.cut = true;
-  dandelion.stem.scaling.y = 0.18;
-  dandelion.stem.position.y = 0.07;
-  wind.burstMowerClippings(dandelion.kind === "yellow");
-
-  if (dandelion.kind === "seed") {
-    releaseDandelionSeeds(dandelion, dandelion.pieces.length, true);
-    return;
-  }
-
-  prototypeAudio.playFlowerPop(settings.flowerPopVolume);
-
-  const worldPosition = dandelion.head.getAbsolutePosition().clone();
-  dandelion.head.parent = null;
-  dandelion.head.position.copyFrom(worldPosition);
-  dandelion.headVelocity = new Vector3(
-    Math.sin(playerYaw) * 2.2,
-    1.65,
-    Math.cos(playerYaw) * 2.2,
-  );
-  dandelion.headFalling = true;
+  dandelions.mowAt(player.position.x, player.position.z, mowRadiusSquared);
 }
 
 function shootSecretGun() {
@@ -1685,15 +1533,8 @@ function shootSecretGun() {
     updateHud();
   }
 
-  for (const dandelion of dandelions) {
-    const position = dandelion.head.getAbsolutePosition();
-    const x = dandelion.kind === "yellow" && dandelion.cut ? position.x : dandelion.x;
-    const z = dandelion.kind === "yellow" && dandelion.cut ? position.z : dandelion.z;
-
-    if (distanceToShot(x, z, origin, direction, range) < 0.42) {
-      mowDandelion(dandelion);
-      gunEffects.spawnImpactDust(x, z, 0.75);
-    }
+  for (const hit of dandelions.damageAlongShot(origin, direction, range)) {
+    gunEffects.spawnImpactDust(hit.x, hit.z, 0.75);
   }
 
   const tulipHits = tulips.damageAlongShot(origin, direction, range);
@@ -1763,185 +1604,6 @@ function updateGrassMotion(timeSeconds: number) {
 
   if (changed) {
     longGrass.thinInstanceBufferUpdated("matrix");
-  }
-}
-
-function releaseDandelionSeeds(dandelion: Dandelion, requestedCount = dandelion.pieces.length, hitPop = false) {
-  if (dandelion.popped || dandelion.kind !== "seed") {
-    return;
-  }
-
-  let released = 0;
-
-  for (const piece of dandelion.pieces) {
-    if (released >= requestedCount) {
-      break;
-    }
-
-    if (piece.name === "seed-core") {
-      continue;
-    }
-
-    if (!piece.isEnabled() || piece.parent === null) {
-      continue;
-    }
-
-    const worldPosition = piece.getAbsolutePosition().clone();
-    piece.parent = null;
-    piece.position.copyFrom(worldPosition);
-    piece.billboardMode = Mesh.BILLBOARDMODE_ALL;
-    piece.material = piece.material?.clone(`${piece.name}-floating-material`) ?? null;
-    dandelion.detachedPieces.push(piece);
-    floatingSeeds.push({
-      mesh: piece,
-      age: 0,
-      duration: 4 + (Math.random() * 3),
-      velocity: new Vector3(
-        0.45 + (Math.random() * 0.8),
-        (hitPop ? 0.28 : 0.04) + (Math.random() * (hitPop ? 0.34 : 0.16)),
-        (Math.random() - 0.5) * 0.42,
-      ),
-      drift: (Math.random() - 0.5) * 0.9,
-    });
-    released += 1;
-  }
-
-  const remaining = dandelion.pieces.some((piece) => piece.name !== "seed-core" && piece.isEnabled() && piece.parent !== null);
-  dandelion.popped = !remaining;
-
-  if (dandelion.popped) {
-    dandelion.head.setEnabled(false);
-  }
-}
-
-function releaseYellowPetals(dandelion: Dandelion) {
-  if (dandelion.popped || dandelion.kind !== "yellow") {
-    return;
-  }
-
-  dandelion.popped = true;
-
-  for (const piece of dandelion.pieces) {
-    const worldPosition = piece.getAbsolutePosition().clone();
-    piece.parent = null;
-    piece.position.copyFrom(worldPosition);
-    piece.billboardMode = Mesh.BILLBOARDMODE_ALL;
-    piece.material = piece.material?.clone(`${piece.name}-falling-material`) ?? null;
-    dandelion.detachedPieces.push(piece);
-
-    const angle = Math.random() * Math.PI * 2;
-    const burst = 0.6 + (Math.random() * 0.85);
-    fallingPetals.push({
-      mesh: piece,
-      age: 0,
-      duration: 2.6 + (Math.random() * 1.4),
-      velocity: new Vector3(
-        Math.cos(angle) * burst + 0.2,
-        1.1 + (Math.random() * 0.7),
-        Math.sin(angle) * burst,
-      ),
-      settled: false,
-    });
-  }
-}
-
-function updateDandelions(deltaSeconds: number) {
-  for (const dandelion of dandelions) {
-    if (dandelion.headFalling) {
-      dandelion.headVelocity.y -= 4.4 * deltaSeconds;
-      dandelion.head.position.addInPlace(dandelion.headVelocity.scale(deltaSeconds));
-      dandelion.head.rotation.x += deltaSeconds * 2.1;
-      dandelion.head.rotation.z += deltaSeconds * 1.4;
-
-      if (dandelion.head.position.y <= 0.08 && dandelion.headVelocity.y < 0) {
-        dandelion.head.position.y = 0.08;
-
-        if (dandelion.headVelocity.y < -0.6) {
-          // Bounce off the ground a few times before coming to rest.
-          dandelion.headVelocity.y = -dandelion.headVelocity.y * 0.42;
-          dandelion.headVelocity.x *= 0.55;
-          dandelion.headVelocity.z *= 0.55;
-        } else {
-          dandelion.headVelocity.set(0, 0, 0);
-          dandelion.headFalling = false;
-          dandelion.headSettled = true;
-        }
-      }
-    }
-
-    if (dandelion.cut || dandelion.kind !== "seed") {
-      continue;
-    }
-
-    if (Math.random() < settings.seedPopRate * deltaSeconds) {
-      releaseDandelionSeeds(dandelion, 1 + Math.floor(Math.random() * 5), false);
-    }
-  }
-}
-
-function updateFloatingSeeds(deltaSeconds: number) {
-  for (let i = floatingSeeds.length - 1; i >= 0; i -= 1) {
-    const seed = floatingSeeds[i];
-    seed.age += deltaSeconds;
-
-    const t = seed.age / seed.duration;
-    seed.mesh.position.addInPlace(seed.velocity.scale(deltaSeconds));
-    seed.mesh.position.z += Math.sin(t * Math.PI * 2) * seed.drift * deltaSeconds * 0.18;
-    seed.mesh.scaling.scaleInPlace(1 - (deltaSeconds * 0.08));
-
-    const material = seed.mesh.material;
-    if (material instanceof StandardMaterial) {
-      material.alpha = Math.max(0, (1 - t) * 0.8);
-    }
-
-    if (t >= 1) {
-      seed.mesh.dispose();
-      floatingSeeds.splice(i, 1);
-    }
-  }
-}
-
-function updateFallingPetals(deltaSeconds: number) {
-  const groundY = 0.03;
-
-  for (let i = fallingPetals.length - 1; i >= 0; i -= 1) {
-    const petal = fallingPetals[i];
-    petal.age += deltaSeconds;
-
-    if (!petal.settled) {
-      petal.velocity.y -= 4.2 * deltaSeconds;
-      petal.mesh.position.addInPlace(petal.velocity.scale(deltaSeconds));
-      petal.mesh.rotation.y += deltaSeconds * 3.2;
-      petal.mesh.rotation.z += deltaSeconds * 2.1;
-
-      if (petal.mesh.position.y <= groundY && petal.velocity.y < 0) {
-        petal.mesh.position.y = groundY;
-
-        if (petal.velocity.y < -0.55) {
-          // Bounce: reflect upward with damping, scrub sideways speed.
-          petal.velocity.y = -petal.velocity.y * 0.45;
-          petal.velocity.x *= 0.6;
-          petal.velocity.z *= 0.6;
-        } else {
-          // Too slow to bounce again: settle on the ground, then fade.
-          petal.velocity.setAll(0);
-          petal.settled = true;
-        }
-      }
-    }
-
-    // Stay fully visible while it pops and bounces; only fade over the last
-    // third of its life so it never vanishes mid-air.
-    const t = petal.age / petal.duration;
-    const material = petal.mesh.material;
-    if (material instanceof StandardMaterial) {
-      material.alpha = Math.max(0, Math.min(1, (1 - t) / 0.34));
-    }
-
-    if (t >= 1) {
-      petal.mesh.dispose();
-      fallingPetals.splice(i, 1);
-    }
   }
 }
 
@@ -2405,6 +2067,7 @@ player.scaling = new Vector3(0.85, 0.28, 1.1);
 shadowGenerator.addShadowCaster(player);
 
 const wind = createWind(scene, camera, player, () => playerYaw);
+const dandelions = createDandelions(scene, materials, wind, () => playerYaw, () => prototypeAudio.playFlowerPop(settings.flowerPopVolume));
 
 setupSettings();
 setInputMode(detectInitialInputMode());
@@ -2615,9 +2278,7 @@ engine.runRenderLoop(() => {
   updateGrassMotion(timeSeconds);
   wind.update(deltaSeconds);
   gunEffects.update(deltaSeconds);
-  updateDandelions(deltaSeconds);
-  updateFloatingSeeds(deltaSeconds);
-  updateFallingPetals(deltaSeconds);
+  dandelions.update(deltaSeconds);
   updateCloudShadows(timeSeconds);
   mowTouchedGrass();
   updateRemainingHighlight(timeSeconds);
