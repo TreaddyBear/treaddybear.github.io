@@ -627,7 +627,56 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
   return overlay;
 }
 
-export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {
+// The fence's shadow, drawn as actual dark geometry on the ground rather than
+// via the shadow map (the lawn ground uses a custom shader that can't receive a
+// real shadow map). One soft-dark strip per fence segment, sheared away from the
+// fence line by the sun's ground projection so it reads as the fence's shadow.
+function createFenceShadows(scene: Scene, segments: FenceSegment[], offsetX: number, offsetZ: number) {
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const normals: number[] = [];
+  const y = -0.03; // just above the dirt overlay (-0.072) and ground so it darkens them
+  let vi = 0;
+
+  for (const segment of segments) {
+    const ax = segment.start.x;
+    const az = segment.start.z;
+    const bx = segment.end.x;
+    const bz = segment.end.z;
+    positions.push(
+      ax, y, az,
+      bx, y, bz,
+      bx + offsetX, y, bz + offsetZ,
+      ax + offsetX, y, az + offsetZ,
+    );
+    indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+    normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
+    vi += 4;
+  }
+
+  const mesh = new Mesh("fence-shadow", scene);
+  const vertexData = new VertexData();
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.normals = normals;
+  vertexData.applyToMesh(mesh);
+
+  const material = new StandardMaterial("fence-shadow-material", scene);
+  material.diffuseColor = new Color3(0, 0, 0);
+  material.specularColor = new Color3(0, 0, 0);
+  material.emissiveColor = new Color3(0, 0, 0);
+  material.disableLighting = true;
+  material.alpha = 0.34;
+  material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  material.backFaceCulling = false;
+  mesh.material = material;
+  mesh.isPickable = false;
+  mesh.receiveShadows = false;
+  mesh.alphaIndex = 5; // draw after the (also transparent) dirt overlay
+  return mesh;
+}
+
+export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[], shadowOffsetX: number, shadowOffsetZ: number) {
   const root = new TransformNode("fence-root", scene);
 
   for (const [index, segment] of segments.entries()) {
@@ -639,6 +688,7 @@ export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segme
   }
 
   createFenceDirtOverlay(scene, segments);
+  createFenceShadows(scene, segments, shadowOffsetX, shadowOffsetZ);
 
   for (const mesh of scene.meshes.filter((mesh) => mesh.name.startsWith("fence-"))) {
     mesh.parent = root;

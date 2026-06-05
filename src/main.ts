@@ -296,13 +296,7 @@ function resetGame() {
   fenceRoot?.dispose(false, true);
   fence.disposeHealthLabels();
   mapGroundRoot = createMapGrounds(scene, getActiveMap(), groundMaterial);
-  fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments);
-  // Let the fence cast shadows too (planks + posts, not the flat dirt overlay).
-  for (const mesh of scene.meshes) {
-    if (mesh.name.includes("-plank-") || mesh.name.startsWith("fence-post")) {
-      shadowGenerator.addShadowCaster(mesh);
-    }
-  }
+  fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments, fenceShadowOffsetX, fenceShadowOffsetZ);
   fence.rebuildStates();
   fence.syncHealthLabels();
   player.position = getActiveMap().spawn.clone();
@@ -530,7 +524,7 @@ function refreshTextureScales() {
 // Softer, less dominant sky fill so the scene reads as direct sun rather than an
 // overcast wash. Keeping it lower-intensity raises contrast (a sunny look).
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
-ambientLight.intensity = 0.3;
+ambientLight.intensity = 0.24;
 ambientLight.diffuse = new Color3(0.72, 0.81, 0.95);
 ambientLight.groundColor = new Color3(0.42, 0.5, 0.24);
 
@@ -538,15 +532,24 @@ ambientLight.groundColor = new Color3(0.42, 0.5, 0.24);
 // instead of white.
 const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.24), scene);
 sun.position = new Vector3(10, 15, -7);
-sun.intensity = 1.62;
-sun.diffuse = new Color3(1, 0.9, 0.56);
-sun.specular = new Color3(1, 0.84, 0.5);
+sun.intensity = 1.72;
+sun.diffuse = new Color3(1, 0.95, 0.74);
+sun.specular = new Color3(1, 0.91, 0.66);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
 const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
 shadowGenerator.blurKernel = 16;
+
+// The lawn ground uses a custom shader that can't receive a real shadow map, so
+// the fence's shadow is drawn as dark ground geometry instead (createFenceShadows
+// in world.ts). This is where a fence plank's top projects onto the ground along
+// the sun, used to shear those shadow strips the right way and length.
+const sunDirection = new Vector3(-0.45, -1, 0.24).normalize();
+const fenceShadowReach = 0.55 / Math.abs(sunDirection.y); // ~plank+post top height
+const fenceShadowOffsetX = sunDirection.x * fenceShadowReach;
+const fenceShadowOffsetZ = sunDirection.z * fenceShadowReach;
 
 const cameraRig = createCameraRig({
   scene,

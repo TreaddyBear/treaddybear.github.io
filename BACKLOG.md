@@ -44,6 +44,26 @@ Changed during the same pass and believed working, but worth confirming hands-on
 - Fence clearance is one knob if it still feels tight: the no-grass margin is `grassFenceFalloff` in `src/main.ts` (~0.22m clear) and the dirt band half-width is `0.3` in `createFenceDirtOverlay`.
 - Keep art additions size-conscious. Prefer small tiled textures and compressed assets before adding multi-megabyte model packs.
 
+## Rendering: Grass LOD + Mow Height/Shadow Field (future, documented idea)
+
+The current lawn is per-blade thin instances (~30k today). That looks great up close but will not scale to *huge* lawns. The plan below is a two-pass system; we are only documenting it now, not building it, and today's level does not need to be built for it. Today's level can be considered the "final" / easy-mode mower (cuts perfectly in one pass).
+
+**Two passes for grass:**
+
+1. **Far LOD — a single "grass field" mesh.** One ground-conforming mesh covering the whole lawn that *reads* as full-height grass via an exaggerated normal map and/or some baked surface-level deviation (vertex displacement), so it looks like a field of grass without millions of blades. Where the lawn has been **mowed**, the same mesh is **lower** and smoother (less deviation / a calmer normal map). This is cheap and scales to any lawn size.
+2. **Near detail — the individual blades we have today.** The existing thin-instance blades (budget ~10k at a time on most current hardware) render only near the camera and **cross-fade/blend** into the far field mesh as the camera pulls away. Close up you get real blades; far away you get the field mesh; the transition is a distance-based blend.
+
+**The shared data: a mow-state field.** Both passes (and shadows, below) are driven by a single data structure — a grid/texture storing per-cell mow state (tall vs. short today; partial states later), updated as the mower drives over it. This is the source of truth that:
+- sets the far mesh's height/normal-strength per region,
+- gates which near blades are present/cut,
+- and feeds shadows.
+
+We will need a generator that produces/updates this field from where the mower has been (essentially a paint-as-you-mow heightmap).
+
+**Shadows from the same field.** The tall vs. short field can also drive shadows: **tall** (unmowed) areas cast a shadow, **mowed/low** areas do not. This could be done only near the camera for performance (and is a much better answer to "we need more shadow" than spreading one shadow map over the whole world). It ties grass height directly to shadow, for free, off the same data.
+
+**Designed to grow into difficulty:** later we want **partial-mow states** and **worse mowers** — slower ones, or ones that do not cut cleanly and need multiple passes. So the field should eventually support **fractional height** (e.g. half-mown), with matching fractional shadow. When we build it, pick a height/shadow representation that looks good and stays performant at partial states. (Details are a conversation for later; this entry just preserves the plan.)
+
 ## Game Design
 
 - Build more maps and make map selection feel like a real level flow, not just a dev setting.

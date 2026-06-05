@@ -237,126 +237,6 @@ function buildBoulderGeometry(scene: Scene, method: RockMethod) {
   return { positions, indices };
 }
 
-// Moss as a rounded, conforming cushion rather than per-face flecks: each patch
-// grows over an AREA of the rock (several faces), bulging up in the middle and
-// tapering to a thin rounded rim, wrapping over the rock's edges because every
-// moss vertex is anchored to a rock vertex and pushed out along the (smooth)
-// surface normal. Built from the rock's pre-flat-shade SHARED geometry so the
-// cushion is continuous, then smooth-shaded for a soft look. Takes the shared
-// positions/indices (local space) since the rock mesh itself is flat-shaded.
-function addMoss(scene: Scene, rock: Mesh, rockPositions: number[], rockIndices: number[], material: StandardMaterial) {
-  const vertexCount = rockPositions.length / 3;
-  const smoothNormals: number[] = [];
-  VertexData.ComputeNormals(rockPositions, rockIndices, smoothNormals);
-
-  // Seed a few patches on the upper/side surfaces.
-  const seeds: { x: number; y: number; z: number; radius: number; height: number }[] = [];
-  const seedTarget = 2 + Math.floor(Math.random() * 2); // 2-3 cushions
-  for (let attempt = 0; attempt < 40 && seeds.length < seedTarget; attempt += 1) {
-    const v = Math.floor(Math.random() * vertexCount);
-    if (smoothNormals[(v * 3) + 1] < 0.15) {
-      continue; // not on undersides
-    }
-    seeds.push({
-      x: rockPositions[v * 3],
-      y: rockPositions[(v * 3) + 1],
-      z: rockPositions[(v * 3) + 2],
-      radius: 0.26 + (Math.random() * 0.18),
-      height: 0.06 + (Math.random() * 0.05),
-    });
-  }
-
-  if (seeds.length === 0) {
-    return null;
-  }
-
-  // Per rock vertex: the tallest dome over it from any seed. dome(d) =
-  // height * sqrt(1 - (d/R)^2) — round-topped, tapering to zero at radius R.
-  const thickness = new Float32Array(vertexCount);
-  const covered: boolean[] = new Array(vertexCount).fill(false);
-  for (let v = 0; v < vertexCount; v += 1) {
-    const px = rockPositions[v * 3];
-    const py = rockPositions[(v * 3) + 1];
-    const pz = rockPositions[(v * 3) + 2];
-    let best = 0;
-
-    for (const seed of seeds) {
-      const dx = px - seed.x;
-      const dy = py - seed.y;
-      const dz = pz - seed.z;
-      const d = Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
-      if (d < seed.radius) {
-        const dome = seed.height * Math.sqrt(1 - ((d / seed.radius) * (d / seed.radius)));
-        best = Math.max(best, dome);
-      }
-    }
-
-    if (best > 0) {
-      covered[v] = true;
-      thickness[v] = best;
-    }
-  }
-
-  // A face joins the moss if any vertex is covered. Covered vertices ride the
-  // dome; the skirt vertices just outside sit a hair above the rock so the rim
-  // rounds down onto the surface (a minimum-radius edge) instead of a cliff.
-  const skirt = 0.01;
-  const remap = new Map<number, number>();
-  const mossPositions: number[] = [];
-  const mossColors: number[] = [];
-  const mossIndices: number[] = [];
-
-  const mossVertex = (v: number) => {
-    let m = remap.get(v);
-    if (m === undefined) {
-      const lift = (covered[v] ? thickness[v] : 0) + skirt;
-      m = mossPositions.length / 3;
-      mossPositions.push(
-        rockPositions[v * 3] + (smoothNormals[v * 3] * lift),
-        rockPositions[(v * 3) + 1] + (smoothNormals[(v * 3) + 1] * lift),
-        rockPositions[(v * 3) + 2] + (smoothNormals[(v * 3) + 2] * lift),
-      );
-      const shade = 0.45 + (Math.random() * 0.8); // strong lightness noise
-      const warm = (Math.random() - 0.5) * 0.07;
-      mossColors.push(
-        Math.min(1, (0.21 + warm) * shade),
-        Math.min(1, 0.5 * shade),
-        Math.min(1, (0.13 + warm) * shade),
-        1,
-      );
-      remap.set(v, m);
-    }
-    return m;
-  };
-
-  for (let f = 0; f < rockIndices.length; f += 3) {
-    const a = rockIndices[f];
-    const b = rockIndices[f + 1];
-    const c = rockIndices[f + 2];
-    if (!covered[a] && !covered[b] && !covered[c]) {
-      continue;
-    }
-    mossIndices.push(mossVertex(a), mossVertex(b), mossVertex(c));
-  }
-
-  if (mossIndices.length === 0) {
-    return null;
-  }
-
-  const mossNormals: number[] = [];
-  VertexData.ComputeNormals(mossPositions, mossIndices, mossNormals);
-  const moss = new Mesh("boulder-moss", scene);
-  const data = new VertexData();
-  data.positions = mossPositions;
-  data.indices = mossIndices;
-  data.normals = mossNormals;
-  data.colors = mossColors;
-  data.applyToMesh(moss);
-  moss.material = material;
-  moss.parent = rock;
-  return moss;
-}
-
 function createBoulder(
   scene: Scene,
   shadowGenerator: ShadowGenerator,
@@ -366,7 +246,6 @@ function createBoulder(
   z: number,
   scale: number,
   method: RockMethod = "A",
-  mossMaterial?: StandardMaterial,
 ) {
   const { positions, indices } = buildBoulderGeometry(scene, method);
   const normals: number[] = [];
@@ -391,46 +270,26 @@ function createBoulder(
   rock.material = material;
   shadowGenerator.addShadowCaster(rock);
 
-  if (mossMaterial) {
-    const moss = addMoss(scene, rock, positions, indices, mossMaterial);
-    if (moss) {
-      shadowGenerator.addShadowCaster(moss);
-    }
-  }
-
   colliders.push({ x, z, radius: Math.max(scaleX, scaleZ) * 0.5 });
 }
 
 export function createSceneryRocks(scene: Scene, materials: Materials, shadowGenerator: ShadowGenerator): RockCollider[] {
   const colliders: RockCollider[] = [];
 
-  // Moss material: white base so the per-vertex green shades show through.
-  const mossMaterial = new StandardMaterial("mossMaterial", scene);
-  mossMaterial.diffuseColor = new Color3(1, 1, 1);
-  mossMaterial.specularColor = new Color3(0.04, 0.05, 0.03);
-
-  const rocks = [
-    { x: -39, z: -25, scale: 1.3, material: materials.rockMaterials[2] },
-    { x: -47, z: -31, scale: 0.72, material: materials.rockMaterials[0] },
-    { x: 24, z: -28, scale: 0.9, material: materials.rockMaterials[1] },
-    { x: 39, z: 19, scale: 1.6, material: materials.rockMaterials[0] },
-    { x: -18, z: 42, scale: 0.8, material: materials.rockMaterials[2] },
-    { x: 55, z: -54, scale: 1.9, material: materials.rockMaterials[1] },
-    { x: -64, z: 18, scale: 1.2, material: materials.rockMaterials[0] },
+  // The shaping methods all looked good, so the scenery mixes them for variety.
+  const rocks: { x: number; z: number; scale: number; material: StandardMaterial; method: RockMethod }[] = [
+    { x: -39, z: -25, scale: 1.3, material: materials.rockMaterials[2], method: "A" },
+    { x: -47, z: -31, scale: 0.72, material: materials.rockMaterials[0], method: "C" },
+    { x: 24, z: -28, scale: 0.9, material: materials.rockMaterials[1], method: "B" },
+    { x: 39, z: 19, scale: 1.6, material: materials.rockMaterials[0], method: "C" },
+    { x: -18, z: 42, scale: 0.8, material: materials.rockMaterials[2], method: "A" },
+    { x: 55, z: -54, scale: 1.9, material: materials.rockMaterials[1], method: "C" },
+    { x: -64, z: 18, scale: 1.2, material: materials.rockMaterials[0], method: "B" },
   ];
 
   for (const rock of rocks) {
-    createBoulder(scene, shadowGenerator, colliders, rock.material, rock.x, rock.z, rock.scale);
+    createBoulder(scene, shadowGenerator, colliders, rock.material, rock.x, rock.z, rock.scale, rock.method);
   }
-
-  // TEMP comparison row in the open part of the main-map yard, just ahead of the
-  // spawn (player looks +z), so all four are visible on load. Left -> right:
-  // A, B, C, and A-with-moss. Remove once a method is chosen.
-  const cmpMaterial = materials.rockMaterials[0];
-  createBoulder(scene, shadowGenerator, colliders, cmpMaterial, -6, 1.2, 1.0, "A");
-  createBoulder(scene, shadowGenerator, colliders, cmpMaterial, -2, 1.2, 1.0, "B");
-  createBoulder(scene, shadowGenerator, colliders, cmpMaterial, 2, 1.2, 1.0, "C");
-  createBoulder(scene, shadowGenerator, colliders, cmpMaterial, 6, 1.2, 1.0, "A", mossMaterial);
 
   return colliders;
 }
