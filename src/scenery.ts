@@ -124,21 +124,44 @@ function createBoulder(
   z: number,
   scale: number,
 ) {
-  // Low-poly faceted boulder with a flattened base so it sits, rather than a
-  // smooth ball half-buried in the ground.
-  const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 2, updatable: true }, scene);
+  // Faceted boulder carved out of a single icosphere. It MUST be built smooth
+  // (flat: false) so the vertices are shared: that way nudging each vertex moves
+  // every facet that touches it together and the rock stays one watertight lump.
+  // (The default flat icosphere has unshared per-face vertices, so jittering
+  // them tears the facets apart into a pile of loose triangles.) We flat-shade
+  // at the end to get the angular look back.
+  const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 2, flat: false, updatable: true }, scene);
   const positions = rock.getVerticesData(VertexBuffer.PositionKind);
 
   if (positions) {
-    for (let i = 0; i < positions.length; i += 3) {
-      const jitter = 0.86 + (Math.random() * 0.3);
-      positions[i] *= jitter;
-      positions[i + 2] *= jitter;
-      positions[i + 1] *= 0.6 * (0.9 + (Math.random() * 0.22));
+    // A few large lumps give the silhouette some big planar faces instead of an
+    // even potato; the per-vertex jitter on top roughens it without tearing.
+    const lumpA = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+    const lumpB = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
 
-      // Flatten everything below a low cut so the underside is a broad base.
-      if (positions[i + 1] < -0.14) {
-        positions[i + 1] = -0.14;
+    for (let i = 0; i < positions.length; i += 3) {
+      const px = positions[i];
+      const py = positions[i + 1];
+      const pz = positions[i + 2];
+      const len = Math.hypot(px, py, pz) || 1;
+      const nx = px / len;
+      const ny = py / len;
+      const nz = pz / len;
+
+      // Radial displacement (stays cohesive because it moves along the normal):
+      // two low-frequency lumps plus fine vertex noise.
+      const lump = ((nx * lumpA.x) + (ny * lumpA.y) + (nz * lumpA.z)) * 0.16
+        + ((nx * lumpB.x) + (ny * lumpB.y) + (nz * lumpB.z)) * 0.12;
+      const radius = 0.5 + lump + ((Math.random() - 0.5) * 0.12);
+
+      positions[i] = nx * radius;
+      positions[i + 1] = ny * radius * 0.78;
+      positions[i + 2] = nz * radius;
+
+      // Shear everything below a low cut up onto one flat plane for a broad base
+      // that seats on the ground instead of a ball half-buried in it.
+      if (positions[i + 1] < -0.18) {
+        positions[i + 1] = -0.18;
       }
     }
 
@@ -152,7 +175,7 @@ function createBoulder(
   rock.scaling = new Vector3(scaleX, scaleY, scaleZ);
   // Only yaw, so the flat base keeps facing down; seat the base on the ground.
   rock.rotation = new Vector3(0, Math.random() * Math.PI, 0);
-  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.14 * scaleY) - 0.05, z);
+  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.18 * scaleY) - 0.05, z);
   rock.material = material;
   shadowGenerator.addShadowCaster(rock);
   colliders.push({ x, z, radius: Math.max(scaleX, scaleZ) * 0.5 });

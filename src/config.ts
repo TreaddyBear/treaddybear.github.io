@@ -8,7 +8,7 @@ export const playerFenceRadius = 0.72;
 export const mowerCutRadius = 0.42;
 export const bladeCount = 30000;
 export const mediumGrassCount = 36000;
-export const wheatGrassCount = 7000;
+export const wheatGrassCount = 2200;
 export const cellSize = 1;
 export const debugBiomeMaskOnly = false;
 

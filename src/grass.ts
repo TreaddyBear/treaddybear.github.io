@@ -41,10 +41,14 @@ export function createGrass(deps: GrassDeps) {
   const grassGrid = new Map<string, number[]>();
   let longGrassMatrices = new Float32Array(0);
   let mediumGrassMatrices = new Float32Array(0);
-  let wheatGrassMatrices = new Float32Array(0);
   let mediumGrassColors = new Float32Array(0);
-  let wheatGrassColors = new Float32Array(0);
   let longGrassColors = new Float32Array(0);
+  // The wild/wheat grass is now multi-stalk clumps in a few stalk-count
+  // variants, indexed the same compact way as the cut blades below.
+  let wheatVariant = new Uint8Array(0);
+  let wheatLocalIndex = new Int32Array(0);
+  let wheatVariantMatrices: Float32Array[] = [];
+  let wheatVariantColors: Float32Array[] = [];
   // Cut blades come in four top-edge shapes (flat / point / sawtooth / V), one
   // thin-instance mesh each, so a blade lives in its variant mesh at a local
   // index and the per-variant buffers stay compact.
@@ -88,12 +92,12 @@ export function createGrass(deps: GrassDeps) {
   const cutBladeShapes: Array<{ positions: number[]; indices: number[] }> = [
     // flat across the top
     { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.04, 1, 0.01, 0.04, 1, -0.005], indices: [0, 1, 2, 1, 3, 2] },
-    // a point: high in the middle, sloping down at the sides
-    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 0.5, 0.01, 0, 1, 0, 0.05, 0.5, -0.01], indices: [0, 1, 3, 1, 4, 3, 0, 3, 2] },
-    // a sawtooth: angle up, sharp down, angle up, sharp down
-    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.055, 0.4, 0.01, -0.01, 0.95, 0.005, -0.01, 0.45, 0.005, 0.035, 0.95, -0.005, 0.055, 0.45, -0.01], indices: [0, 1, 6, 0, 6, 5, 0, 5, 4, 0, 4, 3, 0, 3, 2] },
-    // a V: high on each side, dropping in the middle
-    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 1, 0.01, 0, 0.45, 0, 0.05, 1, -0.005], indices: [0, 1, 3, 0, 3, 2, 1, 4, 3] },
+    // a point: high in the middle, sloping steeply down at the sides
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 0.32, 0.01, 0, 1.08, 0, 0.05, 0.32, -0.01], indices: [0, 1, 3, 1, 4, 3, 0, 3, 2] },
+    // a sawtooth: angle up, sharp down, angle up, sharp down — deep notches
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.055, 0.26, 0.01, -0.01, 1.02, 0.005, -0.01, 0.3, 0.005, 0.035, 1.02, -0.005, 0.055, 0.3, -0.01], indices: [0, 1, 6, 0, 6, 5, 0, 5, 4, 0, 4, 3, 0, 3, 2] },
+    // a V: high on each side, dropping deep in the middle
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 1.08, 0.01, 0, 0.26, 0, 0.05, 1.08, -0.005], indices: [0, 1, 3, 0, 3, 2, 1, 4, 3] },
   ];
 
   // Shape mix: 1/5 flat, 2/5 point, 1/5 sawtooth, 1/5 V.
@@ -194,22 +198,63 @@ export function createGrass(deps: GrassDeps) {
     return mesh;
   };
 
-  const makeWheatBladeMesh = () => {
-    const mesh = new Mesh("wheatGrass", scene);
-    const positions = [
-      -0.018, 0, 0,
-      0.018, 0, 0,
-      -0.012, 0.75, 0.02,
-      0.012, 0.75, 0.02,
-      -0.055, 0.72, 0.025,
-      0.055, 0.72, 0.025,
-      0, 1.05, 0.055,
-    ];
-    const indices = [
-      0, 1, 2,
-      1, 3, 2,
-      4, 5, 6,
-    ];
+  // One wild stalk: a narrow tapered strip rooted near the clump centre that
+  // curves over to one side as it rises, so the clump reads as bent/curved
+  // pieces of straw rather than stiff spikes.
+  const appendWheatStalk = (
+    positions: number[],
+    indices: number[],
+    baseX: number,
+    baseZ: number,
+    dirX: number,
+    dirZ: number,
+    height: number,
+    bend: number,
+    width: number,
+  ) => {
+    const segments = 4;
+    const start = positions.length / 3;
+    const perpX = -dirZ;
+    const perpZ = dirX;
+
+    for (let s = 0; s <= segments; s += 1) {
+      const t = s / segments;
+      const y = t * height;
+      const drift = bend * t * t; // sideways curve grows toward the tip
+      const cx = baseX + (dirX * drift);
+      const cz = baseZ + (dirZ * drift);
+      const w = width * (1 - (t * 0.82)); // taper toward a fine tip
+      positions.push(cx - (perpX * w), y, cz - (perpZ * w));
+      positions.push(cx + (perpX * w), y, cz + (perpZ * w));
+    }
+
+    for (let s = 0; s < segments; s += 1) {
+      const a = start + (s * 2);
+      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  };
+
+  // Stalk count per clump variant — a 1-stalk wisp up to a fat 8-stalk tuft.
+  const wheatStalkCounts = [1, 3, 5, 8];
+
+  const makeWheatClumpMesh = (variant: number, name: string) => {
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const stalkCount = wheatStalkCounts[variant];
+
+    for (let k = 0; k < stalkCount; k += 1) {
+      const spreadAngle = Math.random() * Math.PI * 2;
+      const baseRadius = Math.random() * 0.05;
+      const baseX = Math.cos(spreadAngle) * baseRadius;
+      const baseZ = Math.sin(spreadAngle) * baseRadius;
+      const leanAngle = Math.random() * Math.PI * 2;
+      const height = 0.62 + (Math.random() * 0.42);
+      const bend = 0.12 + (Math.random() * 0.4);
+      const width = 0.02 + (Math.random() * 0.018);
+      appendWheatStalk(positions, indices, baseX, baseZ, Math.cos(leanAngle), Math.sin(leanAngle), height, bend, width);
+    }
+
+    const mesh = new Mesh(name, scene);
     const normals: number[] = [];
     VertexData.ComputeNormals(positions, indices, normals);
 
@@ -222,10 +267,25 @@ export function createGrass(deps: GrassDeps) {
     return mesh;
   };
 
+  // Mix of clump sizes, weighted toward the mid-size tufts.
+  const pickWheatVariant = () => {
+    const r = Math.random();
+    if (r < 0.15) {
+      return 0;
+    }
+    if (r < 0.5) {
+      return 1;
+    }
+    if (r < 0.85) {
+      return 2;
+    }
+    return 3;
+  };
+
   const longGrass = makeLongBladeMesh();
   const cutGrassMeshes = cutBladeShapes.map((_, variant) => makeCutBladeMesh(variant, `cutGrass-${variant}`));
   const mediumGrass = makeLongBladeMesh("mediumGrass");
-  const wheatGrass = makeWheatBladeMesh();
+  const wheatGrassMeshes = wheatStalkCounts.map((_, variant) => makeWheatClumpMesh(variant, `wheatGrass-${variant}`));
 
   const refreshCutBladeVertexColors = () => {
     for (let v = 0; v < cutGrassMeshes.length; v += 1) {
@@ -289,7 +349,7 @@ export function createGrass(deps: GrassDeps) {
     const pitch = cut ? cutTiltX[index] : sway * 0.28;
     const roll = cut ? cutTiltZ[index] : sway;
     const rotation = Quaternion.FromEulerAngles(pitch, yawOverride, roll);
-    const height = cut ? 0.065 : grassScale[index];
+    const height = cut ? 0.085 : grassScale[index];
     const width = cut ? 1.15 : 1;
     const scale = new Vector3(width, height, width);
     const position = new Vector3(grassX[index], 0, grassZ[index]);
@@ -380,8 +440,13 @@ export function createGrass(deps: GrassDeps) {
       grassNoise[i] = clumpNoise;
       grassScale[i] = settings.minHeight + ((settings.maxHeight - settings.minHeight) * normalizedHeight);
       grassPhase[i] = Math.random() * Math.PI * 2;
-      cutTiltX[i] = (Math.random() - 0.5) * 0.16;
-      cutTiltZ[i] = (Math.random() - 0.5) * 0.16;
+      // The one main bend in a cut blade, varied per blade: most stay close to
+      // upright (a 180-degree "bend"), a few fold right over toward the ground
+      // (down to ~15 degrees). pow() biases the fold strongly toward upright.
+      const foldDir = Math.random() * Math.PI * 2;
+      const fold = (Math.random() ** 2.2) * 1.45;
+      cutTiltX[i] = Math.cos(foldDir) * fold;
+      cutTiltZ[i] = Math.sin(foldDir) * fold;
 
       writeMatrix(longGrassMatrices, i, matrixForBlade(i, false));
       writeMatrix(cutVariantMatrices[cutVariant[i]], cutLocalIndex[i], hiddenMatrix);
@@ -475,8 +540,18 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const placeWheatGrass = () => {
-    wheatGrassMatrices = new Float32Array(wheatGrassCount * 16);
-    wheatGrassColors = new Float32Array(wheatGrassCount * 4);
+    wheatVariant = new Uint8Array(wheatGrassCount);
+    wheatLocalIndex = new Int32Array(wheatGrassCount);
+    const variantCounts = [0, 0, 0, 0];
+    for (let i = 0; i < wheatGrassCount; i += 1) {
+      const v = pickWheatVariant();
+      wheatVariant[i] = v;
+      wheatLocalIndex[i] = variantCounts[v];
+      variantCounts[v] += 1;
+    }
+    wheatVariantMatrices = variantCounts.map((count) => new Float32Array(count * 16));
+    wheatVariantColors = variantCounts.map((count) => new Float32Array(count * 4));
+
     const clumps = Array.from({ length: 52 }, () => ({
       x: -72 + (Math.random() * 154),
       z: -70 + (Math.random() * 140),
@@ -523,12 +598,16 @@ export function createGrass(deps: GrassDeps) {
       const color = mixColor(edgeGreen, wheatColor, wilderness);
       const pale = mixColor(color, new Color3(0.82, 0.84, 0.78), Math.random() * 0.3);
 
-      writeMatrix(wheatGrassMatrices, i, matrix);
-      writeColor(wheatGrassColors, i, [pale.r, pale.g, pale.b, 1]);
+      const variant = wheatVariant[i];
+      const localIndex = wheatLocalIndex[i];
+      writeMatrix(wheatVariantMatrices[variant], localIndex, matrix);
+      writeColor(wheatVariantColors[variant], localIndex, [pale.r, pale.g, pale.b, 1]);
     }
 
-    wheatGrass.thinInstanceSetBuffer("matrix", wheatGrassMatrices, 16, true);
-    wheatGrass.thinInstanceSetBuffer("color", wheatGrassColors, 4, true);
+    for (let v = 0; v < wheatGrassMeshes.length; v += 1) {
+      wheatGrassMeshes[v].thinInstanceSetBuffer("matrix", wheatVariantMatrices[v], 16, true);
+      wheatGrassMeshes[v].thinInstanceSetBuffer("color", wheatVariantColors[v], 4, true);
+    }
   };
 
   const refreshColors = () => {
