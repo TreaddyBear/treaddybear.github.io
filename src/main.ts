@@ -17,7 +17,7 @@ import {
 } from "@babylonjs/core";
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
-import { createInputController, InputMode } from "./input";
+import { createInputController } from "./input";
 import {
   bladeCount,
   applyActiveMap,
@@ -42,6 +42,7 @@ import { createDandelions } from "./dandelions";
 import { createFenceSystem } from "./fence";
 import { createGrass } from "./grass";
 import { createHud } from "./hud";
+import { createSettingsUi } from "./settingsUi";
 import { isInsideSegments } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
@@ -133,9 +134,6 @@ let shootCooldown = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
-// The concrete device currently pushed into analogInput. Starts as "auto" (a
-// value effectiveInputMode never returns) so the first resolve always applies.
-let lastAppliedInputMode: InputMode = "auto";
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 // Adaptive-resolution state: seconds since last FPS sample and the current
 // engine hardware-scaling level (1 = native; higher = render at lower res).
@@ -346,7 +344,7 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
 }
 
 function movePlayer(deltaSeconds: number) {
-  const activeInputMode = effectiveInputMode();
+  const activeInputMode = settingsUi.effectiveInputMode();
   const useKeyboard = activeInputMode === "keyboard" || activeInputMode === "mouse";
   // Mouse steering only when the player actually means it: explicit mouse mode,
   // or auto that resolved to keyboard on a desktop. A present controller/touch
@@ -452,7 +450,7 @@ function updateCameraInput(deltaSeconds: number) {
     adjusted = true;
   }
 
-  if (effectiveInputMode() === "keyboard") {
+  if (settingsUi.effectiveInputMode() === "keyboard") {
     const arrowTurn = (keys.has("arrowright") ? 1 : 0) - (keys.has("arrowleft") ? 1 : 0);
     const arrowPitch = (keys.has("arrowdown") ? 1 : 0) - (keys.has("arrowup") ? 1 : 0);
 
@@ -565,290 +563,6 @@ function refreshTextureScales() {
   setTextureScale(worldGroundMaterial.bumpTexture, settings.dirtTextureUScale, settings.dirtTextureVScale, settings.dirtNormalStrength);
   setTextureScale(roadMaterial.diffuseTexture, settings.roadTextureUScale, settings.roadTextureVScale);
   updateBiomeGroundMaterialScale(biomeGroundMaterial, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
-}
-
-function hasTouchInput() {
-  return navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
-}
-
-function hasControllerInput() {
-  return Boolean(navigator.getGamepads().find(Boolean));
-}
-
-function isTouchPrimaryDevice() {
-  // A genuine touch-first device (phone/tablet): a coarse pointer and no mouse.
-  // This deliberately excludes touchscreen laptops so they stay on keyboard/mouse.
-  return matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
-}
-
-// Resolves the user's preference into the concrete device that actually drives
-// the game. In "auto", presence wins in priority order: controller, then touch,
-// then keyboard. Explicitly forced modes are returned unchanged.
-function effectiveInputMode(): InputMode {
-  if (settings.inputMode !== "auto") {
-    return settings.inputMode as InputMode;
-  }
-
-  if (hasControllerInput()) {
-    return "controller";
-  }
-
-  if (isTouchPrimaryDevice()) {
-    return "touch";
-  }
-
-  return "keyboard";
-}
-
-// One-time startup pick: a controller or a genuine touch device that is already
-// present wins, otherwise keyboard. A keyboard-only machine stays on keyboard,
-// not a generic "auto".
-function detectInitialInputMode(): InputMode {
-  if (hasControllerInput()) {
-    return "controller";
-  }
-
-  if (isTouchPrimaryDevice()) {
-    return "touch";
-  }
-
-  return "keyboard";
-}
-
-// Pushes the resolved device into analogInput, but only when it changes, so a
-// connected controller or a touch device engages automatically and we never
-// reset touch state every frame.
-function applyActiveInputMode() {
-  const resolved = effectiveInputMode();
-
-  if (resolved !== lastAppliedInputMode) {
-    analogInput.setMode(resolved);
-    lastAppliedInputMode = resolved;
-  }
-}
-
-function setInputMode(mode: InputMode) {
-  settings.inputMode = mode;
-  applyActiveInputMode();
-  const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
-
-  if (inputModeControl) {
-    inputModeControl.value = mode;
-  }
-
-  syncQuickInputSelection();
-}
-
-function syncQuickInputSelection() {
-  for (const button of quickInputModeEl.querySelectorAll<HTMLButtonElement>(".quick-input-button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.mode === settings.inputMode));
-  }
-}
-
-function syncQuickInputModes() {
-  const modes: Array<{ value: InputMode; icon: string; label: string; available: boolean }> = [
-    { value: "auto", icon: "A", label: "Auto input", available: true },
-    { value: "keyboard", icon: "K", label: "Keyboard", available: true },
-    { value: "mouse", icon: "M", label: "Mouse", available: matchMedia("(pointer: fine)").matches },
-    { value: "controller", icon: "G", label: "Controller", available: hasControllerInput() },
-    { value: "touch", icon: "T", label: "Touchpad", available: hasTouchInput() },
-  ];
-  quickInputModeEl.replaceChildren();
-
-  for (const mode of modes) {
-    if (!mode.available) {
-      continue;
-    }
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "quick-input-button";
-    button.dataset.mode = mode.value;
-    button.textContent = mode.icon;
-    button.title = mode.label;
-    button.setAttribute("aria-label", mode.label);
-    button.addEventListener("click", () => {
-      setInputMode(mode.value);
-    });
-    quickInputModeEl.append(button);
-  }
-
-  if (!quickInputModeEl.querySelector(`[data-mode="${settings.inputMode}"]`)) {
-    setInputMode("auto");
-    return;
-  }
-
-  syncQuickInputSelection();
-}
-
-function setupSettings() {
-  const numberControls = [
-    "minHeight",
-    "maxHeight",
-    "clumpStrength",
-    "heightRandomness",
-    "windStrength",
-    "bendStrength",
-    "turnMaxSpeed",
-    "turnBuild",
-    "controllerTurnAccelThreshold",
-    "fenceMaxHealth",
-    "seedPopRate",
-    "mowerVolume",
-    "breezeVolume",
-    "ambientBreezeVolume",
-    "breezeFacingAmount",
-    "grassCuttingVolume",
-    "grassCuttingAttackDelay",
-    "grassCuttingAttack",
-    "grassCuttingDecay",
-    "flowerPopVolume",
-    "wallBumpVolume",
-    "reverseBeepVolume",
-    "completionFanfareVolume",
-    "completionLoopVolume",
-    "gunShotVolume",
-    "grassRoughness",
-    "grassMetallic",
-    "grassClearCoat",
-    "cutGrassRoughness",
-    "cutGrassMetallic",
-    "cutGrassClearCoat",
-    "hueVariance",
-    "satVariance",
-    "lightVariance",
-    "grassyTextureScale",
-    "dirtTextureUScale",
-    "dirtTextureVScale",
-    "dirtNormalStrength",
-    "roadTextureUScale",
-    "roadTextureVScale",
-    "targetFps",
-    "portraitFov",
-    "portraitDistance",
-    "portraitHeight",
-    "portraitLookAhead",
-  ] as const;
-  const colorControls = [
-    "grassBaseColor",
-    "cutGrassRootColor",
-    "cutGrassTopColorA",
-    "cutGrassTopColorB",
-    "groundColor",
-  ] as const;
-  const checkboxControls = [
-    "showFenceHealth",
-    "disableFenceCollision",
-    "dynamicResolution",
-  ] as const;
-  const inputModeControl = settingsEl.querySelector<HTMLSelectElement>("#inputMode");
-  const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
-  let regenerateTimer = 0;
-
-  const scheduleRegenerate = () => {
-    window.clearTimeout(regenerateTimer);
-    regenerateTimer = window.setTimeout(() => {
-      resetGame();
-    }, 140);
-  };
-
-  for (const id of numberControls) {
-    const input = settingsEl.querySelector<HTMLInputElement>(`#${id}`);
-    const valueEl = settingsEl.querySelector<HTMLSpanElement>(`[data-value-for="${id}"]`);
-
-    if (valueEl && input) {
-      valueEl.textContent = input.value;
-    }
-
-    input?.addEventListener("input", () => {
-      settings[id] = Number(input.value);
-      if (valueEl) {
-        valueEl.textContent = input.value;
-      }
-
-      if (["minHeight", "maxHeight", "clumpStrength", "heightRandomness"].includes(id)) {
-        if (settings.minHeight > settings.maxHeight) {
-          settings.maxHeight = settings.minHeight;
-        }
-
-        scheduleRegenerate();
-      } else if (id === "fenceMaxHealth") {
-        scheduleRegenerate();
-      } else if (["hueVariance", "satVariance", "lightVariance"].includes(id)) {
-        grass.refreshColors();
-      } else if ([
-        "grassRoughness",
-        "grassMetallic",
-        "grassClearCoat",
-        "cutGrassRoughness",
-        "cutGrassMetallic",
-        "cutGrassClearCoat",
-      ].includes(id)) {
-        grass.refreshMaterial();
-      } else if ([
-        "grassyTextureScale",
-        "dirtTextureUScale",
-        "dirtTextureVScale",
-        "dirtNormalStrength",
-        "roadTextureUScale",
-        "roadTextureVScale",
-      ].includes(id)) {
-        refreshTextureScales();
-      } else if (id === "portraitFov") {
-        updateCameraProjection();
-      }
-    });
-  }
-
-  for (const id of colorControls) {
-    const input = settingsEl.querySelector<HTMLInputElement>(`#${id}`);
-
-    input?.addEventListener("input", () => {
-      settings[id] = input.value;
-
-      if (id === "groundColor") {
-        refreshGroundColor();
-      } else {
-        grass.refreshColors();
-      }
-    });
-  }
-
-  for (const id of checkboxControls) {
-    const input = settingsEl.querySelector<HTMLInputElement>(`#${id}`);
-
-    if (input) {
-      input.checked = Boolean(settings[id]);
-    }
-
-    input?.addEventListener("input", () => {
-      settings[id] = input.checked;
-
-      if (id === "showFenceHealth") {
-        fence.syncHealthLabels();
-      }
-    });
-  }
-
-  if (inputModeControl) {
-    inputModeControl.value = settings.inputMode;
-    applyActiveInputMode();
-    inputModeControl.addEventListener("input", () => {
-      setInputMode(inputModeControl.value as InputMode);
-    });
-  }
-
-  syncQuickInputModes();
-  window.addEventListener("gamepadconnected", syncQuickInputModes);
-  window.addEventListener("gamepaddisconnected", syncQuickInputModes);
-
-  if (mapControl) {
-    mapControl.value = settings.mapId;
-    mapControl.addEventListener("input", () => {
-      settings.mapId = mapControl.value;
-      resetGame();
-    });
-  }
 }
 
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
@@ -969,8 +683,21 @@ const hud = createHud({
   onRequestReset: resetGame,
 });
 
-setupSettings();
-setInputMode(detectInitialInputMode());
+const settingsUi = createSettingsUi({
+  settingsRoot: settingsEl,
+  quickInput: quickInputModeEl,
+  analogInput,
+  onRegenerate: resetGame,
+  refreshGrassColors: () => grass.refreshColors(),
+  refreshGrassMaterial: () => grass.refreshMaterial(),
+  refreshTextureScales,
+  refreshGroundColor,
+  updateCameraProjection,
+  syncFenceHealth: () => fence.syncHealthLabels(),
+});
+
+settingsUi.setup();
+settingsUi.setInputMode(settingsUi.detectInitialInputMode());
 refreshGroundColor();
 refreshTextureScales();
 resetGame();
@@ -1137,7 +864,7 @@ engine.runRenderLoop(() => {
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
   updateAdaptiveResolution(deltaSeconds);
-  applyActiveInputMode();
+  settingsUi.applyActiveInputMode();
 
   const gamepad = navigator.getGamepads().find(Boolean);
 
