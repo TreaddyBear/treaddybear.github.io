@@ -85,6 +85,18 @@ body {
   font-weight: 700;
 }
 
+#timer {
+  margin-top: 4px;
+  color: #dff3c8;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#timer.urgent {
+  color: #ff9a5b;
+}
+
 #mistakes {
   margin-top: 8px;
   color: #ffd8d8;
@@ -257,6 +269,51 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+#timeup {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  grid-auto-flow: row;
+  color: #ffe9d8;
+  background: rgb(26 10 4 / 72%);
+  animation: celebration-fade 320ms ease forwards;
+}
+
+#timeup[hidden] {
+  display: none;
+}
+
+#timeupTitle {
+  font-size: clamp(40px, 7vw, 88px);
+  font-weight: 900;
+  text-shadow: 0 3px 18px rgb(0 0 0 / 55%);
+}
+
+#timeupSubtitle {
+  font-size: clamp(16px, 2.2vw, 26px);
+  font-weight: 700;
+  color: #ffd2b4;
+}
+
+#timeupActions button {
+  min-width: 120px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 5px;
+  color: #2a0f04;
+  background: #ffb38a;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 32%);
+}
+
+#timeupActions button:hover {
+  background: #ffc9a8;
 }
 
 #celebration {

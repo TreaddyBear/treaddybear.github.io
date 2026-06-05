@@ -170,6 +170,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "roadTextureUScale",
       "roadTextureVScale",
       "targetFps",
+      "timeLimitSeconds",
       "portraitFov",
       "portraitDistance",
       "portraitHeight",

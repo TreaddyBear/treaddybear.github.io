@@ -59,6 +59,9 @@ const nextLevelButtonElement = document.querySelector<HTMLButtonElement>("#nextL
 const closeCelebrationButtonElement = document.querySelector<HTMLButtonElement>("#closeCelebrationButton");
 const touchPadElement = document.querySelector<HTMLDivElement>("#touchPad");
 const touchKnobElement = document.querySelector<HTMLDivElement>("#touchKnob");
+const timerElement = document.querySelector<HTMLDivElement>("#timer");
+const timeupElement = document.querySelector<HTMLDivElement>("#timeup");
+const retryButtonElement = document.querySelector<HTMLButtonElement>("#retryButton");
 
 if (
   !canvasElement
@@ -75,12 +78,18 @@ if (
   || !closeCelebrationButtonElement
   || !touchPadElement
   || !touchKnobElement
+  || !timerElement
+  || !timeupElement
+  || !retryButtonElement
 ) {
   throw new Error("Missing canvas, HUD, or settings element.");
 }
 
 const canvas = canvasElement;
 const scoreEl = scoreElement;
+const timerEl = timerElement;
+const timeupEl = timeupElement;
+const retryButtonEl = retryButtonElement;
 const meterFillEl = meterFillElement;
 const mistakesEl = mistakesElement;
 const mistakeMeterFillEl = mistakeMeterFillElement;
@@ -123,6 +132,7 @@ let mouseSteeringActive = false;
 let mouseSteeringPointer = false;
 let hasSecretGun = false;
 let shootCooldown = 0;
+let timeRemaining = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
@@ -274,6 +284,9 @@ function resetGame() {
   cameraRig.reset();
   hasSecretGun = false;
   shootCooldown = 0;
+  timeRemaining = settings.timeLimitSeconds;
+  hud.hideTimeUp();
+  hud.setTime(timeRemaining);
   secretGunRoot?.setEnabled(true);
   grass.generate();
   dandelions.place();
@@ -533,12 +546,15 @@ grass.refreshMaterial();
 
 const hud = createHud({
   score: scoreEl,
+  timer: timerEl,
   meterFill: meterFillEl,
   mistakes: mistakesEl,
   mistakeMeterFill: mistakeMeterFillEl,
   celebration: celebrationEl,
   celebrationSeeds: celebrationSeedsEl,
   nextLevelButton: nextLevelButtonEl,
+  timeup: timeupEl,
+  retryButton: retryButtonEl,
   loading: loadingEl,
   settingsRoot: settingsEl,
   getMowed: () => grass.mowedCount,
@@ -586,6 +602,7 @@ fullscreenButtonEl.addEventListener("keydown", (event) => {
 
 closeCelebrationButtonEl.addEventListener("click", () => hud.closeCelebration());
 nextLevelButtonEl.addEventListener("click", () => hud.goToNextLevel());
+retryButtonEl.addEventListener("click", () => hud.retry());
 
 canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
@@ -659,8 +676,17 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
-  // The completion card is a modal: let the keyboard advance or dismiss it
+  // The completion / time-up cards are modal: let the keyboard act on them
   // before any key falls through to mower driving.
+  if (hud.isTimeUpVisible()) {
+    if (key === "enter" || key === " ") {
+      event.preventDefault();
+      hud.retry();
+    }
+
+    return;
+  }
+
   if (hud.isCelebrationVisible()) {
     if (key === "enter" || key === " ") {
       event.preventDefault();
@@ -718,10 +744,19 @@ engine.runRenderLoop(() => {
 
   const gamepad = navigator.getGamepads().find(Boolean);
 
-  // The completion card is DOM, which a gamepad can't focus, so drive it
-  // directly: A advances to the next level, B closes. Edge-triggered so a held
-  // button doesn't skip through screens.
-  if (hud.isCelebrationVisible()) {
+  // The completion / time-up cards are DOM, which a gamepad can't focus, so
+  // drive them directly: A advances/retries, B closes the win card.
+  // Edge-triggered so a held button doesn't skip through screens.
+  if (hud.isTimeUpVisible()) {
+    const retry = Boolean(gamepad?.buttons[0]?.pressed);
+
+    if (retry && !lastCelebrationAdvance) {
+      hud.retry();
+    }
+
+    lastCelebrationAdvance = retry;
+    lastCelebrationDismiss = Boolean(gamepad?.buttons[1]?.pressed);
+  } else if (hud.isCelebrationVisible()) {
     const advance = Boolean(gamepad?.buttons[0]?.pressed);
     const dismiss = Boolean(gamepad?.buttons[1]?.pressed);
 
@@ -761,6 +796,18 @@ engine.runRenderLoop(() => {
   }
 
   updateSecretGunPickup();
+
+  // Count down only while actually playing: a finished or timed-out level freezes
+  // the clock until the player moves on.
+  if (!hud.isCelebrationVisible() && !hud.isTimeUpVisible()) {
+    timeRemaining = Math.max(0, timeRemaining - deltaSeconds);
+    hud.setTime(timeRemaining);
+
+    if (timeRemaining <= 0) {
+      hud.showTimeUp();
+    }
+  }
+
   prototypeAudio.setCuttingActive(grass.isCutting());
   prototypeAudio.setReversingActive(driveSpeed < -0.01 || currentThrottle < -0.05);
   prototypeAudio.update(camera, settings);

@@ -63,6 +63,7 @@ export const settings = {
   roadTextureVScale: 48,
   dynamicResolution: false,
   targetFps: 58,
+  timeLimitSeconds: 180,
   portraitFov: 0.78,
   portraitDistance: 5.2,
   portraitHeight: 5.2,

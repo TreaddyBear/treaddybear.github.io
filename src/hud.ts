@@ -4,12 +4,15 @@ export type Hud = ReturnType<typeof createHud>;
 
 export type HudDeps = {
   score: HTMLDivElement;
+  timer: HTMLDivElement;
   meterFill: HTMLDivElement;
   mistakes: HTMLDivElement;
   mistakeMeterFill: HTMLDivElement;
   celebration: HTMLDivElement;
   celebrationSeeds: HTMLDivElement;
   nextLevelButton: HTMLButtonElement;
+  timeup: HTMLDivElement;
+  retryButton: HTMLButtonElement;
   loading: HTMLDivElement | null;
   settingsRoot: HTMLDetailsElement;
   getMowed: () => number;
@@ -56,6 +59,33 @@ export function createHud(deps: HudDeps) {
   return {
     isCelebrationVisible() {
       return !deps.celebration.hidden;
+    },
+
+    isTimeUpVisible() {
+      return !deps.timeup.hidden;
+    },
+
+    // Shows remaining time as M:SS, going amber in the final stretch.
+    setTime(remainingSeconds: number) {
+      const whole = Math.max(0, Math.ceil(remainingSeconds));
+      const minutes = Math.floor(whole / 60);
+      const seconds = (whole % 60).toString().padStart(2, "0");
+      deps.timer.textContent = `Time ${minutes}:${seconds}`;
+      deps.timer.classList.toggle("urgent", remainingSeconds <= 15);
+    },
+
+    showTimeUp() {
+      deps.timeup.hidden = false;
+      deps.retryButton.focus();
+    },
+
+    hideTimeUp() {
+      deps.timeup.hidden = true;
+    },
+
+    retry() {
+      deps.timeup.hidden = true;
+      deps.onRequestReset();
     },
 
     update() {
