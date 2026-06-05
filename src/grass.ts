@@ -61,8 +61,13 @@ export function createGrass(deps: GrassDeps) {
   let mowedCount = 0;
   let lastMowSeconds = 0;
   let remainingHighlightActive = false;
+  // 0..1 eased strength of the find-the-last-strands glow, so it fades in and
+  // (when a blade is cut) fades back out instead of snapping on/off.
+  let highlightStrength = 0;
   let clippingBurstCooldown = 0;
   let grassCuttingAudioTimer = 0;
+  // Seconds of "stuck near the end" before the survivors start to glow.
+  const remainingHighlightDelay = 8;
 
   const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
   const isOnRoad = (x: number) => x > 11.8 && x < 17.2;
@@ -687,15 +692,22 @@ export function createGrass(deps: GrassDeps) {
     },
 
     // When almost the whole lawn is cut and the player has gone a while without
-    // finding the last blades, gently pulse the survivors so they stand out.
-    updateHighlight(timeSeconds: number) {
+    // finding the last blades, glow the survivors gold so they stand out. The
+    // glow eases in, and eases back out when a blade is cut, rather than blinking.
+    updateHighlight(timeSeconds: number, deltaSeconds: number) {
       const remaining = bladeCount - mowedCount;
       const threshold = Math.max(1, Math.ceil(bladeCount * 0.01));
-      const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > 30;
+      const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > remainingHighlightDelay;
 
-      if (shouldHighlight) {
-        const pulse = 0.5 + (0.5 * Math.sin(timeSeconds * 3.2));
-        const amount = 0.4 + (pulse * 0.45);
+      // Ease toward on/off: a touch quicker in, gentler out so cutting a strand
+      // visibly relaxes the glow.
+      const target = shouldHighlight ? 1 : 0;
+      const rate = target > highlightStrength ? 5 : 2.4;
+      highlightStrength += (target - highlightStrength) * Math.min(1, deltaSeconds * rate);
+
+      if (highlightStrength > 0.004) {
+        const pulse = 0.5 + (0.5 * Math.sin(timeSeconds * 4.5));
+        const amount = highlightStrength * (0.55 + (pulse * 0.45));
 
         for (let i = 0; i < bladeCount; i += 1) {
           if (isMowed[i]) {
@@ -705,8 +717,8 @@ export function createGrass(deps: GrassDeps) {
           const base = colorForBlade(i, false);
           writeColor(longGrassColors, i, [
             base[0] + ((1 - base[0]) * amount),
-            base[1] + ((1 - base[1]) * amount),
-            base[2] + ((0.55 - base[2]) * amount),
+            base[1] + ((0.92 - base[1]) * amount),
+            base[2] + ((0.2 - base[2]) * amount),
             1,
           ]);
         }

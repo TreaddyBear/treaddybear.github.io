@@ -754,7 +754,7 @@ engine.runRenderLoop(() => {
   updateCloudShadows(timeSeconds);
   grass.mowUnderMower(deltaSeconds);
   dandelions.mowAt(player.position.x, player.position.z, mowerCutRadius * mowerCutRadius);
-  grass.updateHighlight(timeSeconds);
+  grass.updateHighlight(timeSeconds, deltaSeconds);
 
   if (tulips.update(player.position.x, player.position.z)) {
     hud.update();
