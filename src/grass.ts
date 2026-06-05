@@ -340,6 +340,13 @@ export function createGrass(deps: GrassDeps) {
   const mediumGrass = makeLongBladeMesh("mediumGrass");
   const wheatGrassMeshes = wheatTallCounts.map((_, variant) => makeWheatClumpMesh(variant, `wheatGrass-${variant}`));
 
+  // The blades are PBR, so they can receive the directional light's shadows
+  // (the lawn's flat ground shader cannot). This is what makes the fence/rock/
+  // tree shadows actually land on something the player sees.
+  for (const mesh of [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes]) {
+    mesh.receiveShadows = true;
+  }
+
   const refreshCutBladeVertexColors = () => {
     for (let v = 0; v < cutGrassMeshes.length; v += 1) {
       cutGrassMeshes[v].setVerticesData(VertexBuffer.ColorKind, cutBladeVertexColors(cutBladeShapes[v].positions), true);

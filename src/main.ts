@@ -296,7 +296,13 @@ function resetGame() {
   fenceRoot?.dispose(false, true);
   fence.disposeHealthLabels();
   mapGroundRoot = createMapGrounds(scene, getActiveMap(), groundMaterial);
-  fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments, fenceShadowOffsetX, fenceShadowOffsetZ);
+  fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments);
+  // Fence planks + posts cast shadows (the flat dirt overlay does not).
+  for (const mesh of scene.meshes) {
+    if (mesh.name.includes("-plank-") || mesh.name.startsWith("fence-post")) {
+      shadowGenerator.addShadowCaster(mesh);
+    }
+  }
   fence.rebuildStates();
   fence.syncHealthLabels();
   player.position = getActiveMap().spawn.clone();
@@ -540,16 +546,25 @@ const baseSunSpecular = sun.specular.clone();
 
 const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
-shadowGenerator.blurKernel = 16;
+shadowGenerator.blurKernel = 8;
 
-// The lawn ground uses a custom shader that can't receive a real shadow map, so
-// the fence's shadow is drawn as dark ground geometry instead (createFenceShadows
-// in world.ts). This is where a fence plank's top projects onto the ground along
-// the sun, used to shear those shadow strips the right way and length.
+// Built-in shadows only look like anything if the shadow map is concentrated on
+// the action instead of auto-fitting to every caster across the whole map (which
+// smears a thin fence shadow into nothing). Fix the ortho frustum to a tight box
+// and slide the light along its own beam so the box follows the mower.
 const sunDirection = new Vector3(-0.45, -1, 0.24).normalize();
-const fenceShadowReach = 0.55 / Math.abs(sunDirection.y); // ~plank+post top height
-const fenceShadowOffsetX = sunDirection.x * fenceShadowReach;
-const fenceShadowOffsetZ = sunDirection.z * fenceShadowReach;
+const shadowHalfExtent = 16;
+sun.autoUpdateExtends = false;
+sun.shadowMinZ = 1;
+sun.shadowMaxZ = 80;
+sun.orthoLeft = -shadowHalfExtent;
+sun.orthoRight = shadowHalfExtent;
+sun.orthoTop = shadowHalfExtent;
+sun.orthoBottom = -shadowHalfExtent;
+
+function updateShadowFocus() {
+  sun.position.copyFrom(player.position).subtractInPlace(sunDirection.scale(40));
+}
 
 const cameraRig = createCameraRig({
   scene,
@@ -829,6 +844,7 @@ engine.runRenderLoop(() => {
   lastControllerShoot = controllerShoot;
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
+  updateShadowFocus();
   fence.resolveOverlap();
   cameraRig.follow(deltaSeconds);
   grass.updateMotion(timeSeconds);
