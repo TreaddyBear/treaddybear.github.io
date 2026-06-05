@@ -64,10 +64,15 @@ export function createGrass(deps: GrassDeps) {
   // 0..1 eased strength of the find-the-last-strands glow, so it fades in and
   // (when a blade is cut) fades back out instead of snapping on/off.
   let highlightStrength = 0;
+  // Whether the glow has appeared yet this level (it kicks in faster after the
+  // first time, since the player is clearly hunting).
+  let highlightHasShown = false;
   let clippingBurstCooldown = 0;
   let grassCuttingAudioTimer = 0;
-  // Seconds of "stuck near the end" before the survivors start to glow.
-  const remainingHighlightDelay = 8;
+  // Seconds of "stuck near the end" before the survivors glow: longer the first
+  // time, then shorter on every later stall.
+  const highlightFirstDelay = 10;
+  const highlightRepeatDelay = 5;
 
   const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
   const isOnRoad = (x: number) => x > 11.8 && x < 17.2;
@@ -523,6 +528,8 @@ export function createGrass(deps: GrassDeps) {
     generate() {
       lastMowSeconds = performance.now() / 1000;
       remainingHighlightActive = false;
+      highlightStrength = 0;
+      highlightHasShown = false;
       placeMediumGrass();
       placeWheatGrass();
       placeGrass();
@@ -697,7 +704,12 @@ export function createGrass(deps: GrassDeps) {
     updateHighlight(timeSeconds: number, deltaSeconds: number) {
       const remaining = bladeCount - mowedCount;
       const threshold = Math.max(1, Math.ceil(bladeCount * 0.01));
-      const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > remainingHighlightDelay;
+      const delay = highlightHasShown ? highlightRepeatDelay : highlightFirstDelay;
+      const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > delay;
+
+      if (shouldHighlight) {
+        highlightHasShown = true;
+      }
 
       // Ease toward on/off: a touch quicker in, gentler out so cutting a strand
       // visibly relaxes the glow.
