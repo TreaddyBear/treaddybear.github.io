@@ -1,6 +1,4 @@
 import {
-  ArcRotateCamera,
-  Camera,
   Color3,
   DirectionalLight,
   Engine,
@@ -43,8 +41,9 @@ import { createFenceSystem } from "./fence";
 import { createGrass } from "./grass";
 import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
+import { createCameraRig } from "./cameraRig";
 import { isInsideSegments } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -122,32 +121,12 @@ let bumpCooldown = 0;
 let mouseTurn = 0;
 let mouseSteeringActive = false;
 let mouseSteeringPointer = false;
-let cameraOrbitYaw = 0;
-let cameraOrbitHeight = 0;
-let cameraDistanceOffset = 0;
-let cameraAdjustmentCount = 0;
-let cameraAdjustmentCooldown = 0;
-let cameraReturnDelay = 0;
-let cameraReturning = false;
 let hasSecretGun = false;
 let shootCooldown = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
-// Adaptive-resolution state: seconds since last FPS sample and the current
-// engine hardware-scaling level (1 = native; higher = render at lower res).
-let perfSampleTime = 0;
-let currentHardwareScale = 1;
-// True when the viewport is taller than wide (phones in portrait), which uses a
-// tighter, steeper, mower-forward camera framing. Landscape is left untouched.
-let isPortrait = false;
-const cameraDrag = {
-  active: false,
-  pointerId: -1,
-  lastX: 0,
-  lastY: 0,
-};
 const rockColliders: RockCollider[] = [];
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
@@ -292,13 +271,7 @@ function resetGame() {
   snapPlayerToGround();
   playerYaw = 0;
   player.rotation.y = playerYaw;
-  cameraOrbitYaw = 0;
-  cameraOrbitHeight = 0;
-  cameraDistanceOffset = 0;
-  cameraAdjustmentCount = 0;
-  cameraAdjustmentCooldown = 0;
-  cameraReturnDelay = 0;
-  cameraReturning = false;
+  cameraRig.reset();
   hasSecretGun = false;
   shootCooldown = 0;
   secretGunRoot?.setEnabled(true);
@@ -350,7 +323,7 @@ function movePlayer(deltaSeconds: number) {
   // or auto that resolved to keyboard on a desktop. A present controller/touch
   // resolves away from keyboard, so it no longer fights the mouse cursor.
   const useMouseSteering = (settings.inputMode === "mouse" || (settings.inputMode === "auto" && activeInputMode === "keyboard"))
-    && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraDrag.active;
+    && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraRig.isDragging();
   const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
   const controllerTurn = analogInput.controllerTurn;
   const touchTurn = analogInput.touchTurn;
@@ -427,71 +400,6 @@ function movePlayer(deltaSeconds: number) {
       bumpCooldown = 0.35;
     }
   }
-}
-
-function markCameraAdjusted() {
-  if (cameraAdjustmentCooldown <= 0) {
-    cameraAdjustmentCount += 1;
-  }
-
-  cameraAdjustmentCooldown = 0.45;
-  cameraReturnDelay = Math.min(18, Math.max(2.5, cameraAdjustmentCount * 2.5));
-  cameraReturning = false;
-}
-
-function updateCameraInput(deltaSeconds: number) {
-  let adjusted = false;
-  const controllerCameraTurn = analogInput.cameraTurn;
-  const controllerCameraPitch = analogInput.cameraPitch;
-
-  if (Math.abs(controllerCameraTurn) > 0 || Math.abs(controllerCameraPitch) > 0) {
-    cameraOrbitYaw += controllerCameraTurn * deltaSeconds * 2.2;
-    cameraOrbitHeight -= controllerCameraPitch * deltaSeconds * 2.4;
-    adjusted = true;
-  }
-
-  if (settingsUi.effectiveInputMode() === "keyboard") {
-    const arrowTurn = (keys.has("arrowright") ? 1 : 0) - (keys.has("arrowleft") ? 1 : 0);
-    const arrowPitch = (keys.has("arrowdown") ? 1 : 0) - (keys.has("arrowup") ? 1 : 0);
-
-    if (arrowTurn !== 0 || arrowPitch !== 0) {
-      cameraOrbitYaw += arrowTurn * deltaSeconds * 2.4;
-      cameraOrbitHeight += arrowPitch * deltaSeconds * 3.1;
-      adjusted = true;
-    }
-  }
-
-  if (adjusted) {
-    markCameraAdjusted();
-  } else {
-    cameraAdjustmentCooldown = Math.max(0, cameraAdjustmentCooldown - deltaSeconds);
-
-    if (cameraAdjustmentCount < 7 && (Math.abs(cameraOrbitYaw) > 0.001 || Math.abs(cameraOrbitHeight) > 0.001 || Math.abs(cameraDistanceOffset) > 0.001)) {
-      cameraReturnDelay -= deltaSeconds;
-
-      if (cameraReturnDelay <= 0) {
-        cameraReturning = true;
-      }
-    }
-  }
-
-  if (cameraReturning) {
-    const returnAmount = Math.min(1, deltaSeconds / 7);
-    cameraOrbitYaw += (0 - cameraOrbitYaw) * returnAmount;
-    cameraOrbitHeight += (0 - cameraOrbitHeight) * returnAmount;
-    cameraDistanceOffset += (0 - cameraDistanceOffset) * returnAmount;
-
-    if (Math.abs(cameraOrbitYaw) < 0.004 && Math.abs(cameraOrbitHeight) < 0.004 && Math.abs(cameraDistanceOffset) < 0.004) {
-      cameraOrbitYaw = 0;
-      cameraOrbitHeight = 0;
-      cameraDistanceOffset = 0;
-      cameraReturning = false;
-      cameraAdjustmentCount = 0;
-    }
-  }
-
-  cameraOrbitHeight = Math.max(-1.7, Math.min(4.8, cameraOrbitHeight));
-  cameraDistanceOffset = Math.max(-3.2, Math.min(7.5, cameraDistanceOffset));
 }
 
 function shootSecretGun() {
@@ -582,59 +490,17 @@ const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
 shadowGenerator.blurKernel = 24;
 
-const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 16, Vector3.Zero(), scene);
-camera.detachControl();
-camera.lowerRadiusLimit = 8;
-camera.upperRadiusLimit = 24;
-
-function updateCameraProjection() {
-  const aspect = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight());
-  isPortrait = aspect < 1;
-
-  if (isPortrait) {
-    // Portrait (phones): fix the HORIZONTAL field of view so left/right stay
-    // visible without the slit you get from a vertical-fixed FOV on a tall
-    // window. The framing (zoom/angle) is handled by the follow camera.
-    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED;
-    camera.fov = settings.portraitFov;
-  } else {
-    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED;
-    camera.fov = 0.8;
-  }
-}
-
-// Optional adaptive resolution: sample FPS twice a second and nudge the engine
-// hardware-scaling level so a struggling device renders at lower resolution
-// (smoother) and a comfortable one returns toward native. Off by default.
-function updateAdaptiveResolution(deltaSeconds: number) {
-  perfSampleTime += deltaSeconds;
-
-  if (perfSampleTime < 0.5) {
-    return;
-  }
-
-  perfSampleTime = 0;
-  const fps = engine.getFps();
-
-  if (settings.dynamicResolution) {
-    if (fps < settings.targetFps - 4 && currentHardwareScale < 2.5) {
-      currentHardwareScale = Math.min(2.5, currentHardwareScale + 0.15);
-      engine.setHardwareScalingLevel(currentHardwareScale);
-    } else if (fps > settings.targetFps + 6 && currentHardwareScale > 1) {
-      currentHardwareScale = Math.max(1, currentHardwareScale - 0.1);
-      engine.setHardwareScalingLevel(currentHardwareScale);
-    }
-  } else if (currentHardwareScale !== 1) {
-    currentHardwareScale = 1;
-    engine.setHardwareScalingLevel(1);
-  }
-
-  if (perfEl && !perfEl.hidden) {
-    perfEl.textContent = `${Math.round(fps)} fps · ${currentHardwareScale.toFixed(2)}x`;
-  }
-}
-
-updateCameraProjection();
+const cameraRig = createCameraRig({
+  scene,
+  engine,
+  keys,
+  analogInput,
+  getYaw: () => playerYaw,
+  getPlayerPosition: () => player.position,
+  getInputMode: () => settingsUi.effectiveInputMode(),
+  perfEl,
+});
+const camera = cameraRig.camera;
 
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 createWorldTerrain(scene, biomeGroundMaterial);
@@ -692,7 +558,7 @@ const settingsUi = createSettingsUi({
   refreshGrassMaterial: () => grass.refreshMaterial(),
   refreshTextureScales,
   refreshGroundColor,
-  updateCameraProjection,
+  updateCameraProjection: cameraRig.updateProjection,
   syncFenceHealth: () => fence.syncHealthLabels(),
 });
 
@@ -736,13 +602,7 @@ canvas.addEventListener("pointerleave", () => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
-  if (cameraDrag.active && event.pointerId === cameraDrag.pointerId) {
-    cameraOrbitYaw -= (event.clientX - cameraDrag.lastX) * 0.006;
-    cameraOrbitHeight += (event.clientY - cameraDrag.lastY) * 0.012;
-    cameraOrbitHeight = Math.max(-1.7, Math.min(4.8, cameraOrbitHeight));
-    markCameraAdjusted();
-    cameraDrag.lastX = event.clientX;
-    cameraDrag.lastY = event.clientY;
+  if (cameraRig.dragTo(event.pointerId, event.clientX, event.clientY)) {
     return;
   }
 
@@ -770,20 +630,12 @@ canvas.addEventListener("pointerdown", (event) => {
   }
 
   event.preventDefault();
-  cameraDrag.active = true;
-  cameraDrag.pointerId = event.pointerId;
-  cameraDrag.lastX = event.clientX;
-  cameraDrag.lastY = event.clientY;
+  cameraRig.beginDrag(event.pointerId, event.clientX, event.clientY);
   canvas.setPointerCapture(event.pointerId);
 });
 
 const endCameraDrag = (event: PointerEvent) => {
-  if (event.pointerId !== cameraDrag.pointerId) {
-    return;
-  }
-
-  cameraDrag.active = false;
-  cameraDrag.pointerId = -1;
+  cameraRig.endDrag(event.pointerId);
 };
 
 canvas.addEventListener("pointerup", endCameraDrag);
@@ -795,15 +647,13 @@ canvas.addEventListener("wheel", (event) => {
   }
 
   event.preventDefault();
-  cameraDistanceOffset += event.deltaY * 0.008;
-  cameraDistanceOffset = Math.max(-3.2, Math.min(7.5, cameraDistanceOffset));
-  markCameraAdjusted();
+  cameraRig.zoom(event.deltaY);
 }, { passive: false });
 
 document.addEventListener("fullscreenchange", () => {
   fullscreenButtonEl.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
   engine.resize();
-  updateCameraProjection();
+  cameraRig.updateProjection();
 });
 
 window.addEventListener("keydown", (event) => {
@@ -854,7 +704,7 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("resize", () => {
   engine.resize();
-  updateCameraProjection();
+  cameraRig.updateProjection();
 });
 
 engine.runRenderLoop(() => {
@@ -863,7 +713,7 @@ engine.runRenderLoop(() => {
 
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
-  updateAdaptiveResolution(deltaSeconds);
+  cameraRig.updateAdaptiveResolution(deltaSeconds);
   settingsUi.applyActiveInputMode();
 
   const gamepad = navigator.getGamepads().find(Boolean);
@@ -893,13 +743,10 @@ engine.runRenderLoop(() => {
     shootSecretGun();
   }
   lastControllerShoot = controllerShoot;
-  updateCameraInput(deltaSeconds);
+  cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
   fence.resolveOverlap();
-  const baseDistance = isPortrait ? settings.portraitDistance : 7.2;
-  const baseHeight = isPortrait ? settings.portraitHeight : 4.2;
-  const lookAhead = isPortrait ? settings.portraitLookAhead : 0;
-  updateFollowCamera(camera, player.position, playerYaw, deltaSeconds, cameraOrbitYaw, cameraOrbitHeight, cameraDistanceOffset, baseDistance, baseHeight, lookAhead);
+  cameraRig.follow(deltaSeconds);
   grass.updateMotion(timeSeconds);
   wind.update(deltaSeconds);
   gunEffects.update(deltaSeconds);
