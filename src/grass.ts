@@ -40,13 +40,18 @@ export function createGrass(deps: GrassDeps) {
 
   const grassGrid = new Map<string, number[]>();
   let longGrassMatrices = new Float32Array(0);
-  let cutGrassMatrices = new Float32Array(0);
   let mediumGrassMatrices = new Float32Array(0);
   let wheatGrassMatrices = new Float32Array(0);
   let mediumGrassColors = new Float32Array(0);
   let wheatGrassColors = new Float32Array(0);
   let longGrassColors = new Float32Array(0);
-  let cutGrassColors = new Float32Array(0);
+  // Cut blades come in four top-edge shapes (flat / point / sawtooth / V), one
+  // thin-instance mesh each, so a blade lives in its variant mesh at a local
+  // index and the per-variant buffers stay compact.
+  let cutVariant = new Uint8Array(0);
+  let cutLocalIndex = new Int32Array(0);
+  let cutVariantMatrices: Float32Array[] = [];
+  let cutVariantColors: Float32Array[] = [];
   let grassX = new Float32Array(0);
   let grassZ = new Float32Array(0);
   let grassRotation = new Float32Array(0);
@@ -78,17 +83,54 @@ export function createGrass(deps: GrassDeps) {
   const isOnRoad = (x: number) => x > 11.8 && x < 17.2;
   const randomYardPoint = () => randomPointInSegments(yardSegments);
 
-  const cutBladeVertexColors = () => {
+  // Four cut-blade silhouettes. backFaceCulling is off on the cut material, so
+  // winding doesn't matter. y runs 0 (base) to 1 (tip), scaled tiny when drawn.
+  const cutBladeShapes: Array<{ positions: number[]; indices: number[] }> = [
+    // flat across the top
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.04, 1, 0.01, 0.04, 1, -0.005], indices: [0, 1, 2, 1, 3, 2] },
+    // a point: high in the middle, sloping down at the sides
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 0.5, 0.01, 0, 1, 0, 0.05, 0.5, -0.01], indices: [0, 1, 3, 1, 4, 3, 0, 3, 2] },
+    // a sawtooth: angle up, sharp down, angle up, sharp down
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.055, 0.4, 0.01, -0.01, 0.95, 0.005, -0.01, 0.45, 0.005, 0.035, 0.95, -0.005, 0.055, 0.45, -0.01], indices: [0, 1, 6, 0, 6, 5, 0, 5, 4, 0, 4, 3, 0, 3, 2] },
+    // a V: high on each side, dropping in the middle
+    { positions: [-0.055, 0, 0, 0.055, 0, 0, -0.05, 1, 0.01, 0, 0.45, 0, 0.05, 1, -0.005], indices: [0, 1, 3, 0, 3, 2, 1, 4, 3] },
+  ];
+
+  // Shape mix: 1/5 flat, 2/5 point, 1/5 sawtooth, 1/5 V.
+  const pickCutVariant = () => {
+    const r = Math.random();
+    if (r < 0.2) {
+      return 0;
+    }
+    if (r < 0.6) {
+      return 1;
+    }
+    if (r < 0.8) {
+      return 2;
+    }
+    return 3;
+  };
+
+  // Per-vertex gradient: root colour at the base, top colours at the tip,
+  // interpolated by height so any silhouette gets a consistent fade.
+  const cutBladeVertexColors = (positions: number[]) => {
     const root = hexToColor3(settings.cutGrassRootColor);
     const topA = hexToColor3(settings.cutGrassTopColorA);
     const topB = hexToColor3(settings.cutGrassTopColorB);
+    const colors: number[] = [];
 
-    return [
-      root.r, root.g, root.b, 1,
-      root.r, root.g, root.b, 1,
-      topA.r, topA.g, topA.b, 1,
-      topB.r, topB.g, topB.b, 1,
-    ];
+    for (let i = 0; i < positions.length; i += 3) {
+      const y = Math.max(0, Math.min(1, positions[i + 1]));
+      const top = positions[i] < 0 ? topA : topB;
+      colors.push(
+        root.r + ((top.r - root.r) * y),
+        root.g + ((top.g - root.g) * y),
+        root.b + ((top.b - root.b) * y),
+        1,
+      );
+    }
+
+    return colors;
   };
 
   const makeLongBladeMesh = (name = "longGrass") => {
@@ -136,26 +178,17 @@ export function createGrass(deps: GrassDeps) {
     return mesh;
   };
 
-  const makeCutBladeMesh = () => {
-    const mesh = new Mesh("cutGrass", scene);
-    const positions = [
-      -0.055, 0, 0,
-      0.055, 0, 0,
-      -0.04, 1, 0.01,
-      0.04, 1, -0.005,
-    ];
-    const indices = [
-      0, 1, 2,
-      1, 3, 2,
-    ];
+  const makeCutBladeMesh = (variant: number, name: string) => {
+    const shape = cutBladeShapes[variant];
+    const mesh = new Mesh(name, scene);
     const normals: number[] = [];
-    VertexData.ComputeNormals(positions, indices, normals);
+    VertexData.ComputeNormals(shape.positions, shape.indices, normals);
 
     const vertexData = new VertexData();
-    vertexData.positions = positions;
-    vertexData.indices = indices;
+    vertexData.positions = shape.positions;
+    vertexData.indices = shape.indices;
     vertexData.normals = normals;
-    vertexData.colors = cutBladeVertexColors();
+    vertexData.colors = cutBladeVertexColors(shape.positions);
     vertexData.applyToMesh(mesh);
     mesh.material = materials.cutBladeMaterial;
     return mesh;
@@ -190,12 +223,14 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const longGrass = makeLongBladeMesh();
-  const cutGrass = makeCutBladeMesh();
+  const cutGrassMeshes = cutBladeShapes.map((_, variant) => makeCutBladeMesh(variant, `cutGrass-${variant}`));
   const mediumGrass = makeLongBladeMesh("mediumGrass");
   const wheatGrass = makeWheatBladeMesh();
 
   const refreshCutBladeVertexColors = () => {
-    cutGrass.setVerticesData(VertexBuffer.ColorKind, cutBladeVertexColors(), true);
+    for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+      cutGrassMeshes[v].setVerticesData(VertexBuffer.ColorKind, cutBladeVertexColors(cutBladeShapes[v].positions), true);
+    }
   };
 
   const distanceToFlowerBed = (x: number, z: number) => {
@@ -295,10 +330,20 @@ export function createGrass(deps: GrassDeps) {
     cutTiltZ = new Float32Array(bladeCount);
     isMowed = Array.from({ length: bladeCount }, () => false);
     longGrassMatrices = new Float32Array(bladeCount * 16);
-    cutGrassMatrices = new Float32Array(bladeCount * 16);
     longGrassColors = new Float32Array(bladeCount * 4);
-    cutGrassColors = new Float32Array(bladeCount * 4);
     const hiddenMatrix = emptyMatrix();
+
+    cutVariant = new Uint8Array(bladeCount);
+    cutLocalIndex = new Int32Array(bladeCount);
+    const cutCounts = [0, 0, 0, 0];
+    for (let i = 0; i < bladeCount; i += 1) {
+      const v = pickCutVariant();
+      cutVariant[i] = v;
+      cutLocalIndex[i] = cutCounts[v];
+      cutCounts[v] += 1;
+    }
+    cutVariantMatrices = cutCounts.map((count) => new Float32Array(count * 16));
+    cutVariantColors = cutCounts.map((count) => new Float32Array(count * 4));
 
     for (let i = 0; i < bladeCount; i += 1) {
       let { x, z } = randomYardPoint();
@@ -318,9 +363,9 @@ export function createGrass(deps: GrassDeps) {
         isMowed[i] = true;
         mowedCount += 1;
         writeMatrix(longGrassMatrices, i, hiddenMatrix);
-        writeMatrix(cutGrassMatrices, i, hiddenMatrix);
+        writeMatrix(cutVariantMatrices[cutVariant[i]], cutLocalIndex[i], hiddenMatrix);
         writeColor(longGrassColors, i, [0, 0, 0, 0]);
-        writeColor(cutGrassColors, i, [0, 0, 0, 0]);
+        writeColor(cutVariantColors[cutVariant[i]], cutLocalIndex[i], [0, 0, 0, 0]);
         continue;
       }
 
@@ -339,9 +384,9 @@ export function createGrass(deps: GrassDeps) {
       cutTiltZ[i] = (Math.random() - 0.5) * 0.16;
 
       writeMatrix(longGrassMatrices, i, matrixForBlade(i, false));
-      writeMatrix(cutGrassMatrices, i, hiddenMatrix);
+      writeMatrix(cutVariantMatrices[cutVariant[i]], cutLocalIndex[i], hiddenMatrix);
       writeColor(longGrassColors, i, colorForBlade(i, false));
-      writeColor(cutGrassColors, i, colorForBlade(i, true));
+      writeColor(cutVariantColors[cutVariant[i]], cutLocalIndex[i], colorForBlade(i, true));
 
       const cellX = Math.floor(x / cellSize);
       const cellZ = Math.floor(z / cellSize);
@@ -357,8 +402,10 @@ export function createGrass(deps: GrassDeps) {
 
     longGrass.thinInstanceSetBuffer("matrix", longGrassMatrices, 16, false);
     longGrass.thinInstanceSetBuffer("color", longGrassColors, 4, false);
-    cutGrass.thinInstanceSetBuffer("matrix", cutGrassMatrices, 16, false);
-    cutGrass.thinInstanceSetBuffer("color", cutGrassColors, 4, false);
+    for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+      cutGrassMeshes[v].thinInstanceSetBuffer("matrix", cutVariantMatrices[v], 16, false);
+      cutGrassMeshes[v].thinInstanceSetBuffer("color", cutVariantColors[v], 4, false);
+    }
   };
 
   const placeMediumGrass = () => {
@@ -485,7 +532,7 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const refreshColors = () => {
-    if (!longGrassColors.length || !cutGrassColors.length) {
+    if (!longGrassColors.length) {
       return;
     }
 
@@ -493,11 +540,13 @@ export function createGrass(deps: GrassDeps) {
 
     for (let i = 0; i < bladeCount; i += 1) {
       writeColor(longGrassColors, i, colorForBlade(i, false));
-      writeColor(cutGrassColors, i, colorForBlade(i, true));
+      writeColor(cutVariantColors[cutVariant[i]], cutLocalIndex[i], colorForBlade(i, true));
     }
 
     longGrass.thinInstanceBufferUpdated("color");
-    cutGrass.thinInstanceBufferUpdated("color");
+    for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+      cutGrassMeshes[v].thinInstanceBufferUpdated("color");
+    }
   };
 
   return {
@@ -545,6 +594,7 @@ export function createGrass(deps: GrassDeps) {
       const minCellZ = Math.floor((player.position.z - mowerCutRadius) / cellSize);
       const maxCellZ = Math.floor((player.position.z + mowerCutRadius) / cellSize);
       let mowedThisFrame = false;
+      const cutDirty = [false, false, false, false];
 
       for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
         for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
@@ -566,7 +616,8 @@ export function createGrass(deps: GrassDeps) {
               isMowed[index] = true;
               mowedCount += 1;
               writeMatrix(longGrassMatrices, index, emptyMatrix());
-              writeMatrix(cutGrassMatrices, index, matrixForBlade(index, true));
+              writeMatrix(cutVariantMatrices[cutVariant[index]], cutLocalIndex[index], matrixForBlade(index, true));
+              cutDirty[cutVariant[index]] = true;
               mowedThisFrame = true;
             }
           }
@@ -577,7 +628,11 @@ export function createGrass(deps: GrassDeps) {
         lastMowSeconds = performance.now() / 1000;
         grassCuttingAudioTimer = 0.16;
         longGrass.thinInstanceBufferUpdated("matrix");
-        cutGrass.thinInstanceBufferUpdated("matrix");
+        for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+          if (cutDirty[v]) {
+            cutGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+          }
+        }
         onMowProgress();
 
         if (clippingBurstCooldown <= 0) {
@@ -593,6 +648,7 @@ export function createGrass(deps: GrassDeps) {
       const shotWidth = 0.28;
       let changedGrass = false;
       let grassFleckCount = 0;
+      const cutDirty = [false, false, false, false];
 
       for (let distance = 0; distance <= range; distance += 0.45) {
         const x = origin.x + (direction.x * distance);
@@ -623,7 +679,8 @@ export function createGrass(deps: GrassDeps) {
               isMowed[index] = true;
               mowedCount += 1;
               writeMatrix(longGrassMatrices, index, emptyMatrix());
-              writeMatrix(cutGrassMatrices, index, matrixForBlade(index, true));
+              writeMatrix(cutVariantMatrices[cutVariant[index]], cutLocalIndex[index], matrixForBlade(index, true));
+              cutDirty[cutVariant[index]] = true;
               changedGrass = true;
 
               if (grassFleckCount < 28 && Math.random() < 0.065) {
@@ -637,7 +694,11 @@ export function createGrass(deps: GrassDeps) {
 
       if (changedGrass) {
         longGrass.thinInstanceBufferUpdated("matrix");
-        cutGrass.thinInstanceBufferUpdated("matrix");
+        for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+          if (cutDirty[v]) {
+            cutGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+          }
+        }
         onMowProgress();
       }
     },
