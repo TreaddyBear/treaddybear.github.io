@@ -42,6 +42,7 @@ import { createGrass } from "./grass";
 import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
+import { createMowerControl } from "./mowerControl";
 import { isInsideSegments } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
 
@@ -127,6 +128,7 @@ let lastTurnDirection = 0;
 let currentThrottle = 0;
 let driveSpeed = 0;
 let bumpCooldown = 0;
+let bumpPenaltyCooldown = 0;
 let mouseTurn = 0;
 let mouseSteeringActive = false;
 let mouseSteeringPointer = false;
@@ -138,6 +140,24 @@ let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 const rockColliders: RockCollider[] = [];
+
+// Imperative drive-the-mower layer (and a classic-AI hook later). Reads live
+// vehicle state; its per-frame turn/throttle is folded into movePlayer below.
+const mowerControl = createMowerControl({
+  getState: () => ({ x: player.position.x, z: player.position.z, heading: playerYaw, speed: driveSpeed }),
+});
+
+// Dev/scripting hook. Intentionally exposed even in production: a determined
+// desktop user could script the car from devtools anyway, and it gives us a
+// clean handle for testing. Mobile players effectively can't reach it.
+(window as unknown as { mower: unknown }).mower = {
+  rotateBy: mowerControl.rotateBy,
+  turnToHeading: mowerControl.turnToHeading,
+  driveDistance: mowerControl.driveDistance,
+  driveTo: mowerControl.driveTo,
+  stop: mowerControl.stop,
+  state: () => mowerControl.getState(),
+};
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
 scene.imageProcessingConfiguration.exposure = 1.08;
@@ -337,15 +357,19 @@ function movePlayer(deltaSeconds: number) {
   // resolves away from keyboard, so it no longer fights the mouse cursor.
   const useMouseSteering = (settings.inputMode === "mouse" || (settings.inputMode === "auto" && activeInputMode === "keyboard"))
     && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraRig.isDragging();
+  // Scripted/AI control (window.mower, and a future bot): produces the same
+  // turn/throttle a stick would, folded into the normal input below.
+  const scripted = mowerControl.update(deltaSeconds);
   const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
   const controllerTurn = analogInput.controllerTurn;
   const touchTurn = analogInput.touchTurn;
-  const analogTurn = Math.max(-1, Math.min(1, controllerTurn + touchTurn + (useMouseSteering ? mouseTurn * 0.72 : 0)));
+  const analogTurn = Math.max(-1, Math.min(1, controllerTurn + touchTurn + scripted.turn + (useMouseSteering ? mouseTurn * 0.72 : 0)));
   const turnDirection = Math.max(-1, Math.min(1, keyboardTurn + analogTurn));
   const turnSign = Math.sign(turnDirection);
   const shouldAccelerateTurn = keyboardTurn !== 0
     || Math.abs(controllerTurn) >= settings.controllerTurnAccelThreshold
-    || Math.abs(touchTurn) >= settings.controllerTurnAccelThreshold;
+    || Math.abs(touchTurn) >= settings.controllerTurnAccelThreshold
+    || Math.abs(scripted.turn) >= 0.05;
 
   if (turnSign !== 0) {
     if (turnSign !== lastTurnDirection) {
@@ -379,7 +403,7 @@ function movePlayer(deltaSeconds: number) {
     currentThrottle -= 0.45;
   }
 
-  currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle));
+  currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle + scripted.throttle));
 
   const targetSpeed = currentThrottle === 0
     ? 0
@@ -407,6 +431,15 @@ function movePlayer(deltaSeconds: number) {
     if (bumpCooldown <= 0) {
       if (hitFenceIndex >= 0) {
         fence.damagePiece(hitFenceIndex, impactSpeed);
+
+        // Bumping the fence costs you time — the level's bit of tension. This has
+        // its own, longer cooldown than the audio/damage bump so that scraping
+        // along the fence is a steady trickle, not an instant clock-wipe.
+        if (bumpPenaltyCooldown <= 0) {
+          timeRemaining = Math.max(0, timeRemaining - settings.fenceBumpTimePenalty);
+          hud.setTime(timeRemaining);
+          bumpPenaltyCooldown = 1.5;
+        }
       }
 
       prototypeAudio.playWallBump(settings.wallBumpVolume);
@@ -738,6 +771,7 @@ engine.runRenderLoop(() => {
   const timeSeconds = performance.now() / 1000;
 
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
+  bumpPenaltyCooldown = Math.max(0, bumpPenaltyCooldown - deltaSeconds);
   shootCooldown = Math.max(0, shootCooldown - deltaSeconds);
   cameraRig.updateAdaptiveResolution(deltaSeconds);
   settingsUi.applyActiveInputMode();
