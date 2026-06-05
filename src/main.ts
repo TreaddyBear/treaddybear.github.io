@@ -41,6 +41,7 @@ import { createWind } from "./wind";
 import { createDandelions } from "./dandelions";
 import { createFenceSystem } from "./fence";
 import { createGrass } from "./grass";
+import { createHud } from "./hud";
 import { isInsideSegments } from "./utils/yard";
 import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale, updateFollowCamera } from "./world";
 
@@ -96,8 +97,6 @@ const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
 const prototypeAudio = createPrototypeAudio();
 const perfEl = document.querySelector<HTMLDivElement>("#perf");
-let celebrationShown = false;
-let celebrationHideTimer = 0;
 
 if (!import.meta.env.PROD) {
   settingsEl.hidden = false;
@@ -231,85 +230,7 @@ function updateSecretGunPickup() {
 
   hasSecretGun = true;
   secretGunRoot.setEnabled(false);
-  updateHud();
-}
-
-function updateHud() {
-  const percentage = grass.mowedCount === bladeCount ? 100 : Math.floor((grass.mowedCount / bladeCount) * 100);
-  scoreEl.textContent = `Mowed: ${percentage}%`;
-  if (hasSecretGun) {
-    scoreEl.textContent += " | Armed";
-  }
-  meterFillEl.style.width = `${(grass.mowedCount / bladeCount) * 100}%`;
-  mistakesEl.textContent = `Mistakes: ${tulips.mistakeCount}`;
-  mistakeMeterFillEl.style.width = `${Math.min(100, tulips.mistakeCount * 12)}%`;
-
-  if (percentage === 100 && !celebrationShown) {
-    showCelebration();
-  }
-}
-
-function showCelebration() {
-  celebrationShown = true;
-  window.clearTimeout(celebrationHideTimer);
-  celebrationSeedsEl.replaceChildren();
-  prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume);
-  prototypeAudio.setCompletionLoopActive(true, settings);
-
-  for (let i = 0; i < 96; i += 1) {
-    const seed = document.createElement("span");
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 110 + (Math.random() * 420);
-    const verticalLift = 40 + (Math.random() * 220);
-
-    seed.className = "celebration-seed";
-    seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
-    seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
-    seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
-    seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
-    seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
-    celebrationSeedsEl.append(seed);
-  }
-
-  celebrationEl.hidden = false;
-  nextLevelButtonEl.focus();
-}
-
-function resetCelebration() {
-  window.clearTimeout(celebrationHideTimer);
-  celebrationShown = false;
-  celebrationEl.hidden = true;
-  celebrationSeedsEl.replaceChildren();
-  prototypeAudio.setCompletionLoopActive(false, settings);
-}
-
-function closeCelebration() {
-  celebrationEl.hidden = true;
-  prototypeAudio.setCompletionLoopActive(false, settings);
-}
-
-function goToNextLevel() {
-  const nextMap = settings.mapId === "main" ? "flower-court" : "main";
-  settings.mapId = nextMap;
-  const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
-
-  if (mapControl) {
-    mapControl.value = nextMap;
-  }
-
-  // Building the next lawn (30k blades + dirt mask) blocks for a beat, which on
-  // mobile looked like a dead button. Show a spinner and let it paint before the
-  // synchronous regen runs.
-  if (loadingEl) {
-    loadingEl.hidden = false;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      resetGame();
-      loadingEl.hidden = true;
-    }));
-    return;
-  }
-
-  resetGame();
+  hud.update();
 }
 
 function isInsideYard(x: number, z: number) {
@@ -361,7 +282,7 @@ function collidingRock(x: number, z: number) {
 
 function resetGame() {
   applyActiveMap();
-  resetCelebration();
+  hud.resetCelebration();
   mapGroundRoot?.dispose(false, true);
   fenceRoot?.dispose(false, true);
   fence.disposeHealthLabels();
@@ -388,22 +309,12 @@ function resetGame() {
   tulips.place();
   grass.mowUnderMower(0);
   dandelions.mowAt(player.position.x, player.position.z, mowerCutRadius * mowerCutRadius);
-  syncMistakesVisibility();
-  updateHud();
+  hud.syncMistakesVisibility();
+  hud.update();
 }
 
 // The mistakes meter only makes sense where mistakes are possible (maps with
 // protected flowers). On a plain mow-only map it is just confusing, so hide it.
-function syncMistakesVisibility() {
-  const show = getActiveMap().flowerBeds.length > 0;
-  mistakesEl.style.display = show ? "" : "none";
-  const meter = document.querySelector<HTMLDivElement>("#mistakeMeter");
-
-  if (meter) {
-    meter.style.display = show ? "" : "none";
-  }
-}
-
 function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: number) {
   if (settings.disableFenceCollision) {
     nextPosition.y = groundHeightAt(nextPosition.x, nextPosition.z);
@@ -608,7 +519,7 @@ function shootSecretGun() {
   }
 
   if (tulipHits.length > 0) {
-    updateHud();
+    hud.update();
   }
 
   const fenceHitDistance = fence.shootAlong(origin, direction, range);
@@ -1036,9 +947,27 @@ const grass = createGrass({
   groundHeightAt,
   fence,
   wind,
-  onMowProgress: updateHud,
+  onMowProgress: () => hud.update(),
 });
 grass.refreshMaterial();
+
+const hud = createHud({
+  score: scoreEl,
+  meterFill: meterFillEl,
+  mistakes: mistakesEl,
+  mistakeMeterFill: mistakeMeterFillEl,
+  celebration: celebrationEl,
+  celebrationSeeds: celebrationSeedsEl,
+  nextLevelButton: nextLevelButtonEl,
+  loading: loadingEl,
+  settingsRoot: settingsEl,
+  getMowed: () => grass.mowedCount,
+  getMistakes: () => tulips.mistakeCount,
+  isArmed: () => hasSecretGun,
+  playFanfare: () => prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume),
+  setCompletionLoop: (active) => prototypeAudio.setCompletionLoopActive(active, settings),
+  onRequestReset: resetGame,
+});
 
 setupSettings();
 setInputMode(detectInitialInputMode());
@@ -1062,8 +991,8 @@ fullscreenButtonEl.addEventListener("keydown", (event) => {
   }
 });
 
-closeCelebrationButtonEl.addEventListener("click", closeCelebration);
-nextLevelButtonEl.addEventListener("click", goToNextLevel);
+closeCelebrationButtonEl.addEventListener("click", () => hud.closeCelebration());
+nextLevelButtonEl.addEventListener("click", () => hud.goToNextLevel());
 
 canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
@@ -1155,13 +1084,13 @@ window.addEventListener("keydown", (event) => {
 
   // The completion card is a modal: let the keyboard advance or dismiss it
   // before any key falls through to mower driving.
-  if (!celebrationEl.hidden) {
+  if (hud.isCelebrationVisible()) {
     if (key === "enter" || key === " ") {
       event.preventDefault();
-      goToNextLevel();
+      hud.goToNextLevel();
     } else if (key === "escape") {
       event.preventDefault();
-      closeCelebration();
+      hud.closeCelebration();
     }
 
     return;
@@ -1215,14 +1144,14 @@ engine.runRenderLoop(() => {
   // The completion card is DOM, which a gamepad can't focus, so drive it
   // directly: A advances to the next level, B closes. Edge-triggered so a held
   // button doesn't skip through screens.
-  if (!celebrationEl.hidden) {
+  if (hud.isCelebrationVisible()) {
     const advance = Boolean(gamepad?.buttons[0]?.pressed);
     const dismiss = Boolean(gamepad?.buttons[1]?.pressed);
 
     if (advance && !lastCelebrationAdvance) {
-      goToNextLevel();
+      hud.goToNextLevel();
     } else if (dismiss && !lastCelebrationDismiss) {
-      closeCelebration();
+      hud.closeCelebration();
     }
 
     lastCelebrationAdvance = advance;
@@ -1254,7 +1183,7 @@ engine.runRenderLoop(() => {
   grass.updateHighlight(timeSeconds);
 
   if (tulips.update(player.position.x, player.position.z)) {
-    updateHud();
+    hud.update();
   }
 
   updateSecretGunPickup();
