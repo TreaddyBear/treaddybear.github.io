@@ -124,45 +124,40 @@ function createBoulder(
   z: number,
   scale: number,
 ) {
-  // Faceted boulder carved out of a single icosphere. It MUST be built smooth
-  // (flat: false) so the vertices are shared: that way nudging each vertex moves
-  // every facet that touches it together and the rock stays one watertight lump.
-  // (The default flat icosphere has unshared per-face vertices, so jittering
-  // them tears the facets apart into a pile of loose triangles.) We flat-shade
-  // at the end to get the angular look back.
+  // Faceted boulder carved from a single smooth (flat: false) icosphere so the
+  // vertices are shared and the rock stays one watertight lump; we flat-shade at
+  // the very end to get the angular facets back.
   const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 2, flat: false, updatable: true }, scene);
   const positions = rock.getVerticesData(VertexBuffer.PositionKind);
 
   if (positions) {
-    // A few large lumps give the silhouette some big planar faces instead of an
-    // even potato; the per-vertex jitter on top roughens it without tearing.
-    const lumpA = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-    const lumpB = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+    // Displace each vertex ALONG ITS OWN RAY by a smooth, low-frequency amount
+    // (a sum of a few directional lobes). Because the radius is a smooth, always
+    // positive function of direction, neighbouring vertices keep similar radii,
+    // so the surface stays star-convex and physically cannot fold through itself
+    // into spikes. High-frequency per-vertex noise on this coarse a sphere is
+    // exactly what tore the old rock apart, so there is deliberately none here.
+    const randomAxis = () => new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    const lobes = [
+      { axis: randomAxis(), amp: 0.17 },
+      { axis: randomAxis(), amp: 0.12 },
+      { axis: randomAxis(), amp: 0.08 },
+    ];
 
     for (let i = 0; i < positions.length; i += 3) {
-      const px = positions[i];
-      const py = positions[i + 1];
-      const pz = positions[i + 2];
-      const len = Math.hypot(px, py, pz) || 1;
-      const nx = px / len;
-      const ny = py / len;
-      const nz = pz / len;
+      const len = Math.hypot(positions[i], positions[i + 1], positions[i + 2]) || 1;
+      const nx = positions[i] / len;
+      const ny = positions[i + 1] / len;
+      const nz = positions[i + 2] / len;
 
-      // Radial displacement (stays cohesive because it moves along the normal):
-      // two low-frequency lumps plus fine vertex noise.
-      const lump = ((nx * lumpA.x) + (ny * lumpA.y) + (nz * lumpA.z)) * 0.16
-        + ((nx * lumpB.x) + (ny * lumpB.y) + (nz * lumpB.z)) * 0.12;
-      const radius = 0.5 + lump + ((Math.random() - 0.5) * 0.12);
+      let radius = 0.5;
+      for (const lobe of lobes) {
+        radius += ((nx * lobe.axis.x) + (ny * lobe.axis.y) + (nz * lobe.axis.z)) * lobe.amp;
+      }
 
       positions[i] = nx * radius;
-      positions[i + 1] = ny * radius * 0.78;
+      positions[i + 1] = ny * radius * 0.76; // squash a little so it reads as a rock, not a ball
       positions[i + 2] = nz * radius;
-
-      // Shear everything below a low cut up onto one flat plane for a broad base
-      // that seats on the ground instead of a ball half-buried in it.
-      if (positions[i + 1] < -0.18) {
-        positions[i + 1] = -0.18;
-      }
     }
 
     rock.setVerticesData(VertexBuffer.PositionKind, positions);
@@ -173,9 +168,10 @@ function createBoulder(
   const scaleY = scale * (0.7 + (Math.random() * 0.35));
   const scaleZ = scale * (0.95 + (Math.random() * 0.45));
   rock.scaling = new Vector3(scaleX, scaleY, scaleZ);
-  // Only yaw, so the flat base keeps facing down; seat the base on the ground.
   rock.rotation = new Vector3(0, Math.random() * Math.PI, 0);
-  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.18 * scaleY) - 0.05, z);
+  // Sink the lower third into the ground: the terrain cuts a clean flat line
+  // across it, so it reads as flat-bottomed without any degenerate base geometry.
+  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.1 * scaleY), z);
   rock.material = material;
   shadowGenerator.addShadowCaster(rock);
   colliders.push({ x, z, radius: Math.max(scaleX, scaleZ) * 0.5 });
