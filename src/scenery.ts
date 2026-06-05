@@ -127,22 +127,37 @@ function createBoulder(
   // Faceted boulder carved from a single smooth (flat: false) icosphere so the
   // vertices are shared and the rock stays one watertight lump; we flat-shade at
   // the very end to get the angular facets back.
-  const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 2, flat: false, updatable: true }, scene);
+  const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 3, flat: false, updatable: true }, scene);
   const positions = rock.getVerticesData(VertexBuffer.PositionKind);
 
   if (positions) {
-    // Displace each vertex ALONG ITS OWN RAY by a smooth, low-frequency amount
-    // (a sum of a few directional lobes). Because the radius is a smooth, always
-    // positive function of direction, neighbouring vertices keep similar radii,
-    // so the surface stays star-convex and physically cannot fold through itself
-    // into spikes. High-frequency per-vertex noise on this coarse a sphere is
-    // exactly what tore the old rock apart, so there is deliberately none here.
+    // Every vertex is displaced ALONG ITS OWN RAY, so the result is a radial
+    // height field over the sphere — that can be as lumpy, pronounced and even
+    // concave as we like and still never self-intersect (the only hard rule is
+    // the radius must stay positive). The displacement is a few big directional
+    // lobes (broad bulges/hollows) plus per-vertex jitter (craggy detail).
     const randomAxis = () => new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
     const lobes = [
-      { axis: randomAxis(), amp: 0.17 },
-      { axis: randomAxis(), amp: 0.12 },
+      { axis: randomAxis(), amp: 0.22 },
+      { axis: randomAxis(), amp: 0.16 },
+      { axis: randomAxis(), amp: 0.11 },
       { axis: randomAxis(), amp: 0.08 },
     ];
+
+    // Jitter is keyed by the vertex's quantised original direction, so any
+    // vertices sharing a position (within eps) are guaranteed to get the exact
+    // same offset — no seam can ever open between facets, however coincident.
+    const eps = 0.01;
+    const jitterCache = new Map<string, number>();
+    const jitterFor = (nx: number, ny: number, nz: number) => {
+      const key = `${Math.round(nx / eps)},${Math.round(ny / eps)},${Math.round(nz / eps)}`;
+      let value = jitterCache.get(key);
+      if (value === undefined) {
+        value = Math.random();
+        jitterCache.set(key, value);
+      }
+      return value;
+    };
 
     for (let i = 0; i < positions.length; i += 3) {
       const len = Math.hypot(positions[i], positions[i + 1], positions[i + 2]) || 1;
@@ -154,9 +169,11 @@ function createBoulder(
       for (const lobe of lobes) {
         radius += ((nx * lobe.axis.x) + (ny * lobe.axis.y) + (nz * lobe.axis.z)) * lobe.amp;
       }
+      radius += (jitterFor(nx, ny, nz) - 0.5) * 0.18; // craggy per-vertex detail (concave allowed)
+      radius = Math.max(0.16, radius); // keep it positive so the star-shape stays valid
 
       positions[i] = nx * radius;
-      positions[i + 1] = ny * radius * 0.76; // squash a little so it reads as a rock, not a ball
+      positions[i + 1] = ny * radius * 0.74; // squash a little so it reads as a rock, not a ball
       positions[i + 2] = nz * radius;
     }
 

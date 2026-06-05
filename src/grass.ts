@@ -198,10 +198,10 @@ export function createGrass(deps: GrassDeps) {
     return mesh;
   };
 
-  // One wild stalk: a narrow tapered strip rooted near the clump centre that
-  // curves over to one side as it rises, so the clump reads as bent/curved
-  // pieces of straw rather than stiff spikes.
-  const appendWheatStalk = (
+  // A short accessory blade: a narrow tapered strip rooted near the clump centre
+  // that curves over to one side as it rises. These are the bendy filler pieces
+  // around the taller seed stalks.
+  const appendCurvyBlade = (
     positions: number[],
     indices: number[],
     baseX: number,
@@ -234,24 +234,77 @@ export function createGrass(deps: GrassDeps) {
     }
   };
 
-  // Stalk count per clump variant — a 1-stalk wisp up to a fat 8-stalk tuft.
-  const wheatStalkCounts = [1, 3, 5, 8];
+  // A tall, near-straight stalk topped with a wheat seed head: a thin stem that
+  // flares into a diamond-shaped ear and tapers back to a point at the tip.
+  const appendSeededStalk = (
+    positions: number[],
+    indices: number[],
+    baseX: number,
+    baseZ: number,
+    faceAngle: number,
+    tiltX: number,
+    tiltZ: number,
+    height: number,
+  ) => {
+    const start = positions.length / 3;
+    const px = Math.cos(faceAngle); // the flat blade faces this way
+    const pz = Math.sin(faceAngle);
+    const stalkW = 0.012;
+    const neckY = height * 0.55; // where the stem meets the seed head
+    const bulgeY = height * 0.78; // widest part of the ear
+    const headW = 0.05;
+    const cx = (y: number) => baseX + (tiltX * y); // straight lean, no curve
+    const cz = (y: number) => baseZ + (tiltZ * y);
+
+    positions.push(cx(0) - (px * stalkW), 0, cz(0) - (pz * stalkW)); // 0 base
+    positions.push(cx(0) + (px * stalkW), 0, cz(0) + (pz * stalkW)); // 1
+    positions.push(cx(neckY) - (px * stalkW * 0.7), neckY, cz(neckY) - (pz * stalkW * 0.7)); // 2 neck
+    positions.push(cx(neckY) + (px * stalkW * 0.7), neckY, cz(neckY) + (pz * stalkW * 0.7)); // 3
+    positions.push(cx(bulgeY) - (px * headW), bulgeY, cz(bulgeY) - (pz * headW)); // 4 ear bulge
+    positions.push(cx(bulgeY) + (px * headW), bulgeY, cz(bulgeY) + (pz * headW)); // 5
+    positions.push(cx(height), height, cz(height)); // 6 tip
+
+    const a = start;
+    indices.push(
+      a, a + 1, a + 2, a + 1, a + 3, a + 2, // thin stem
+      a + 2, a + 3, a + 5, a + 2, a + 5, a + 4, // ear widening out of the neck
+      a + 4, a + 5, a + 6, // ear tapering to the tip
+    );
+  };
+
+  // Number of tall seed stalks per clump variant (1 wisp up to a full 6-ear tuft).
+  const wheatTallCounts = [1, 2, 4, 6];
 
   const makeWheatClumpMesh = (variant: number, name: string) => {
     const positions: number[] = [];
     const indices: number[] = [];
-    const stalkCount = wheatStalkCounts[variant];
+    const tallCount = wheatTallCounts[variant];
 
-    for (let k = 0; k < stalkCount; k += 1) {
+    // The tall, straight, seed-headed stalks: the main feature of the clump.
+    for (let k = 0; k < tallCount; k += 1) {
       const spreadAngle = Math.random() * Math.PI * 2;
-      const baseRadius = Math.random() * 0.05;
+      const baseRadius = Math.random() * 0.04;
+      const baseX = Math.cos(spreadAngle) * baseRadius;
+      const baseZ = Math.sin(spreadAngle) * baseRadius;
+      const faceAngle = Math.random() * Math.PI * 2;
+      const tiltDir = Math.random() * Math.PI * 2;
+      const tiltMag = 0.05 + (Math.random() * 0.09); // only a slight lean — these stand up
+      const height = 0.82 + (Math.random() * 0.32);
+      appendSeededStalk(positions, indices, baseX, baseZ, faceAngle, Math.cos(tiltDir) * tiltMag, Math.sin(tiltDir) * tiltMag, height);
+    }
+
+    // The shorter, curvier accessory blades filling in around the base.
+    const shortCount = 3 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < shortCount; k += 1) {
+      const spreadAngle = Math.random() * Math.PI * 2;
+      const baseRadius = Math.random() * 0.06;
       const baseX = Math.cos(spreadAngle) * baseRadius;
       const baseZ = Math.sin(spreadAngle) * baseRadius;
       const leanAngle = Math.random() * Math.PI * 2;
-      const height = 0.62 + (Math.random() * 0.42);
-      const bend = 0.12 + (Math.random() * 0.4);
-      const width = 0.02 + (Math.random() * 0.018);
-      appendWheatStalk(positions, indices, baseX, baseZ, Math.cos(leanAngle), Math.sin(leanAngle), height, bend, width);
+      const height = 0.36 + (Math.random() * 0.3); // clearly shorter than the seed stalks
+      const bend = 0.32 + (Math.random() * 0.42); // and clearly curvier
+      const width = 0.018 + (Math.random() * 0.016);
+      appendCurvyBlade(positions, indices, baseX, baseZ, Math.cos(leanAngle), Math.sin(leanAngle), height, bend, width);
     }
 
     const mesh = new Mesh(name, scene);
@@ -285,7 +338,7 @@ export function createGrass(deps: GrassDeps) {
   const longGrass = makeLongBladeMesh();
   const cutGrassMeshes = cutBladeShapes.map((_, variant) => makeCutBladeMesh(variant, `cutGrass-${variant}`));
   const mediumGrass = makeLongBladeMesh("mediumGrass");
-  const wheatGrassMeshes = wheatStalkCounts.map((_, variant) => makeWheatClumpMesh(variant, `wheatGrass-${variant}`));
+  const wheatGrassMeshes = wheatTallCounts.map((_, variant) => makeWheatClumpMesh(variant, `wheatGrass-${variant}`));
 
   const refreshCutBladeVertexColors = () => {
     for (let v = 0; v < cutGrassMeshes.length; v += 1) {
