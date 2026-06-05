@@ -34,6 +34,48 @@ function distanceToMainYardBounds(x: number, z: number) {
   return Math.sqrt((dx * dx) + (dz * dz));
 }
 
+// The world terrain mesh dimensions/resolution. Shared by createWorldTerrain,
+// the grass overlay, and sampledTerrainHeightAt so they all describe the exact
+// same surface.
+const TERRAIN_WIDTH = 300;
+const TERRAIN_DEPTH = 600;
+const TERRAIN_SUBDIV_X = 80;
+const TERRAIN_SUBDIV_Z = 132;
+
+// The height of the visual terrain MESH at (x, z): the coarse mesh interpolates
+// linearly between its grid vertices, so on a hill it sits a little below the
+// smooth analytic terrainHeightAt curve. Anything that should sit "on the
+// ground" (mower, grass, props) must use THIS, or it floats above the visible
+// terrain on slopes. Replicates the mesh's exact triangulation.
+export function sampledTerrainHeightAt(x: number, z: number) {
+  const cellW = TERRAIN_WIDTH / TERRAIN_SUBDIV_X;
+  const cellD = TERRAIN_DEPTH / TERRAIN_SUBDIV_Z;
+  const halfW = TERRAIN_WIDTH / 2;
+  const halfD = TERRAIN_DEPTH / 2;
+
+  const gx = (x + halfW) / cellW;
+  const gz = (z + halfD) / cellD;
+  const ix = Math.max(0, Math.min(TERRAIN_SUBDIV_X - 1, Math.floor(gx)));
+  const iz = Math.max(0, Math.min(TERRAIN_SUBDIV_Z - 1, Math.floor(gz)));
+  const fx = Math.max(0, Math.min(1, gx - ix));
+  const fz = Math.max(0, Math.min(1, gz - iz));
+
+  const x0 = -halfW + (ix * cellW);
+  const x1 = x0 + cellW;
+  const z0 = -halfD + (iz * cellD);
+  const z1 = z0 + cellD;
+  const h00 = terrainHeightAt(x0, z0);
+  const h10 = terrainHeightAt(x1, z0);
+  const h01 = terrainHeightAt(x0, z1);
+  const h11 = terrainHeightAt(x1, z1);
+
+  // Mesh splits each quad along the (x1,z0)->(x0,z1) diagonal, i.e. fx + fz = 1.
+  if (fx + fz <= 1) {
+    return h00 + ((h10 - h00) * fx) + ((h01 - h00) * fz);
+  }
+  return h11 + ((h01 - h11) * (1 - fx)) + ((h10 - h11) * (1 - fz));
+}
+
 export function terrainHeightAt(x: number, z: number) {
   const distanceFade = smoothstep01((distanceToMainYardBounds(x, z) - 10) / 54);
   const roadFade = smoothstep01(Math.max(0, Math.abs(x - 14.5) - 4.2) / 8);

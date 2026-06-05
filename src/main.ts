@@ -44,7 +44,7 @@ import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
 import { createMowerControl } from "./mowerControl";
 import { isInsideSegments } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -189,7 +189,7 @@ function createHiddenGunProp() {
   const root = new TransformNode("hidden-gun-cache", scene);
   const x = -33.5;
   const z = -21.5;
-  root.position = new Vector3(x, terrainHeightAt(x, z) - 0.03, z);
+  root.position = new Vector3(x, sampledTerrainHeightAt(x, z) - 0.03, z);
   root.rotation.y = -0.78;
 
   const divot = MeshBuilder.CreateCylinder("secret-gun-divot", { diameter: 0.9, height: 0.018, tessellation: 16 }, scene);
@@ -257,7 +257,9 @@ function groundHeightAt(x: number, z: number) {
     return 0.006;
   }
 
-  return terrainHeightAt(x, z) - 0.08;
+  // Sit on the actual (coarse, linearly-interpolated) terrain mesh surface, not
+  // the smooth analytic curve, so the mower and grass don't float on slopes.
+  return sampledTerrainHeightAt(x, z) - 0.08;
 }
 
 function snapPlayerToGround() {
