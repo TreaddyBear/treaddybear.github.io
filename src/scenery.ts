@@ -1,8 +1,30 @@
-import { MeshBuilder, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from "@babylonjs/core";
-import type { Scene } from "@babylonjs/core";
+import { Color3, MeshBuilder, ShadowGenerator, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
+import type { Mesh, Scene } from "@babylonjs/core";
 import type { Materials } from "./materials";
 import type { RockCollider } from "./types";
 import { terrainHeightAt } from "./world";
+
+// A leafy clump: a low-poly flat-shaded icosphere, irregularly squashed so the
+// canopy reads as organic foliage rather than a perfect sphere.
+function createFoliageBlob(scene: Scene, material: StandardMaterial, diameter: number) {
+  const blob = MeshBuilder.CreateIcoSphere("tree-foliage", { radius: diameter / 2, subdivisions: 2, flat: true }, scene);
+  const positions = blob.getVerticesData(VertexBuffer.PositionKind);
+
+  if (positions) {
+    for (let i = 0; i < positions.length; i += 3) {
+      const jitter = 0.82 + (Math.random() * 0.36);
+      positions[i] *= jitter;
+      positions[i + 1] *= jitter;
+      positions[i + 2] *= jitter;
+    }
+
+    blob.setVerticesData(VertexBuffer.PositionKind, positions);
+    blob.convertToFlatShadedMesh();
+  }
+
+  blob.material = material;
+  return blob;
+}
 
 function createTree(
   scene: Scene,
@@ -14,37 +36,67 @@ function createTree(
   scale: number,
 ) {
   const root = new TransformNode("simple-tree", scene);
-  const groundY = terrainHeightAt(x, z) - 0.06;
-  root.position = new Vector3(x, groundY, z);
+  root.position = new Vector3(x, terrainHeightAt(x, z) - 0.06, z);
   root.rotation.y = Math.random() * Math.PI * 2;
 
-  const trunkHeight = 1.4 * scale;
+  // Tapered, slightly leaning trunk.
+  const trunkHeight = 1.8 * scale;
+  const lean = (Math.random() - 0.5) * 0.12;
+  const leanDir = Math.random() * Math.PI * 2;
   const trunk = MeshBuilder.CreateCylinder("tree-trunk", {
     height: trunkHeight,
-    diameterTop: 0.24 * scale,
-    diameterBottom: 0.36 * scale,
-    tessellation: 7,
+    diameterTop: 0.14 * scale,
+    diameterBottom: 0.42 * scale,
+    tessellation: 8,
   }, scene);
   trunk.parent = root;
   trunk.position.y = trunkHeight / 2;
-  trunk.rotation.x = (Math.random() - 0.5) * 0.08;
-  trunk.rotation.z = (Math.random() - 0.5) * 0.08;
+  trunk.rotation.x = Math.cos(leanDir) * lean;
+  trunk.rotation.z = Math.sin(leanDir) * lean;
   trunk.material = trunkMaterial;
   shadowGenerator.addShadowCaster(trunk);
 
-  const lowerLeaves = MeshBuilder.CreateSphere("tree-leaves-lower", { diameter: 1.45 * scale, segments: 7 }, scene);
-  lowerLeaves.parent = root;
-  lowerLeaves.position = new Vector3(0.05 * scale, trunkHeight + (0.32 * scale), 0);
-  lowerLeaves.scaling = new Vector3(1.08, 0.86, 1);
-  lowerLeaves.material = leafMaterial;
-  shadowGenerator.addShadowCaster(lowerLeaves);
+  // A few branches angling up into the canopy.
+  const branchCount = 3 + Math.floor(Math.random() * 2);
+  for (let b = 0; b < branchCount; b += 1) {
+    const angle = (b / branchCount) * Math.PI * 2 + (Math.random() * 0.8);
+    const branchHeight = (0.7 + (Math.random() * 0.35)) * scale;
+    const branch = MeshBuilder.CreateCylinder("tree-branch", {
+      height: branchHeight,
+      diameterTop: 0.03 * scale,
+      diameterBottom: 0.13 * scale,
+      tessellation: 5,
+    }, scene);
+    branch.parent = root;
+    branch.position = new Vector3(0, trunkHeight * (0.62 + (Math.random() * 0.2)), 0);
+    branch.rotation = new Vector3(Math.cos(angle) * 0.9, -angle, Math.sin(angle) * 0.9);
+    branch.material = trunkMaterial;
+    shadowGenerator.addShadowCaster(branch);
+  }
 
-  const crown = MeshBuilder.CreateSphere("tree-leaves-crown", { diameter: 1.08 * scale, segments: 7 }, scene);
-  crown.parent = root;
-  crown.position = new Vector3(-0.12 * scale, trunkHeight + (0.88 * scale), 0.06 * scale);
-  crown.scaling = new Vector3(0.92, 1.1, 0.95);
-  crown.material = leafMaterial;
-  shadowGenerator.addShadowCaster(crown);
+  // Canopy: a cluster of irregular foliage clumps, lighter on top and darker
+  // underneath, drooping a little at the edges — not a smooth ball.
+  const underMaterial = leafMaterial.clone(`${leafMaterial.name}-under`);
+  underMaterial.diffuseColor = leafMaterial.diffuseColor.scale(0.62);
+  const canopyBase = trunkHeight + (0.15 * scale);
+  const canopyHeight = 1.25 * scale;
+  const blobCount = 9;
+
+  for (let i = 0; i < blobCount; i += 1) {
+    const heightFrac = i === 0 ? 1 : Math.random();
+    const angle = i * 2.39996323;
+    const spread = (0.32 + (Math.random() * 0.5)) * (1.05 - (heightFrac * 0.55)) * scale;
+    const blobDiameter = (0.62 + (Math.random() * 0.55)) * scale;
+    const blob = createFoliageBlob(scene, heightFrac > 0.4 ? leafMaterial : underMaterial, blobDiameter);
+    blob.parent = root;
+    blob.position = new Vector3(
+      Math.cos(angle) * spread,
+      canopyBase + (heightFrac * canopyHeight),
+      Math.sin(angle) * spread,
+    );
+    blob.scaling = new Vector3(1.08, 0.82 + (Math.random() * 0.2), 1.08);
+    shadowGenerator.addShadowCaster(blob);
+  }
 
   return root;
 }
@@ -72,15 +124,38 @@ function createBoulder(
   z: number,
   scale: number,
 ) {
-  const rock = MeshBuilder.CreateSphere("boulder", { diameter: 1, segments: 7 }, scene);
-  const horizontalScaleX = scale * (1.1 + (Math.random() * 0.35));
-  const horizontalScaleZ = scale * (0.8 + (Math.random() * 0.4));
-  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.18 * scale), z);
-  rock.scaling = new Vector3(horizontalScaleX, scale * (0.42 + (Math.random() * 0.22)), horizontalScaleZ);
-  rock.rotation = new Vector3(Math.random() * 0.22, Math.random() * Math.PI, Math.random() * 0.28);
+  // Low-poly faceted boulder with a flattened base so it sits, rather than a
+  // smooth ball half-buried in the ground.
+  const rock = MeshBuilder.CreateIcoSphere("boulder", { radius: 0.5, subdivisions: 2, updatable: true }, scene);
+  const positions = rock.getVerticesData(VertexBuffer.PositionKind);
+
+  if (positions) {
+    for (let i = 0; i < positions.length; i += 3) {
+      const jitter = 0.86 + (Math.random() * 0.3);
+      positions[i] *= jitter;
+      positions[i + 2] *= jitter;
+      positions[i + 1] *= 0.6 * (0.9 + (Math.random() * 0.22));
+
+      // Flatten everything below a low cut so the underside is a broad base.
+      if (positions[i + 1] < -0.14) {
+        positions[i + 1] = -0.14;
+      }
+    }
+
+    rock.setVerticesData(VertexBuffer.PositionKind, positions);
+    rock.convertToFlatShadedMesh();
+  }
+
+  const scaleX = scale * (1.1 + (Math.random() * 0.5));
+  const scaleY = scale * (0.7 + (Math.random() * 0.35));
+  const scaleZ = scale * (0.95 + (Math.random() * 0.45));
+  rock.scaling = new Vector3(scaleX, scaleY, scaleZ);
+  // Only yaw, so the flat base keeps facing down; seat the base on the ground.
+  rock.rotation = new Vector3(0, Math.random() * Math.PI, 0);
+  rock.position = new Vector3(x, terrainHeightAt(x, z) + (0.14 * scaleY) - 0.05, z);
   rock.material = material;
   shadowGenerator.addShadowCaster(rock);
-  colliders.push({ x, z, radius: Math.max(horizontalScaleX, horizontalScaleZ) * 0.56 });
+  colliders.push({ x, z, radius: Math.max(scaleX, scaleZ) * 0.5 });
 }
 
 export function createSceneryRocks(scene: Scene, materials: Materials, shadowGenerator: ShadowGenerator): RockCollider[] {
