@@ -160,7 +160,7 @@ const mowerControl = createMowerControl({
 };
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
-scene.imageProcessingConfiguration.exposure = 1.08;
+scene.imageProcessingConfiguration.exposure = 1.13;
 scene.imageProcessingConfiguration.contrast = 1.12;
 //scene.fogMode = Scene.FOGMODE_EXP2;
 //scene.fogColor = new Color3(0.62, 0.76, 0.9);
@@ -297,6 +297,12 @@ function resetGame() {
   fence.disposeHealthLabels();
   mapGroundRoot = createMapGrounds(scene, getActiveMap(), groundMaterial);
   fenceRoot = createFence(scene, fenceMaterial, getActiveMap().fenceSegments);
+  // Let the fence cast shadows too (planks + posts, not the flat dirt overlay).
+  for (const mesh of scene.meshes) {
+    if (mesh.name.includes("-plank-") || mesh.name.startsWith("fence-post")) {
+      shadowGenerator.addShadowCaster(mesh);
+    }
+  }
   fence.rebuildStates();
   fence.syncHealthLabels();
   player.position = getActiveMap().spawn.clone();
@@ -521,22 +527,26 @@ function refreshTextureScales() {
   updateBiomeGroundMaterialScale(biomeGroundMaterial, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 }
 
+// Softer, less dominant sky fill so the scene reads as direct sun rather than an
+// overcast wash. Keeping it lower-intensity raises contrast (a sunny look).
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
-ambientLight.intensity = 0.42;
-ambientLight.diffuse = new Color3(0.66, 0.78, 1);
-ambientLight.groundColor = new Color3(0.34, 0.58, 0.26);
+ambientLight.intensity = 0.3;
+ambientLight.diffuse = new Color3(0.72, 0.81, 0.95);
+ambientLight.groundColor = new Color3(0.42, 0.5, 0.24);
 
+// A brighter, distinctly warm/yellow sun so highlights on the grass go golden
+// instead of white.
 const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.24), scene);
 sun.position = new Vector3(10, 15, -7);
-sun.intensity = 1.2;
-sun.diffuse = new Color3(1, 0.88, 0.62);
-sun.specular = new Color3(1, 0.88, 0.66);
+sun.intensity = 1.62;
+sun.diffuse = new Color3(1, 0.9, 0.56);
+sun.specular = new Color3(1, 0.84, 0.5);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
 const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
-shadowGenerator.blurKernel = 24;
+shadowGenerator.blurKernel = 16;
 
 const cameraRig = createCameraRig({
   scene,

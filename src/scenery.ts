@@ -237,62 +237,106 @@ function buildBoulderGeometry(scene: Scene, method: RockMethod) {
   return { positions, indices };
 }
 
-// Moss as extra geometry: a patchy green shell sitting just above the rock's
-// upper faces (offset along the face normal so it never floats), with per-vertex
-// colours noisy in lightness across various greens. Returns the moss mesh.
-function addMoss(scene: Scene, rock: Mesh, material: StandardMaterial) {
-  const positions = rock.getVerticesData(VertexBuffer.PositionKind);
-  const normals = rock.getVerticesData(VertexBuffer.NormalKind);
-  const indices = rock.getIndices();
-  if (!positions || !normals || !indices) {
+// Moss as a rounded, conforming cushion rather than per-face flecks: each patch
+// grows over an AREA of the rock (several faces), bulging up in the middle and
+// tapering to a thin rounded rim, wrapping over the rock's edges because every
+// moss vertex is anchored to a rock vertex and pushed out along the (smooth)
+// surface normal. Built from the rock's pre-flat-shade SHARED geometry so the
+// cushion is continuous, then smooth-shaded for a soft look. Takes the shared
+// positions/indices (local space) since the rock mesh itself is flat-shaded.
+function addMoss(scene: Scene, rock: Mesh, rockPositions: number[], rockIndices: number[], material: StandardMaterial) {
+  const vertexCount = rockPositions.length / 3;
+  const smoothNormals: number[] = [];
+  VertexData.ComputeNormals(rockPositions, rockIndices, smoothNormals);
+
+  // Seed a few patches on the upper/side surfaces.
+  const seeds: { x: number; y: number; z: number; radius: number; height: number }[] = [];
+  const seedTarget = 2 + Math.floor(Math.random() * 2); // 2-3 cushions
+  for (let attempt = 0; attempt < 40 && seeds.length < seedTarget; attempt += 1) {
+    const v = Math.floor(Math.random() * vertexCount);
+    if (smoothNormals[(v * 3) + 1] < 0.15) {
+      continue; // not on undersides
+    }
+    seeds.push({
+      x: rockPositions[v * 3],
+      y: rockPositions[(v * 3) + 1],
+      z: rockPositions[(v * 3) + 2],
+      radius: 0.26 + (Math.random() * 0.18),
+      height: 0.06 + (Math.random() * 0.05),
+    });
+  }
+
+  if (seeds.length === 0) {
     return null;
   }
 
-  const mossPositions: number[] = [];
-  const mossIndices: number[] = [];
-  const mossColors: number[] = [];
+  // Per rock vertex: the tallest dome over it from any seed. dome(d) =
+  // height * sqrt(1 - (d/R)^2) — round-topped, tapering to zero at radius R.
+  const thickness = new Float32Array(vertexCount);
+  const covered: boolean[] = new Array(vertexCount).fill(false);
+  for (let v = 0; v < vertexCount; v += 1) {
+    const px = rockPositions[v * 3];
+    const py = rockPositions[(v * 3) + 1];
+    const pz = rockPositions[(v * 3) + 2];
+    let best = 0;
 
-  for (let f = 0; f < indices.length; f += 3) {
-    const ia = indices[f];
-    const ib = indices[f + 1];
-    const ic = indices[f + 2];
-    // Flat-shaded, so the three vertex normals are the face normal.
-    const ny = (normals[ia * 3 + 1] + normals[ib * 3 + 1] + normals[ic * 3 + 1]) / 3;
-
-    // Moss likes the tops and shaded north faces; skip undersides, and leave
-    // bare patches so it reads as growth rather than paint.
-    if (ny < 0.12 || Math.random() > 0.62) {
-      continue;
+    for (const seed of seeds) {
+      const dx = px - seed.x;
+      const dy = py - seed.y;
+      const dz = pz - seed.z;
+      const d = Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
+      if (d < seed.radius) {
+        const dome = seed.height * Math.sqrt(1 - ((d / seed.radius) * (d / seed.radius)));
+        best = Math.max(best, dome);
+      }
     }
 
-    const nx = (normals[ia * 3] + normals[ib * 3] + normals[ic * 3]) / 3;
-    const nz = (normals[ia * 3 + 2] + normals[ib * 3 + 2] + normals[ic * 3 + 2]) / 3;
-    const nl = Math.hypot(nx, ny, nz) || 1;
-    const offset = 0.02 + (Math.random() * 0.03);
-    const cx = (positions[ia * 3] + positions[ib * 3] + positions[ic * 3]) / 3;
-    const cy = (positions[ia * 3 + 1] + positions[ib * 3 + 1] + positions[ic * 3 + 1]) / 3;
-    const cz = (positions[ia * 3 + 2] + positions[ib * 3 + 2] + positions[ic * 3 + 2]) / 3;
-    const base = mossPositions.length / 3;
+    if (best > 0) {
+      covered[v] = true;
+      thickness[v] = best;
+    }
+  }
 
-    for (const v of [ia, ib, ic]) {
-      // Shrink the patch toward its centre a touch (ragged edges) and lift it off
-      // the rock along the normal so the moss hugs the surface without floating.
-      const px = (positions[v * 3] * 0.84) + (cx * 0.16) + ((nx / nl) * offset);
-      const py = (positions[v * 3 + 1] * 0.84) + (cy * 0.16) + ((ny / nl) * offset);
-      const pz = (positions[v * 3 + 2] * 0.84) + (cz * 0.16) + ((nz / nl) * offset);
-      mossPositions.push(px, py, pz);
+  // A face joins the moss if any vertex is covered. Covered vertices ride the
+  // dome; the skirt vertices just outside sit a hair above the rock so the rim
+  // rounds down onto the surface (a minimum-radius edge) instead of a cliff.
+  const skirt = 0.01;
+  const remap = new Map<number, number>();
+  const mossPositions: number[] = [];
+  const mossColors: number[] = [];
+  const mossIndices: number[] = [];
 
-      const shade = 0.4 + (Math.random() * 0.85); // strong lightness noise
-      const warm = (Math.random() - 0.5) * 0.08;
+  const mossVertex = (v: number) => {
+    let m = remap.get(v);
+    if (m === undefined) {
+      const lift = (covered[v] ? thickness[v] : 0) + skirt;
+      m = mossPositions.length / 3;
+      mossPositions.push(
+        rockPositions[v * 3] + (smoothNormals[v * 3] * lift),
+        rockPositions[(v * 3) + 1] + (smoothNormals[(v * 3) + 1] * lift),
+        rockPositions[(v * 3) + 2] + (smoothNormals[(v * 3) + 2] * lift),
+      );
+      const shade = 0.45 + (Math.random() * 0.8); // strong lightness noise
+      const warm = (Math.random() - 0.5) * 0.07;
       mossColors.push(
-        Math.min(1, (0.2 + warm) * shade),
-        Math.min(1, 0.52 * shade),
-        Math.min(1, (0.14 + warm) * shade),
+        Math.min(1, (0.21 + warm) * shade),
+        Math.min(1, 0.5 * shade),
+        Math.min(1, (0.13 + warm) * shade),
         1,
       );
+      remap.set(v, m);
     }
+    return m;
+  };
 
-    mossIndices.push(base, base + 1, base + 2);
+  for (let f = 0; f < rockIndices.length; f += 3) {
+    const a = rockIndices[f];
+    const b = rockIndices[f + 1];
+    const c = rockIndices[f + 2];
+    if (!covered[a] && !covered[b] && !covered[c]) {
+      continue;
+    }
+    mossIndices.push(mossVertex(a), mossVertex(b), mossVertex(c));
   }
 
   if (mossIndices.length === 0) {
@@ -348,7 +392,7 @@ function createBoulder(
   shadowGenerator.addShadowCaster(rock);
 
   if (mossMaterial) {
-    const moss = addMoss(scene, rock, mossMaterial);
+    const moss = addMoss(scene, rock, positions, indices, mossMaterial);
     if (moss) {
       shadowGenerator.addShadowCaster(moss);
     }
