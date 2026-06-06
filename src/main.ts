@@ -547,25 +547,7 @@ const baseSunSpecular = sun.specular.clone();
 
 const shadowGenerator = new ShadowGenerator(1024, sun);
 shadowGenerator.useBlurExponentialShadowMap = true;
-shadowGenerator.blurKernel = 8;
-
-// Built-in shadows only look like anything if the shadow map is concentrated on
-// the action instead of auto-fitting to every caster across the whole map (which
-// smears a thin fence shadow into nothing). Fix the ortho frustum to a tight box
-// and slide the light along its own beam so the box follows the mower.
-const sunDirection = new Vector3(-0.45, -1, 0.24).normalize();
-const shadowHalfExtent = 16;
-sun.autoUpdateExtends = false;
-sun.shadowMinZ = 1;
-sun.shadowMaxZ = 80;
-sun.orthoLeft = -shadowHalfExtent;
-sun.orthoRight = shadowHalfExtent;
-sun.orthoTop = shadowHalfExtent;
-sun.orthoBottom = -shadowHalfExtent;
-
-function updateShadowFocus() {
-  sun.position.copyFrom(player.position).subtractInPlace(sunDirection.scale(40));
-}
+shadowGenerator.blurKernel = 12;
 
 const cameraRig = createCameraRig({
   scene,
@@ -859,7 +841,6 @@ engine.runRenderLoop(() => {
   lastControllerShoot = controllerShoot;
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
-  updateShadowFocus();
   fence.resolveOverlap();
   cameraRig.follow(deltaSeconds);
   grass.updateMotion(timeSeconds);
