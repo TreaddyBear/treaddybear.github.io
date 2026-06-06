@@ -3,66 +3,62 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Star Meter — design mockup v3</title>
+<title>Star Meter — design mockup v4</title>
 <style>
-  :root{
-    --bg:#11150f; --panel:#1b2417; --ink:#e8f0dd; --muted:#9fb38c;
-    --fill1:#6fbf2f; --fill2:#b6e84a; --gold:#ffcf33; --goldsoft:#ffe487; --track:#0d120a;
-  }
+  :root{--bg:#11150f;--panel:#1b2417;--ink:#e8f0dd;--muted:#9fb38c;--fill1:#6fbf2f;--fill2:#b6e84a;--gold:#ffcf33;--goldsoft:#ffe487;--track:#0d120a}
   *{box-sizing:border-box}
-  html,body{margin:0;min-height:100%;background:radial-gradient(1200px 600px at 50% -10%,#1c2a14,var(--bg));
-    color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
-  .wrap{max-width:900px;margin:0 auto;padding:26px 18px 70px}
-  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
-  .stage{background:var(--panel);border:1px solid #2c3a23;border-radius:18px;padding:30px 22px 24px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
-
+  html,body{margin:0;min-height:100%;background:radial-gradient(1200px 600px at 50% -10%,#1c2a14,var(--bg));color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+  .wrap{max-width:920px;margin:0 auto;padding:26px 18px 70px}
+  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 22px;font-size:13px}
+  .stage{background:var(--panel);border:1px solid #2c3a23;border-radius:18px;padding:34px 22px 24px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
   .row{display:flex;align-items:center;gap:16px}
-  .cluster{position:relative;width:62px;height:62px;flex:0 0 62px}
-  .cluster .st{position:absolute;transform:translate(-50%,-50%);font-size:16px;line-height:1;color:var(--gold);
-    filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
-  .cluster.remaining .st{color:#5d6c46}
-  .cluster .st.big{font-size:46px}
-  .cluster.glimmer{animation:glim .5s ease-out}
-  @keyframes glim{0%{filter:brightness(3) drop-shadow(0 0 16px var(--gold))}100%{filter:none}}
+  .cluster{position:relative;width:64px;height:64px;flex:0 0 64px}
+  .cluster .st{position:absolute;transform:translate(-50%,-50%);font-size:16px;line-height:1;color:var(--gold);filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  .cluster.remaining .st{color:#5d6c46}.cluster .st.big{font-size:48px;color:#6a7a4e}
+  .cluster.glimmer{animation:glim .55s ease-out}
+  @keyframes glim{0%{filter:brightness(3.2) drop-shadow(0 0 18px var(--gold))}100%{filter:none}}
   .cluster .st.fresh{animation:freshpop .5s cubic-bezier(.2,1.5,.4,1)}
   @keyframes freshpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{transform:translate(-50%,-50%) scale(.85)}100%{transform:translate(-50%,-50%) scale(1)}}
 
-  .meter{position:relative;flex:1;height:36px}
+  .meter{position:relative;flex:1;height:38px}
   .track{position:absolute;inset:0;border-radius:999px;background:var(--track);box-shadow:inset 0 2px 6px rgba(0,0,0,.6),inset 0 0 0 1px #243018;overflow:hidden}
   .fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,var(--fill1),var(--fill2));border-radius:999px;box-shadow:0 0 16px rgba(150,230,60,.45)}
+  .fill.complete{background:linear-gradient(90deg,#e0a81f,var(--gold));box-shadow:0 0 26px rgba(255,207,51,.7)}
   .fill::after{content:"";position:absolute;right:0;top:0;bottom:0;width:38px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5));border-radius:999px}
-  .target{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:26px;color:var(--gold);
-    filter:drop-shadow(0 0 10px rgba(255,207,51,.55));z-index:3;transition:left .15s linear}
-  .target.big{font-size:46px}
-  .target.reaching{animation:reach .8s ease-in-out infinite}
-  @keyframes reach{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.18)}}
-  .meter.shake{animation:shake .4s}
-  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+  .active{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:18px;color:var(--gold);filter:drop-shadow(0 0 9px rgba(255,207,51,.6));z-index:4}
+  .active.reaching{animation:reach .7s ease-in-out infinite}
+  @keyframes reach{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.2)}}
+  .cstar{position:absolute;top:50%;transform:translate(-50%,-50%);color:var(--gold);filter:drop-shadow(0 0 12px rgba(255,207,51,.7));animation:twinkle 1.4s ease-in-out infinite;z-index:4}
+  @keyframes twinkle{0%,100%{opacity:.85;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}}
+  .meter.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
   .spark{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--goldsoft);box-shadow:0 0 8px var(--gold);pointer-events:none}
   .flystar{position:fixed;color:var(--gold);pointer-events:none;z-index:60;filter:drop-shadow(0 0 10px rgba(255,207,51,.7))}
 
-  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;align-items:center}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;align-items:center}
   button{appearance:none;border:1px solid #38491f;background:#26331c;color:var(--ink);padding:9px 15px;border-radius:11px;font-size:14px;cursor:pointer;font-weight:600}
   button:hover{background:#2f3f23}button.primary{background:var(--fill1);color:#0c1505;border-color:var(--fill2)}button.danger{background:#4a241c;border-color:#7a3a2a}
   .seg{display:inline-flex;border:1px solid #38491f;border-radius:11px;overflow:hidden}.seg button{border:0;border-radius:0}.seg button.on{background:var(--gold);color:#1a1200}
   label.k{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px}
   input[type=range]{accent-color:var(--fill1)}input[type=number]{width:64px;background:#0f150b;border:1px solid #38491f;color:var(--ink);border-radius:8px;padding:5px 7px}
-  .verdict{margin-top:14px;color:var(--goldsoft);font-size:13px;min-height:18px}
+  .verdict{margin-top:16px;color:var(--goldsoft);font-size:13px;min-height:18px}
   .debug{margin-top:18px;border-top:1px dashed #2c3a23;padding-top:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
   .debug .tag{color:#6f8456;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:6px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 18px}.grid b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px 18px}.grid b{color:var(--ink);font-weight:600}
   .note{color:var(--muted);font-size:12px;margin-top:12px}.note b{color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Star Meter — design mockup v3</h1>
-  <p class="sub">Each star fills only to <i>its</i> portion of the bar (1/N … 100%), so the later ones travel farther and feel bigger. The star meets your fill, banks small on the left, the bar resets — and the final star is always large. Mistakes use 70% falloff. Numbers are internal (for tuning).</p>
+  <h1>Star Meter — design mockup v4</h1>
+  <p class="sub">Stars wait on the right. Each one only breaks off during the last half-increment (1/6 of the bar for 3★, 1/10 for 5★) and slides in to meet the fill at its milestone — except the final star, which stays put while the fill climbs all the way to it. On completion the whole bar lights gold.</p>
 
   <div class="stage">
     <div class="row">
       <div class="cluster earned" id="earned"></div>
-      <div class="meter" id="meter"><div class="track"><div class="fill" id="fill"></div></div><div class="target" id="target" style="display:none">★</div></div>
+      <div class="meter" id="meter">
+        <div class="track"><div class="fill" id="fill"></div></div>
+        <div class="active" id="active" style="display:none">★</div>
+      </div>
       <div class="cluster remaining" id="remaining"></div>
     </div>
 
@@ -81,12 +77,11 @@
       <div class="tag">internal (hidden in game)</div>
       <div class="grid">
         <span>time left: <b id="dTime">0s</b></span><span>grass: <b id="dGrass">0%</b></span>
-        <span>time pts: <b id="dTimePts">0</b></span><span>grass pts: <b id="dGrassPts">0</b></span>
-        <span>mistakes: <b id="dMist">0</b></span><span>mistake pts: <b id="dMistPts">0</b></span>
-        <span>SCORE: <b id="dScore">0</b></span><span>this star: <b id="dBand">0 / 0</b></span>
-        <span>portion: <b id="dPortion">0%</b></span>
+        <span>score: <b id="dScore">0</b></span><span>this star: <b id="dBand">0 / 0</b></span>
+        <span>milestone: <b id="dMile">0%</b></span><span>fill: <b id="dFill">0%</b></span>
+        <span>mistakes: <b id="dMist">0</b></span>
       </div>
-      <p class="note">Model: <b>score = 5·(par−elapsed) + 100·grass% − Σ mistakes</b>, mistakes <b>1000 then ×0.7</b> (1000, 700, 490, 343 … caps at ~3333 total). Stars at 3★ <b>4k / 7k / 10k</b>, 5★ <b>4/6/8/9/10k</b>. A won star is permanent; the bar only ever pushes back.</p>
+      <p class="note">Model: <b>score = 5·(par−elapsed) + 100·grass% − Σ mistakes</b>, mistakes <b>1000 then ×0.7</b>. 3★ at 4k/7k/10k, 5★ at 4/6/8/9/10k. Won stars are permanent.</p>
     </div>
   </div>
 </div>
@@ -94,97 +89,109 @@
 <script>
 (() => {
   const $=id=>document.getElementById(id);
-  const fill=$('fill'),meter=$('meter'),target=$('target'),earnedEl=$('earned'),remainingEl=$('remaining'),verdict=$('verdict');
-  const TIME_PER_SEC=5,GRASS_PER_PCT=100,MIST_BASE=1000,MIST_FALLOFF=0.7;
+  const fill=$('fill'),meter=$('meter'),active=$('active'),earnedEl=$('earned'),remainingEl=$('remaining'),verdict=$('verdict');
+  const TIME_PER_SEC=5,GRASS_PER_PCT=100,MIST_BASE=1000,MIST_FALLOFF=0.7,CLUSTER_FRAC=1.07;
   const THRESH={3:[4000,7000,10000],5:[4000,6000,8000,9000,10000]};
+  const SHAPES={2:[[50,27],[50,73]],3:[[30,32],[70,32],[50,76]],4:[[30,30],[70,30],[30,70],[70,70]],5:[[28,30],[72,30],[50,50],[28,72],[72,72]]};
 
   let total=3,par=400,mowRate=1.3;
-  let elapsed=0,grass=0,mistakes=0,penalty=0,earned=0,playing=false,last=0;
+  let elapsed=0,grass=0,mistakes=0,penalty=0,earned=0,playing=false,last=0,lastRight=99;
 
-  const bandFloor=()=>TIME_PER_SEC*par;
-  const T=()=>THRESH[total];
-  const timePts=()=>Math.round(TIME_PER_SEC*(par-elapsed));
-  const grassPts=()=>Math.round(GRASS_PER_PCT*grass);
+  const bandFloor=()=>TIME_PER_SEC*par, T=()=>THRESH[total];
+  const timePts=()=>Math.round(TIME_PER_SEC*(par-elapsed)), grassPts=()=>Math.round(GRASS_PER_PCT*grass);
   const score=()=>timePts()+grassPts()-Math.round(penalty);
-  const prevT=()=>earned===0?bandFloor():T()[earned-1];
-  const nextT=()=>earned<total?T()[earned]:T()[total-1];
+  const prevT=()=>earned===0?bandFloor():T()[earned-1], nextT=()=>earned<total?T()[earned]:T()[total-1];
   const bandProgress=()=>earned>=total?1:Math.max(0,Math.min(1,(score()-prevT())/(nextT()-prevT())));
-  const targetFrac=()=>(earned+1)/total;            // this star's portion of the bar
-  const isFinalTarget=()=>earned+1===total;
 
-  const SHAPES={1:[[50,50]],2:[[50,27],[50,73]],3:[[30,32],[70,32],[50,76]],
-    4:[[30,30],[70,30],[30,70],[70,70]],5:[[28,30],[72,30],[50,50],[28,72],[72,72]]};
-  function renderCluster(el,n,opts={}){
-    el.innerHTML=''; if(n<=0)return;
-    (SHAPES[n]||SHAPES[5]).forEach((p,i)=>{
-      const s=document.createElement('div');s.className='st';s.textContent='★';
-      s.style.left=p[0]+'%';s.style.top=p[1]+'%';
-      if(opts.bigLast&&i===n-1)s.classList.add('big');
-      if(opts.fresh&&i===n-1)s.classList.add('fresh');
-      el.appendChild(s);
+  function renderRemaining(count,opts={}){
+    remainingEl.innerHTML='';
+    if(count<=0)return;
+    if(count===1){ // lone remaining is always the final star -> large
+      const s=document.createElement('div');s.className='st big';s.textContent='★';s.style.left='50%';s.style.top='50%';remainingEl.appendChild(s);
+    } else {
+      (SHAPES[count]||SHAPES[5]).forEach(p=>{const s=document.createElement('div');s.className='st';s.textContent='★';s.style.left=p[0]+'%';s.style.top=p[1]+'%';remainingEl.appendChild(s);});
+    }
+    if(opts.glimmer){remainingEl.classList.remove('glimmer');void remainingEl.offsetWidth;remainingEl.classList.add('glimmer');}
+  }
+  function renderEarned(){
+    earnedEl.innerHTML='';
+    if(earned<=0)return;
+    if(earned===total){ // complete: show final big star banked
+      const s=document.createElement('div');s.className='st big fresh';s.textContent='★';s.style.left='50%';s.style.top='50%';earnedEl.appendChild(s);return;
+    }
+    (SHAPES[earned]||[[50,50]]).concat(earned===1?[[50,50]]:[]).slice(0,earned).forEach((p,i)=>{
+      const pts=earned===1?[[50,50]]:SHAPES[earned]; const q=pts[i]||[50,50];
+      const s=document.createElement('div');s.className='st';s.textContent='★';s.style.left=q[0]+'%';s.style.top=q[1]+'%';
+      if(i===earned-1)s.classList.add('fresh'); earnedEl.appendChild(s);
     });
-    if(opts.glimmer){el.classList.remove('glimmer');void el.offsetWidth;el.classList.add('glimmer');}
   }
   function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}}
   function flyStar(big){
-    const a={x:target.getBoundingClientRect().left+target.getBoundingClientRect().width/2,
-             y:target.getBoundingClientRect().top+target.getBoundingClientRect().height/2};
-    const b=center(earnedEl);
-    const f=document.createElement('div');f.className='flystar';f.textContent='★';
-    f.style.fontSize=(big?46:16)+'px';f.style.left=a.x+'px';f.style.top=a.y+'px';document.body.appendChild(f);
+    const a=center(active.style.display==='none'?remainingEl:active),b=center(earnedEl);
+    const f=document.createElement('div');f.className='flystar';f.textContent='★';f.style.fontSize=(big?44:16)+'px';
+    f.style.left=a.x+'px';f.style.top=a.y+'px';document.body.appendChild(f);
     f.animate([{transform:'translate(-50%,-50%) scale(1.2)',offset:0},
       {transform:`translate(${(b.x-a.x)*.5-50}%,${b.y-a.y-26}px) scale(1.7)`,offset:.5},
-      {transform:`translate(${b.x-a.x-50}%,${b.y-a.y}px) scale(1)`,offset:1}],
-      {duration:520,easing:'cubic-bezier(.3,.7,.3,1)'});
+      {transform:`translate(${b.x-a.x-50}%,${b.y-a.y}px) scale(1)`,offset:1}],{duration:520,easing:'cubic-bezier(.3,.7,.3,1)'});
     setTimeout(()=>f.remove(),540);
   }
   function sparkle(xFrac){
-    const r=meter.getBoundingClientRect(),cx=r.width*xFrac,cy=r.height/2;
-    for(let i=0;i<14;i++){const p=document.createElement('div');p.className='spark';
-      p.style.left=cx+'px';p.style.top=cy+'px';meter.appendChild(p);
-      const ang=Math.random()*Math.PI*2,d=24+Math.random()*44,dx=Math.cos(ang)*d,dy=Math.sin(ang)*d-8;
-      p.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(${dx-50}%,${dy}px) scale(.3)`,opacity:0}],
-        {duration:460+Math.random()*240,easing:'cubic-bezier(.2,.8,.3,1)'});
-      setTimeout(()=>p.remove(),720);}
+    const r=meter.getBoundingClientRect(),cx=r.width*Math.min(1,xFrac),cy=r.height/2;
+    for(let i=0;i<16;i++){const p=document.createElement('div');p.className='spark';p.style.left=cx+'px';p.style.top=cy+'px';meter.appendChild(p);
+      const ang=Math.random()*Math.PI*2,d=26+Math.random()*48,dx=Math.cos(ang)*d,dy=Math.sin(ang)*d-8;
+      p.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(${dx-50}%,${dy}px) scale(.3)`,opacity:0}],{duration:460+Math.random()*260,easing:'cubic-bezier(.2,.8,.3,1)'});
+      setTimeout(()=>p.remove(),740);}
     blip();
   }
-  let actx;function blip(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
-    const o=actx.createOscillator(),g=actx.createGain();o.type='triangle';
+  let actx;function blip(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.type='triangle';
     o.frequency.setValueAtTime(880,actx.currentTime);o.frequency.exponentialRampToValueAtTime(1760,actx.currentTime+.12);
-    g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(.22,actx.currentTime+.02);
-    g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.3);
+    g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(.22,actx.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.3);
     o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.32);}catch(e){}}
 
-  function placeTarget(){
-    if(earned>=total){target.style.display='none';return;}
-    target.style.display='';
-    target.className='target'+(isFinalTarget()?' big':'')+(bandProgress()>0.82?' reaching':'');
-    target.style.left=(targetFrac()*100)+'%';
+  function showComplete(){
+    fill.style.width='100%'; fill.classList.add('complete'); active.style.display='none';
+    remainingEl.innerHTML=''; renderEarned();
+    meter.querySelectorAll('.cstar').forEach(n=>n.remove());
+    for(let i=1;i<=total;i++){const s=document.createElement('div');s.className='cstar';s.textContent='★';
+      s.style.left=(i/total*100)+'%';s.style.fontSize=(i===total?40:18)+'px';s.style.animationDelay=(i*0.12)+'s';meter.appendChild(s);}
+    verdict.textContent='★'.repeat(total)+'  Immaculate. The neighbours are jealous.';
   }
-  function earnStar(){
-    const big=isFinalTarget();
-    sparkle(targetFrac()); flyStar(big);
-    earned++;
-    renderCluster(earnedEl,earned,{fresh:true,bigLast:earned===total});
-    renderCluster(remainingEl,Math.max(0,total-earned-1),{glimmer:true});
-    placeTarget();
-  }
+
   function render(){
-    fill.style.width=(bandProgress()*targetFrac()*100).toFixed(1)+'%';
-    placeTarget();
-    $('dTime').textContent=Math.round(par-elapsed)+'s'+(par-elapsed<0?' (over)':'');
-    $('dGrass').textContent=grass.toFixed(0)+'%';$('dTimePts').textContent=timePts();
-    $('dGrassPts').textContent=grassPts();$('dMist').textContent=mistakes;
-    $('dMistPts').textContent='-'+Math.round(penalty);$('dScore').textContent=score();
-    $('dBand').textContent=earned>=total?'maxed':(prevT()+' / '+nextT());
-    $('dPortion').textContent=Math.round(targetFrac()*100)+'%';
-    verdict.textContent=earned>=total?('★'.repeat(total)+'  Immaculate. The neighbors are jealous.')
-      :('★'.repeat(earned)+'☆'.repeat(total-earned)+'  rank '+earned+'/'+total);
+    if(earned>=total){ showComplete(); updateDebug(); return; }
+    fill.classList.remove('complete'); meter.querySelectorAll('.cstar').forEach(n=>n.remove());
+    const s=earned+1, milestone=s/total, inc=1/total, breakoff=milestone-inc/2;
+    const isFinal=s===total, bp=bandProgress(), fillFrac=bp*milestone;
+    fill.style.width=(fillFrac*100).toFixed(1)+'%';
+
+    const brokenOff=!isFinal && fillFrac>=breakoff;
+    if(brokenOff){
+      const slideT=Math.min(1,(fillFrac-breakoff)/(milestone-breakoff));
+      const x=CLUSTER_FRAC+(milestone-CLUSTER_FRAC)*slideT;
+      active.style.display=''; active.style.left=(x*100)+'%';
+      active.classList.toggle('reaching', slideT<0.92);
+    } else active.style.display='none';
+
+    const rightCount=(total-earned)-(brokenOff?1:0);
+    if(rightCount!==lastRight){ renderRemaining(rightCount,{glimmer:rightCount<lastRight}); lastRight=rightCount; }
+    renderEarned();
+    verdict.textContent='★'.repeat(earned)+'☆'.repeat(total-earned)+'  rank '+earned+'/'+total;
+    updateDebug();
   }
+  function updateDebug(){
+    $('dTime').textContent=Math.round(par-elapsed)+'s'+(par-elapsed<0?' (over)':'');
+    $('dGrass').textContent=grass.toFixed(0)+'%';$('dScore').textContent=score();
+    $('dBand').textContent=earned>=total?'maxed':(prevT()+' / '+nextT());
+    $('dMile').textContent=earned>=total?'100%':Math.round((earned+1)/total*100)+'%';
+    $('dFill').textContent=(parseFloat(fill.style.width)||0).toFixed(0)+'%';$('dMist').textContent=mistakes;
+  }
+
   function tick(now){
     if(!playing)return;const dt=Math.min(0.05,(now-last)/1000);last=now;
     elapsed+=dt;grass=Math.min(100,grass+mowRate*dt);
-    while(earned<total&&score()>=T()[earned])earnStar();
+    while(earned<total&&score()>=T()[earned]){
+      const big=(earned+1===total); sparkle((earned+1)/total); flyStar(big); earned++; lastRight=99;
+    }
     render();
     const ceiling=timePts()+GRASS_PER_PCT*100-Math.round(penalty);
     const stuck=earned<total&&ceiling<T()[earned];
@@ -192,10 +199,8 @@
       if(stuck&&earned<total)verdict.textContent+=' — next star out of reach';return;}
     requestAnimationFrame(tick);
   }
-  function reset(){
-    elapsed=0;grass=0;mistakes=0;penalty=0;earned=0;playing=false;$('play').textContent='▶ Play run';
-    renderCluster(earnedEl,0);renderCluster(remainingEl,total-1);placeTarget();render();
-  }
+  function reset(){elapsed=0;grass=0;mistakes=0;penalty=0;earned=0;playing=false;lastRight=99;
+    $('play').textContent='▶ Play run';fill.classList.remove('complete');render();}
   $('play').addEventListener('click',e=>{if(playing){playing=false;e.target.textContent='▶ Play run';return;}
     if(grass>=100||earned>=total)reset();playing=true;last=performance.now();e.target.textContent='❚❚ Pause';requestAnimationFrame(tick);});
   $('reset').addEventListener('click',reset);
@@ -204,8 +209,7 @@
   $('mow').addEventListener('input',e=>mowRate=parseFloat(e.target.value));
   $('par').addEventListener('input',e=>{par=parseFloat(e.target.value)||400;render();});
   $('modeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-    document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-    total=parseInt(b.dataset.mode,10);reset();});
+    document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');total=parseInt(b.dataset.mode,10);reset();});
   reset();
 })();
 </script>
