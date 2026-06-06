@@ -64,6 +64,7 @@ export function createGrass(deps: GrassDeps) {
   let grassPhase = new Float32Array(0);
   let grassPressure = new Float32Array(0);
   let grassPressureYaw = new Float32Array(0);
+  let lastMotionSeconds = performance.now() / 1000;
   let cutTiltX = new Float32Array(0);
   let cutTiltZ = new Float32Array(0);
   let isMowed: boolean[] = [];
@@ -849,6 +850,9 @@ export function createGrass(deps: GrassDeps) {
       const forwardZ = Math.cos(yaw);
       const sideX = Math.cos(yaw);
       const sideZ = -Math.sin(yaw);
+      const nowSeconds = performance.now() / 1000;
+      const motionDelta = Math.min(0.05, Math.max(0, nowSeconds - lastMotionSeconds));
+      lastMotionSeconds = nowSeconds;
       let changed = false;
 
       for (let i = 0; i < bladeCount; i += 1) {
@@ -873,10 +877,16 @@ export function createGrass(deps: GrassDeps) {
           const movementBias = Math.max(0, 1 - (Math.max(0, localForward * Math.sign(throttle)) / (halfLength + feather)));
           const targetPressure = Math.min(1, edgeFalloff * (0.35 + (movementBias * 0.65)));
 
-          if (targetPressure > grassPressure[i]) {
-            grassPressure[i] = targetPressure;
-            grassPressureYaw[i] = Math.atan2(dx, dz);
-          }
+          // Bend at least as hard as the strongest press so far, but ALWAYS
+          // re-aim the lean away from the mower's CURRENT position. Without the
+          // re-aim, a blade bent on a first pass keeps leaning the old way and
+          // pokes straight through the mower on a second pass from a new angle.
+          grassPressure[i] = Math.max(grassPressure[i], targetPressure);
+          grassPressureYaw[i] = Math.atan2(dx, dz);
+        } else if (grassPressure[i] > 0) {
+          // Spring back upright once the mower is no longer touching it, so a
+          // later pass re-bends it fresh instead of finding it stuck flat.
+          grassPressure[i] = Math.max(0, grassPressure[i] - (motionDelta * 0.7));
         }
 
         const pressure = grassPressure[i];

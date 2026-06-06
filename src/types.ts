@@ -44,6 +44,11 @@ export type Dandelion = {
   headVelocity: Vector3;
   headFalling: boolean;
   headSettled: boolean;
+  stemHeight: number;
+  leanX: number;
+  leanZ: number;
+  shrinking: boolean;
+  shrinkAge: number;
 };
 
 export type FloatingSeed = {

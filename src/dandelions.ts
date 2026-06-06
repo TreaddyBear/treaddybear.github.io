@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3 } from "@babylonjs/core";
+import { Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import { getActiveMap, settings, yardSegments } from "./config";
 import type { Materials } from "./materials";
@@ -32,26 +32,49 @@ export function createDandelions(
   const createDandelion = (x: number, z: number, kind: Dandelion["kind"]) => {
     const root = new TransformNode(`dandelion-${kind}`, scene);
     root.position = new Vector3(x, 0, z);
+    root.rotation.y = Math.random() * Math.PI * 2; // face a random way so they don't all line up
     const pieces: Mesh[] = [];
 
-    const height = kind === "seed" ? 0.95 : 0.72;
+    // Per-plant geometry noise so no two stems look identical.
+    const height = (kind === "seed" ? 0.95 : 0.72) * (0.86 + (Math.random() * 0.28));
     const stem = MeshBuilder.CreateCylinder(`${kind}-stem`, {
       height,
-      diameter: 0.025,
-      tessellation: 5,
+      diameterTop: 0.019 + (Math.random() * 0.008),
+      diameterBottom: 0.03 + (Math.random() * 0.012),
+      tessellation: 6,
     }, scene);
     stem.parent = root;
     stem.position.y = height / 2;
-    stem.rotation.x = (Math.random() - 0.5) * 0.25;
-    stem.rotation.z = (Math.random() - 0.5) * 0.25;
-    stem.material = materials.dandelionStemMaterial;
+    stem.rotation.x = (Math.random() - 0.5) * 0.3;
+    stem.rotation.z = (Math.random() - 0.5) * 0.3;
+    // Tint each stem a little (greener/yellower, lighter/darker) for variety.
+    const stemMaterial = materials.dandelionStemMaterial.clone(`${kind}-stem-mat`) ?? materials.dandelionStemMaterial;
+    if (stemMaterial instanceof StandardMaterial) {
+      const tint = 0.82 + (Math.random() * 0.32);
+      stemMaterial.diffuseColor = materials.dandelionStemMaterial.diffuseColor.scale(tint);
+      stemMaterial.diffuseColor.g = Math.min(1, stemMaterial.diffuseColor.g * (1.02 + (Math.random() * 0.1)));
+    }
+    stem.material = stemMaterial;
 
     const head = new TransformNode(`${kind}-head`, scene);
     head.parent = root;
     head.position.y = height + 0.02;
 
     if (kind === "yellow") {
-      const center = MeshBuilder.CreateSphere("yellow-center", { diameter: 0.13, segments: 6 }, scene);
+      // A flattened, faceted "lens" reads as a real flower centre instead of a
+      // smooth ball: jitter the verts, squash on Y, then flat-shade.
+      const center = MeshBuilder.CreateSphere("yellow-center", { diameter: 0.16, segments: 7, updatable: true }, scene);
+      const cp = center.getVerticesData(VertexBuffer.PositionKind);
+      if (cp) {
+        for (let v = 0; v < cp.length; v += 3) {
+          const jitter = 0.82 + (Math.random() * 0.36);
+          cp[v] *= jitter;
+          cp[v + 1] *= jitter * 0.46; // squash into a lens
+          cp[v + 2] *= jitter;
+        }
+        center.setVerticesData(VertexBuffer.PositionKind, cp);
+        center.convertToFlatShadedMesh();
+      }
       center.parent = head;
       center.material = materials.dandelionCenterMaterial;
       pieces.push(center);
@@ -106,6 +129,11 @@ export function createDandelions(
       headVelocity: Vector3.Zero(),
       headFalling: false,
       headSettled: false,
+      stemHeight: height,
+      leanX: 0,
+      leanZ: 0,
+      shrinking: false,
+      shrinkAge: 0,
     });
   };
 
@@ -203,8 +231,10 @@ export function createDandelions(
     }
 
     dandelion.cut = true;
-    dandelion.stem.scaling.y = 0.18;
-    dandelion.stem.position.y = 0.07;
+    // Don't snap the stem flat — animate it sucking down into the mower (handled
+    // in update) so the head/seeds visibly leave upward instead of disintegrating.
+    dandelion.shrinking = true;
+    dandelion.shrinkAge = 0;
     wind.burstMowerClippings(dandelion.kind === "yellow");
 
     if (dandelion.kind === "seed") {
@@ -251,16 +281,37 @@ export function createDandelions(
       }
     },
 
-    // Mow any dandelion the mower is currently over.
+    // Mow any dandelion the mower is currently over, and bow the ones it's
+    // approaching away from the mower body so they don't poke through it.
     mowAt(mowerX: number, mowerZ: number, radiusSquared: number) {
+      const leanRadius = 0.85;
       for (const dandelion of dandelions) {
         const target = targetPosition(dandelion);
         const dx = mowerX - target.x;
         const dz = mowerZ - target.z;
+        const distSq = (dx * dx) + (dz * dz);
 
-        if ((dx * dx) + (dz * dz) <= radiusSquared) {
+        if (distSq <= radiusSquared) {
           mowDandelion(dandelion);
         }
+
+        if (dandelion.cut) {
+          continue;
+        }
+
+        const dist = Math.sqrt(distSq);
+        if (dist < leanRadius && dist > 0.0001) {
+          const lean = (1 - (dist / leanRadius)) * 0.9; // bow harder the closer the mower is
+          const awayX = -dx / dist; // direction from mower to plant
+          const awayZ = -dz / dist;
+          dandelion.leanX += ((lean * awayZ) - dandelion.leanX) * 0.3;
+          dandelion.leanZ += ((-lean * awayX) - dandelion.leanZ) * 0.3;
+        } else {
+          dandelion.leanX += (0 - dandelion.leanX) * 0.12;
+          dandelion.leanZ += (0 - dandelion.leanZ) * 0.12;
+        }
+        dandelion.root.rotation.x = dandelion.leanX;
+        dandelion.root.rotation.z = dandelion.leanZ;
       }
     },
 
@@ -282,6 +333,18 @@ export function createDandelions(
 
     update(deltaSeconds: number) {
       for (const dandelion of dandelions) {
+        if (dandelion.shrinking) {
+          dandelion.shrinkAge += deltaSeconds;
+          const t = Math.min(1, dandelion.shrinkAge / 0.18);
+          const eased = t * t; // accelerate as it's yanked under
+          const scaleY = 1 - (0.86 * eased);
+          dandelion.stem.scaling.y = scaleY;
+          dandelion.stem.position.y = (dandelion.stemHeight * scaleY) / 2; // base stays planted
+          if (t >= 1) {
+            dandelion.shrinking = false;
+          }
+        }
+
         if (dandelion.headFalling) {
           dandelion.headVelocity.y -= 4.4 * deltaSeconds;
           dandelion.head.position.addInPlace(dandelion.headVelocity.scale(deltaSeconds));
