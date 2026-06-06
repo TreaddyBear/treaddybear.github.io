@@ -41,6 +41,12 @@ const TERRAIN_WIDTH = 300;
 const TERRAIN_DEPTH = 600;
 const TERRAIN_SUBDIV_X = 80;
 const TERRAIN_SUBDIV_Z = 132;
+const ROAD_CENTER_X = 14.5;
+const ROAD_WIDTH = 6.65;
+const ROAD_LENGTH = 540;
+const ROAD_STRIPE_HALF_WIDTH = 0.105;
+const ROAD_STRIPE_HALF_LENGTH = 2.79;
+const ROAD_STRIPE_SPACING = 10;
 
 // The height of the visual terrain MESH at (x, z): the coarse mesh interpolates
 // linearly between its grid vertices, so on a hill it sits a little below the
@@ -78,7 +84,7 @@ export function sampledTerrainHeightAt(x: number, z: number) {
 
 export function terrainHeightAt(x: number, z: number) {
   const distanceFade = smoothstep01((distanceToMainYardBounds(x, z) - 10) / 54);
-  const roadFade = smoothstep01(Math.max(0, Math.abs(x - 14.5) - 4.2) / 8);
+  const roadFade = smoothstep01(Math.max(0, Math.abs(x - ROAD_CENTER_X) - 4.2) / 8);
   const broad = valueNoise((x * 0.035) + 12, (z * 0.035) - 8) - 0.5;
   const mid = valueNoise((x * 0.095) - 4, (z * 0.095) + 19) - 0.5;
   const rolling = ((broad * 6.8) + (mid * 1.9)) * distanceFade * roadFade;
@@ -107,7 +113,7 @@ function distanceToAnyLawn(x: number, z: number) {
 }
 
 function grassOverlayAlpha(x: number, z: number, height: number) {
-  if (Math.abs(x - 14.5) < 4.1) {
+  if (Math.abs(x - ROAD_CENTER_X) < 4.1) {
     return 0;
   }
 
@@ -136,7 +142,7 @@ function tileableNoise(u: number, v: number, frequencyX: number, frequencyZ: num
 }
 
 function grassMaskValue(x: number, z: number, u: number, v: number) {
-  if (Math.abs(x - 14.5) < 4.1) {
+  if (Math.abs(x - ROAD_CENTER_X) < 4.1) {
     return 0;
   }
 
@@ -452,8 +458,8 @@ export function createWorldGrassOverlay(scene: Scene, material: StandardMaterial
 function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   const mesh = new Mesh("road-stripe", scene);
   const steps = 8;
-  const halfWidth = 0.07;
-  const halfLength = 1.86;
+  const halfWidth = ROAD_STRIPE_HALF_WIDTH;
+  const halfLength = ROAD_STRIPE_HALF_LENGTH;
   const sectionCount = 8;
   const section = Math.floor(Math.abs(valueNoise((z * 0.071) + 22, 6.5) * sectionCount)) % sectionCount;
   const uMin = section / sectionCount;
@@ -487,7 +493,7 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   vertexData.normals = normals;
   vertexData.uvs = uvs;
   vertexData.applyToMesh(mesh);
-  mesh.position = new Vector3(14.5, 0.018, z);
+  mesh.position = new Vector3(ROAD_CENTER_X, 0.018, z);
   mesh.material = material;
 }
 
@@ -505,14 +511,20 @@ export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeM
   stripeMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
   (stripeMaterial.opacityTexture as { getAlphaFromRGB?: boolean }).getAlphaFromRGB = true;
 
-  const road = MeshBuilder.CreateGround("road", { width: 5.2, height: 540 }, scene);
-  road.position = new Vector3(14.5, 0.006, 0);
+  const road = MeshBuilder.CreateGround("road", { width: ROAD_WIDTH, height: ROAD_LENGTH }, scene);
+  road.position = new Vector3(ROAD_CENTER_X, 0.006, 0);
   road.material = roadMaterial;
 
-  for (let z = -262; z <= 262; z += 10) {
+  for (let z = (-ROAD_LENGTH / 2) + 8; z <= (ROAD_LENGTH / 2) - 8; z += ROAD_STRIPE_SPACING) {
     createRoadStripe(scene, stripeMaterial, z);
   }
 }
+
+const fenceDirtOverlayY = -0.072;
+const fenceVisualSurfaceY = -0.06;
+const fenceGroundClearance = 0.003;
+const fencePostHeight = 0.54;
+const fencePlankHeight = 0.34;
 
 function createFencePost(scene: Scene, material: StandardMaterial, position: Vector3, scaling: Vector3) {
   const post = MeshBuilder.CreateBox("fence-post", { size: 1 }, scene);
@@ -532,8 +544,8 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
     const t = steps === 0 ? 0 : i / steps;
     const x = start.x + (dx * t);
     const z = start.z + (dz * t);
-    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${i}`, { width: 0.34, height: 0.34, depth: 0.08 }, scene);
-    plank.position = new Vector3(x, 0.21, z);
+    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${i}`, { width: 0.34, height: fencePlankHeight, depth: 0.08 }, scene);
+    plank.position = new Vector3(x, fenceVisualSurfaceY + (fencePlankHeight / 2) + fenceGroundClearance, z);
     plank.rotation.y = yaw;
     plank.material = material;
   }
@@ -620,7 +632,7 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
   material.backFaceCulling = false;
 
   const overlay = MeshBuilder.CreateGround("fence-dirt-overlay", { width, height: depth }, scene);
-  overlay.position = new Vector3((xMin + xMax) / 2, -0.072, (zMin + zMax) / 2);
+  overlay.position = new Vector3((xMin + xMax) / 2, fenceDirtOverlayY, (zMin + zMax) / 2);
   overlay.material = material;
   overlay.isPickable = false;
   overlay.receiveShadows = true;
@@ -634,7 +646,12 @@ export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segme
     createFencePlanks(scene, fenceMaterial, index, segment.start, segment.end);
 
     for (const position of [segment.start, segment.end]) {
-      createFencePost(scene, fenceMaterial, new Vector3(position.x, 0.27, position.z), new Vector3(0.18, 0.54, 0.18));
+      createFencePost(
+        scene,
+        fenceMaterial,
+        new Vector3(position.x, fenceVisualSurfaceY + (fencePostHeight / 2) + fenceGroundClearance, position.z),
+        new Vector3(0.18, fencePostHeight, 0.18),
+      );
     }
   }
 

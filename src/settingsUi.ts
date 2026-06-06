@@ -12,6 +12,7 @@ export type SettingsUiDeps = {
   refreshGrassMaterial: () => void;
   refreshTextureScales: () => void;
   refreshGroundColor: () => void;
+  refreshLighting: () => void;
   updateCameraProjection: () => void;
   syncFenceHealth: () => void;
 };
@@ -175,6 +176,12 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "dirtNormalStrength",
       "roadTextureUScale",
       "roadTextureVScale",
+      "skyAmbientIntensity",
+      "ssaoStrength",
+      "ssaoRadius",
+      "ssaoScale",
+      "ssaoBlurScale",
+      "ssaoSamples",
       "targetFps",
       "timeLimitSeconds",
       "fenceBumpTimePenalty",
@@ -189,12 +196,14 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "cutGrassTopColorA",
       "cutGrassTopColorB",
       "groundColor",
+      "skyAmbientColor",
     ] as const;
     const checkboxControls = [
       "showFenceHealth",
       "disableFenceCollision",
       "dynamicResolution",
       "autoFinishOnMaxStars",
+      "ssaoEnabled",
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
     const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");
@@ -249,6 +258,15 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "roadTextureVScale",
         ].includes(id)) {
           deps.refreshTextureScales();
+        } else if ([
+          "skyAmbientIntensity",
+          "ssaoStrength",
+          "ssaoRadius",
+          "ssaoScale",
+          "ssaoBlurScale",
+          "ssaoSamples",
+        ].includes(id)) {
+          deps.refreshLighting();
         } else if (id === "portraitFov") {
           deps.updateCameraProjection();
         }
@@ -263,6 +281,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
         if (id === "groundColor") {
           deps.refreshGroundColor();
+        } else if (id === "skyAmbientColor") {
+          deps.refreshLighting();
         } else {
           deps.refreshGrassColors();
         }
@@ -281,6 +301,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
         if (id === "showFenceHealth") {
           deps.syncFenceHealth();
+        } else if (id === "ssaoEnabled") {
+          deps.refreshLighting();
         }
       });
     }

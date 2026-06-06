@@ -12,6 +12,7 @@ import {
   TransformNode,
   Vector3,
 } from "@babylonjs/core";
+import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline";
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
 import { createInputController } from "./input";
@@ -171,6 +172,7 @@ const mowerControl = createMowerControl({
 };
 
 scene.clearColor.set(0.66, 0.8, 0.96, 1);
+scene.ambientColor = new Color3(0.05, 0.09, 0.16);
 scene.imageProcessingConfiguration.exposure = 1.13;
 scene.imageProcessingConfiguration.contrast = 1.12;
 //scene.fogMode = Scene.FOGMODE_EXP2;
@@ -181,6 +183,8 @@ const materials = createMaterials(scene);
 const {
   playerMaterial,
   groundMaterial,
+  bladeMaterial,
+  cutBladeMaterial,
   dandelionStemMaterial,
   dandelionYellowMaterial,
   dandelionSeedMaterial,
@@ -600,9 +604,9 @@ function refreshTextureScales() {
 // Softer, less dominant sky fill so the scene reads as direct sun rather than an
 // overcast wash. Keeping it lower-intensity raises contrast (a sunny look).
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
-ambientLight.intensity = 0.16;
-ambientLight.diffuse = new Color3(0.72, 0.81, 0.95);
-ambientLight.groundColor = new Color3(0.42, 0.5, 0.24);
+ambientLight.intensity = settings.skyAmbientIntensity;
+ambientLight.diffuse = new Color3(0.5, 0.68, 1);
+ambientLight.groundColor = new Color3(0.22, 0.33, 0.5);
 
 // A brighter, distinctly warm/yellow sun so highlights on the grass go golden
 // instead of white.
@@ -614,9 +618,12 @@ sun.specular = new Color3(1, 0.91, 0.66);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
-const shadowGenerator = new ShadowGenerator(2048, sun);
+const shadowMapSize = Math.min(8192, engine.getCaps().maxTextureSize);
+const shadowGenerator = new ShadowGenerator(shadowMapSize, sun);
 shadowGenerator.usePercentageCloserFiltering = true;
-shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW;
+shadowGenerator.bias = 0.00001;
+shadowGenerator.normalBias = 0.001;
 shadowGenerator.setDarkness(0.34);
 
 const cameraRig = createCameraRig({
@@ -630,6 +637,81 @@ const cameraRig = createCameraRig({
   perfEl,
 });
 const camera = cameraRig.camera;
+let ssaoPipeline: SSAO2RenderingPipeline | null = null;
+let ssaoPipelineScale = 0;
+let ssaoPipelineBlurScale = 0;
+let ssaoUnsupportedWarned = false;
+
+function syncSsaoExcludedMaterials() {
+  const excludedMaterials = scene.prePassRenderer?.excludedMaterials;
+
+  if (!excludedMaterials) {
+    return;
+  }
+
+  for (const material of [bladeMaterial, cutBladeMaterial]) {
+    if (!excludedMaterials.includes(material)) {
+      excludedMaterials.push(material);
+    }
+  }
+}
+
+function refreshLighting() {
+  const skyColor = hexToColor3(settings.skyAmbientColor);
+  ambientLight.intensity = settings.skyAmbientIntensity;
+  ambientLight.diffuse = skyColor;
+  ambientLight.groundColor = new Color3(
+    0.1 + (skyColor.r * 0.22),
+    0.13 + (skyColor.g * 0.26),
+    0.08 + (skyColor.b * 0.34),
+  );
+  scene.ambientColor = new Color3(
+    skyColor.r * settings.skyAmbientIntensity * 0.3,
+    skyColor.g * settings.skyAmbientIntensity * 0.34,
+    skyColor.b * settings.skyAmbientIntensity * 0.46,
+  );
+
+  if (!settings.ssaoEnabled) {
+    ssaoPipeline?.dispose(false);
+    ssaoPipeline = null;
+    return;
+  }
+
+  if (!SSAO2RenderingPipeline.IsSupported) {
+    if (!ssaoUnsupportedWarned) {
+      console.warn("SSAO2RenderingPipeline is not supported by this browser/GPU.");
+      ssaoUnsupportedWarned = true;
+    }
+    ssaoPipeline?.dispose(false);
+    ssaoPipeline = null;
+    return;
+  }
+
+  const ssaoScale = Math.max(0.25, Math.min(1, settings.ssaoScale));
+  const blurScale = Math.max(0.25, Math.min(1, settings.ssaoBlurScale));
+
+  if (!ssaoPipeline || ssaoPipelineScale !== ssaoScale || ssaoPipelineBlurScale !== blurScale) {
+    ssaoPipeline?.dispose(false);
+    ssaoPipeline = new SSAO2RenderingPipeline("ssao", scene, { ssaoRatio: ssaoScale, blurRatio: blurScale }, [camera]);
+    ssaoPipelineScale = ssaoScale;
+    ssaoPipelineBlurScale = blurScale;
+  }
+
+  syncSsaoExcludedMaterials();
+  ssaoPipeline.totalStrength = settings.ssaoStrength;
+  ssaoPipeline.radius = settings.ssaoRadius;
+  ssaoPipeline.samples = Math.max(4, Math.min(24, Math.round(settings.ssaoSamples)));
+  ssaoPipeline.maxZ = 70;
+  ssaoPipeline.minZAspect = 0.22;
+  ssaoPipeline.epsilon = 0.025;
+  ssaoPipeline.expensiveBlur = true;
+  ssaoPipeline.bilateralSamples = 12;
+  ssaoPipeline.bilateralSoften = 0.55;
+  ssaoPipeline.bilateralTolerance = 0.28;
+  ssaoPipeline.textureSamples = 1;
+}
+
+refreshLighting();
 
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 const worldTerrain = createWorldTerrain(scene, biomeGroundMaterial);
@@ -700,6 +782,7 @@ const settingsUi = createSettingsUi({
   refreshGrassMaterial: () => grass.refreshMaterial(),
   refreshTextureScales,
   refreshGroundColor,
+  refreshLighting,
   updateCameraProjection: cameraRig.updateProjection,
   syncFenceHealth: () => fence.syncHealthLabels(),
 });

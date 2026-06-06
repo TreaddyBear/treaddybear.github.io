@@ -83,6 +83,17 @@
         <label>Target FPS <span data-value-for="targetFps"></span><input id="targetFps" type="range" min="30" max="60" step="1" value="58" /></label>
       </details>
       <details class="settings-group">
+        <summary>Lighting</summary>
+        <label>Sky ambient <span data-value-for="skyAmbientIntensity"></span><input id="skyAmbientIntensity" type="range" min="0" max="0.6" step="0.01" value="0.22" /></label>
+        <label>Sky ambient color <input id="skyAmbientColor" type="color" value="#94bfff" /></label>
+        <label>SSAO enabled <input id="ssaoEnabled" type="checkbox" checked /></label>
+        <label>SSAO strength <span data-value-for="ssaoStrength"></span><input id="ssaoStrength" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
+        <label>SSAO radius <span data-value-for="ssaoRadius"></span><input id="ssaoRadius" type="range" min="0.1" max="5" step="0.05" value="1.15" /></label>
+        <label>SSAO render scale <span data-value-for="ssaoScale"></span><input id="ssaoScale" type="range" min="0.25" max="1" step="0.05" value="0.55" /></label>
+        <label>SSAO blur scale <span data-value-for="ssaoBlurScale"></span><input id="ssaoBlurScale" type="range" min="0.25" max="1" step="0.05" value="0.85" /></label>
+        <label>SSAO samples <span data-value-for="ssaoSamples"></span><input id="ssaoSamples" type="range" min="4" max="24" step="1" value="10" /></label>
+      </details>
+      <details class="settings-group">
         <summary>Mobile Camera (portrait)</summary>
         <label>FOV <span data-value-for="portraitFov"></span><input id="portraitFov" type="range" min="0.4" max="1.2" step="0.01" value="0.78" /></label>
         <label>Zoom distance <span data-value-for="portraitDistance"></span><input id="portraitDistance" type="range" min="3" max="9" step="0.1" value="5.2" /></label>

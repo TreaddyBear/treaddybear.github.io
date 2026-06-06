@@ -154,6 +154,42 @@ export function createHud(deps: HudDeps) {
     }
   };
 
+  const resultTitleFor = (
+    reason: "complete" | "out-of-reach" | "time-up" | "maxed",
+    factor: LimitingFactor,
+    stars: number,
+    grassPercent: number,
+    mistakes: number,
+  ) => {
+    if (reason === "maxed") {
+      return "Top Score";
+    }
+
+    if (reason === "time-up") {
+      return "Not Fast Enough";
+    }
+
+    if (stars >= starMode && grassPercent >= 100) {
+      return mistakes === 0 ? "Perfect Cut" : "Clean Cut";
+    }
+
+    if (reason === "out-of-reach") {
+      if (factor === "mistakes") {
+        return "Too Many Mistakes";
+      }
+
+      if (factor === "time") {
+        return "Not Fast Enough";
+      }
+
+      if (factor === "grass") {
+        return "Mow More Grass";
+      }
+    }
+
+    return "Run Complete";
+  };
+
   const showResult = (reason: "complete" | "out-of-reach" | "time-up" | "maxed") => {
     if (celebrationShown) {
       return;
@@ -176,13 +212,7 @@ export function createHud(deps: HudDeps) {
 
     bestStars = stars;
     deps.celebration.dataset.result = reason;
-    deps.celebration.querySelector("#celebrationTitle")!.textContent = reason === "time-up"
-      ? "Time's Up"
-      : reason === "maxed"
-        ? "Top Score"
-        : stars >= starMode && grassPercent >= 100
-          ? "Perfect Cut"
-          : "Run Complete";
+    deps.celebration.querySelector("#celebrationTitle")!.textContent = resultTitleFor(reason, factor, stars, grassPercent, mistakes);
     deps.celebration.querySelector("#celebrationSubtitle")!.textContent = verdictFor(
       factor,
       stars,
