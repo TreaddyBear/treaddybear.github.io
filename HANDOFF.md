@@ -21,7 +21,7 @@ This document is the compact handoff for starting a fresh conversation without r
 
 - As of the `v0.1.2` release push, the working tree was clean.
 - Current development has moved beyond `v0.1.2` on `dev`; check `git status --short --branch` and local commits before release work.
-- Recent dev work includes biome-mask terrain, shader-tiled grass/dirt terrain textures, higher terrain texture scale controls, denser but smoother outside grass, multi-tone cut grass coloring, and a completion-card click-through fix.
+- Recent dev work includes biome-mask terrain, shader-tiled grass/dirt terrain textures, higher terrain texture scale controls, denser but smoother outside grass, multi-tone cut grass coloring, star-result UI, fence-mistake scoring, mower-width broken fence openings, raised flower-bed terrain, and smooth mower tilt on sloped ground.
 - There may be user-owned texture edits such as `src/assets/textures/ground-grassy.png` and a `ground-grassy.png~` backup; do not overwrite or stage those unless explicitly asked.
 - Usual harmless local warning: Git may print `unable to access 'C:\Users\Owner/.config/git/ignore': Permission denied`.
 
@@ -46,8 +46,9 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 ## Last Verified State
 
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
-- `pnpm run build` passed after the latest terrain, gun hiding, fence debug, tree, and gun feedback changes.
-- A browser smoke test confirmed the terrain/gun scene loaded, the canvas rendered, and no console errors were reported. A later debug-toggle smoke test was attempted but hit a browser automation variable redeclare before completing; the production build passed.
+- TypeScript compile passed via bundled Node: `node node_modules/typescript/bin/tsc -p tsconfig.json`.
+- Vite production build passed via bundled Node: `node node_modules/vite/bin/vite.js build`. The first sandboxed Vite attempt may fail with `Cannot read directory "../.."`; rerun with approval because esbuild needs access to load the config/native helper.
+- A browser smoke test on `http://127.0.0.1:5175/` confirmed the canvas rendered, Flower Court could be selected, the raised flower bed/tulips loaded, and no browser console errors were reported.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
 - `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags.
 - `v0.1.2` added terrain hiding, fence debug controls, simple trees, and related world polish, then pushed `dev`, `master`, and the `v0.1.2` tag.
@@ -58,7 +59,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Selectable maps: `Main` and `Flower Court`.
 - `Main` is the original L-shaped playable lawn.
 - `Flower Court` has a central protected tulip bed.
-- Flower beds should be slightly raised brown soil with mostly no grass on the bed and a visible grass buffer around most flowers.
+- Flower beds are slightly raised dirt terrain with a subtle sloped edge and mostly no grass on the bed; tulips sit on the raised surface and the mower height/tilt follows that surface.
 - Low fence plank boundaries generated from each map config.
 - Chase camera following the mower.
 - Dense instanced grass that changes to cut state instead of disappearing.
@@ -80,26 +81,31 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - In forced `keyboard` input mode, arrow keys adjust camera orbit/height.
 - Audio system with mower, directional breeze, ambient breeze, cutting loop, reverse beep, weighted random yellow flower pop bank, and wall bump hooks.
 - Hidden gun feedback now includes a placeholder shot sound, a short fuzzy tracer, impact dust, and sparse grass fleck particles when shots cut blades.
-- Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Close` buttons. Current completion audio files are placeholders unless replaced.
+- Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Retry` buttons. Current completion audio files are placeholders unless replaced.
 - Completion-card decorative seeds should not intercept clicks, and the overlay should remain visible until the player chooses `Next Level` or `Close`.
-- Mistakes meter increments when protected tulips are destroyed.
+- The top HUD uses the compact star meter from `src/starMeter.ts` instead of the old "Mowed: %" text and green progress bar. The normal clock is hidden during play; `Mistakes` stays visible on every map and increments when protected tulips are destroyed.
+- The level ending now uses a star results card in the existing celebration overlay. It shows earned stars, a short verdict from `limitingFactor`, grass/time/mistake stats, and contextual actions. Perfect 100% runs show `Next Level` + `Report Card`; non-perfect runs show `Retry` + `Report Card`, with `Next Level` also shown once at least one star is earned. It triggers when the lawn reaches 100%, the hard time limit reaches zero, `nextStarOutOfReach` says the next star can no longer be earned, or the player clicks `Finish Run` after maxing stars.
 
 ## Current Tuning Defaults
 
 Important defaults in `src/config.ts`:
 
-- `playerSpeed = 1.65`
-- `playerBoost = 1.45`
+- `playerSpeed = 1.65` (dev setting; unboosted top speed)
+- `playerBoost = 1.45` (dev setting; boost multiplier)
 - `playerRadius = 0.75`
 - `playerFenceRadius = 0.72`
 - `mowerCutRadius = 0.42`
+- `mowerAcceleration = 3.4`
+- `mowerTorqueFade = 0.62`
+- `mowerMinTorque = 0.34`
+- `fenceDamageSpeed = 1.5`
 - `bladeCount = 30000`
-- `mediumGrassCount = 24000`
-- `wheatGrassCount = 7000`
+- `mediumGrassCount = 36000`
+- `wheatGrassCount = 2200`
 - `mapId = "main"`
-- `grassyTextureScale = 20`
-- `dirtTextureUScale = 42`
-- `dirtTextureVScale = 84`
+- `grassyTextureScale = 160`
+- `dirtTextureUScale = 240`
+- `dirtTextureVScale = 480`
 - `dirtNormalStrength = 0.42`
 - `roadTextureUScale = 1`
 - `roadTextureVScale = 48`
@@ -121,7 +127,9 @@ Important defaults in `src/config.ts`:
 - `completionLoopVolume = 0.35`
 - `gunShotVolume = 0.35`
 - `grassBaseColor = "#0d2c02"`
-- `cutGrassColor = "#152b03"`
+- `cutGrassRootColor = "#2d2e00"`
+- `cutGrassTopColorA = "#869325"`
+- `cutGrassTopColorB = "#42a60c"`
 - `grassRoughness = 0.22`
 - `grassMetallic = 0`
 - `grassClearCoat = 0.009`
@@ -151,7 +159,7 @@ Important defaults in `src/config.ts`:
 - Grass-cutting audio should use a short onset delay plus attack/decay smoothing because abrupt loop gating sounds bad, but the decay should stay tight enough that the layer does not smear after mowing stops.
 - Reverse movement should play a comical backing-up loop.
 - Protected flower beds are allowed to be destructible, but destroying them should count as mistakes rather than progress.
-- Fence planks each have hidden damage and AABB-style collision from every direction. Fence collision uses `playerFenceRadius = 0.72`, larger than the blade collider, so the mower body should stop before visibly overlapping the planks. Bumps deal `1`, medium hits deal `3`, and near-full-speed hits deal `5` against `settings.fenceMaxHealth`, currently `100`. Broken planks disappear individually and stop blocking. Fence hits should not axis-slide; the mower should stop/bump instead. Bump-back distance scales by impact speed: low-speed contact should stop with no visible shove, while full boosted hits get the full bump-back distance.
+- Fence planks each have hidden damage and AABB-style collision from every direction. Fence collision uses the visible mower body, which is larger than the blade collider, so the mower body should stop before visibly overlapping the planks. Slow and medium bumps do `0` damage and are not mistakes; only hits at or above `fenceDamageSpeed` damage the plank, count as mistakes, and apply the fence-bump time penalty. The default `fenceDamageSpeed` is below unboosted max speed, so a committed full-speed unboosted run-up can damage the fence; casual bumps cannot. When a plank breaks, the system clears a small mower-width opening around it (target plank plus close same-segment/corner neighbors) so the mower can actually fit through instead of hitting an invisible sliver. Fence hits should not axis-slide; the mower should stop/bump instead. Bump-back distance scales by impact speed: low-speed contact should stop with no visible shove, while full boosted hits get the full bump-back distance.
 - Dev settings include a Debug group with `showFenceHealth`, `fenceMaxHealth`, and `disableFenceCollision`. The health overlay creates billboard text labels over unbroken planks only while enabled, changing max health schedules a reset so planks get the new max, and disabling fence collision is an emergency fallback if the fence interaction breaks again.
 - There is a hidden gun pickup outside the fence at roughly `(-33.5, -21.5)`, behind a terrain mound centered roughly near `(-25.5, -16.5)`. It should be impossible to see from the main yard area. Once picked up, HUD shows `Armed`; left click, `E`, or controller face button 2 shoots a forward line that cuts grass, damages fences, pops dandelions, and destroys protected tulips as mistakes. Shots also play `gun-shot.mp3`, draw a very short-lived fuzzy tracer, spawn dust at the final impact, and emit rare tiny grass flecks from cut blades.
 - Outer ground and road now extend roughly 3x farther than before. The world terrain uses procedural value-noise height variation: mostly flat for about the first 10 meters beyond the yard, much taller farther out, and damped around the road corridor so the road does not visibly fight the terrain. Outside the flat authored lawn/road, mower height and medium/wheat grass placement reference the terrain surface. The mower rides slopes below the current steepness cutoff and blocks on too-steep hill faces.
@@ -163,6 +171,7 @@ Important defaults in `src/config.ts`:
 - Cloud shadows are currently approximated by slow directional-light intensity/specular modulation, not a real projected cloud texture.
 - Keep future art additions small and cache-friendly. Current placeholders are tiny PNGs; if replacing them, prefer small tiled textures and already-compressed files. Vite fingerprints imported assets for browser caching.
 - When an idea is deferred instead of implemented, add it to `BACKLOG.md` so it survives context resets.
+- Mower top speed is fixed by live settings `playerSpeed` and `playerBoost`; it should not grow over time. `playerSpeed` is the tunable unboosted top speed. Acceleration uses a torque-style curve: `mowerAcceleration` is strongest at low speed, then fades toward `mowerMinTorque` according to `mowerTorqueFade` as the mower approaches the fixed target speed.
 - Keyboard steering should use the original gentle-to-fast turn acceleration curve. Controller steering should stay stable for small stick movements and only add acceleration once the left stick passes the tunable threshold, currently `0.7`.
 - The HUD has a quick input-mode selector. It should only show currently available modes such as keyboard, detected controller, and detected touch; the full dev settings menu still keeps all modes for forced testing.
 - The dev settings menu starts hidden in raw HTML and is only unhidden by script in dev mode, so production builds should not flicker the settings panel.

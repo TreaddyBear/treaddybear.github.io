@@ -18,6 +18,13 @@ raw numbers. Design was prototyped in `public/star-meter.html` (mockup v5).
   (a mistake or the time decay only pushes the *current* fill back).
 - At the end: a short, light verdict picks the one thing that most held you back
   ("Mow a bit more!" / "A touch quicker!" / "Mind the flowers!") or celebrates.
+- Result actions are contextual: a perfect 100% run shows **Next Level** plus
+  **Report Card**; non-perfect runs show **Retry** plus **Report Card**, and also
+  **Next Level** once at least one star is earned. Zero-star runs stay locked to
+  retry/report for now.
+- If the player earns the maximum stars before mowing every blade, the game does
+  not interrupt by default. A **Finish Run** HUD button appears instead. The dev
+  setting `autoFinishOnMaxStars` can restore the interrupt.
 
 ## Scoring model (internal)
 
@@ -54,24 +61,28 @@ Defaults chosen (all tunable in `config.scoring`):
 - `src/scoring.ts` — **done.** Pure functions: `timePoints`, `grassPoints`,
   `mistakePenalty`, `totalScore`, `earnedStars`, `bandProgress`, `meterFloor`,
   `reachableCeiling`, `nextStarOutOfReach`, `limitingFactor`.
-- `src/starMeter.ts` — **next (this step).** A self-contained component that owns
+- `src/starMeter.ts` — **done.** A self-contained component that owns
   the meter DOM and ports the mockup's render/animation (cluster shapes, break-off
   slide, fill-to-milestone, sparkle on earn, gold completion). One method:
   `update(grassPercent, elapsedSeconds, mistakeCount, mode)` called each frame.
-- HUD wiring — replace `#score` ("Mowed: %") markup with the meter; keep
-  `#mistakes`; feed it `grass.mowedCount/bladeCount`, `elapsed = timeLimitSeconds
-  − timeRemaining`, and the mistake count each frame.
-- Results card — **later.** Reuse the existing celebration/time-up card slot;
-  show stars + the `limitingFactor` verdict + Next/Retry; ends when
-  `nextStarOutOfReach` or the lawn is 100% done.
+- HUD wiring — **done for live play.** Replaced `#score` ("Mowed: %") and the old
+  green percent bar with the meter; keep `#mistakes` visible on every map; feed
+  it `grass.mowedCount/bladeCount`, `elapsed = timeLimitSeconds − timeRemaining`,
+  and the mistake count each frame. Clock stays hidden in normal play.
+- Results card — **done for the first playable pass.** Reuses the existing
+  celebration slot; shows stars, the `limitingFactor` verdict, time/grass/mistake
+  stats, and Next/Retry. The run ends when `nextStarOutOfReach` is true, the hard
+  time limit hits, the player clicks Finish Run after maxing stars, or the lawn
+  is 100% done.
 
 ## Incremental steps
 
 1. **Scoring module + config** — ✅ done (`src/scoring.ts`, `config.scoring`).
-2. **Meter in the HUD** (this step) — port the mockup meter, replace "Mowed: %",
+2. **Meter in the HUD** — ✅ done. Port the mockup meter, replace "Mowed: %",
    keep Mistakes, wire live state. Clock stays hidden. No end-flow changes yet.
-3. **Results card + end conditions** — replace "Time's Up" with the star results
-   card; end on `nextStarOutOfReach` / 100%.
+3. **Results card + end conditions** — ✅ done for first pass. Replaced the
+   plain completion/time-up flow with the star results card; end on
+   `nextStarOutOfReach`, hard time limit, or 100%.
 4. **Per-map par, master mode, pack unlocks, par-ghost** — later polish.
 
 ## Open / deferred

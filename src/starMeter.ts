@@ -118,7 +118,7 @@ export function createStarMeter() {
     const increment = 1 / mode;
     const breakoff = milestone - (increment / 2);
     const isFinal = star === mode;
-    const fillFrac = bandProgress(score, earned, mode) * milestone;
+    const fillFrac = (earned / mode) + (bandProgress(score, earned, mode) * increment);
     fill.style.width = `${(fillFrac * 100).toFixed(1)}%`;
 
     const brokenOff = !isFinal && fillFrac >= breakoff;

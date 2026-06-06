@@ -1,10 +1,15 @@
 import { Color3, DynamicTexture, Mesh, MeshBuilder, StandardMaterial, Vector3 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import { getActiveMap, playerBoost, playerSpeed, settings } from "./config";
+import { getActiveMap, settings } from "./config";
 import type { FenceDamageState, FenceHealthLabel } from "./types";
 import { distanceToSegment } from "./utils/geometry";
 
 export type FenceSystem = ReturnType<typeof createFenceSystem>;
+export type FenceImpact = {
+  damage: number;
+  severity: "soft" | "medium" | "hard";
+  mistake: boolean;
+};
 
 // Roughly how far the dirt overlay reaches from the fence line. Any grass
 // (mowable or neighbor) must stay outside this so nothing grows on the bare
@@ -116,28 +121,69 @@ export function createFenceSystem(
 
   const breakPiece = (index: number) => {
     const state = fenceDamage[index];
+    if (state) {
+      state.broken = true;
+      state.health = 0;
+    }
+
     const mesh = state ? scene.getMeshByName(`fence-${state.segmentIndex}-plank-${state.pieceIndex}`) : null;
     mesh?.setEnabled(false);
     updateHealthLabel(index);
   };
 
-  const damagePiece = (index: number, impactSpeed: number) => {
-    const state = fenceDamage[index];
+  const breakOpening = (index: number) => {
+    const center = fenceDamage[index];
 
-    if (!state || state.broken) {
+    if (!center) {
       return;
     }
 
-    const speedRatio = Math.min(1, Math.abs(impactSpeed) / (playerSpeed * playerBoost));
-    const damage = speedRatio > 0.85 ? 5 : speedRatio > 0.55 ? 3 : 1;
-    state.health -= damage;
+    for (let pieceIndex = 0; pieceIndex < fenceDamage.length; pieceIndex += 1) {
+      const piece = fenceDamage[pieceIndex];
+      const dx = piece.x - center.x;
+      const dz = piece.z - center.z;
+      const nearCorner = (dx * dx) + (dz * dz) <= 0.72 * 0.72;
+      const sameRun = piece.segmentIndex === center.segmentIndex && Math.abs(piece.pieceIndex - center.pieceIndex) <= 1;
 
-    if (state.health <= 0) {
-      state.broken = true;
-      breakPiece(index);
+      if (sameRun || nearCorner) {
+        breakPiece(pieceIndex);
+      }
+    }
+  };
+
+  const classifyImpact = (impactSpeed: number): FenceImpact => {
+    const speed = Math.abs(impactSpeed);
+    const damageSpeed = settings.fenceDamageSpeed;
+
+    if (speed < damageSpeed * 0.62) {
+      return { damage: 0, severity: "soft", mistake: false };
     }
 
-    updateHealthLabel(index);
+    if (speed < damageSpeed) {
+      return { damage: 0, severity: "medium", mistake: false };
+    }
+
+    const maxImpactSpeed = Math.max(damageSpeed + 0.01, settings.playerSpeed * settings.playerBoost);
+    const hardAmount = Math.min(1, Math.max(0, (speed - damageSpeed) / (maxImpactSpeed - damageSpeed)));
+    return { damage: 16 + Math.round(hardAmount * 10), severity: "hard", mistake: true };
+  };
+
+  const damagePiece = (index: number, impactSpeed: number) => {
+    const state = fenceDamage[index];
+    const impact = classifyImpact(impactSpeed);
+
+    if (!state || state.broken) {
+      return impact;
+    }
+
+    state.health = Math.max(0, state.health - impact.damage);
+
+    if (state.health <= 0) {
+      breakOpening(index);
+    } else {
+      updateHealthLabel(index);
+    }
+    return impact;
   };
 
   const damageAt = (x: number, z: number, impactSpeed: number) => {
@@ -232,7 +278,7 @@ export function createFenceSystem(
         material.backFaceCulling = false;
 
         const mesh = MeshBuilder.CreatePlane(`fence-health-label-${index}`, { width: 0.86, height: 0.34 }, scene);
-        mesh.position = new Vector3(state.x, 0.82, state.z);
+        mesh.position = new Vector3(state.x, 0.62, state.z);
         mesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
         mesh.material = material;
         fenceHealthLabels[index] = { mesh, material, texture };
@@ -241,6 +287,7 @@ export function createFenceSystem(
     },
 
     damagePiece,
+    classifyImpact,
 
     // Damages the plank a forward shot hits first; returns the forward distance
     // to the hit (for the tracer length), or null when nothing is hit.
@@ -271,7 +318,7 @@ export function createFenceSystem(
 
       if (best.index >= 0 && best.distanceToRay < 0.42) {
         const hit = origin.add(direction.scale(best.forwardDistance));
-        damageAt(hit.x, hit.z, playerSpeed * playerBoost);
+        damageAt(hit.x, hit.z, settings.playerSpeed * settings.playerBoost);
         return best.forwardDistance;
       }
 

@@ -129,16 +129,22 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
   const setup = () => {
     const numberControls = [
+      "playerSpeed",
+      "playerBoost",
       "minHeight",
       "maxHeight",
       "clumpStrength",
       "heightRandomness",
       "windStrength",
       "bendStrength",
+      "mowerAcceleration",
+      "mowerTorqueFade",
+      "mowerMinTorque",
       "turnMaxSpeed",
       "turnBuild",
       "controllerTurnAccelThreshold",
       "fenceMaxHealth",
+      "fenceDamageSpeed",
       "seedPopRate",
       "mowerVolume",
       "breezeVolume",
@@ -188,6 +194,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "showFenceHealth",
       "disableFenceCollision",
       "dynamicResolution",
+      "autoFinishOnMaxStars",
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
     const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");

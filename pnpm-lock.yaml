@@ -11,9 +11,6 @@ importers:
       '@babylonjs/core':
         specifier: ^8.0.0
         version: 8.56.2
-      '@babylonjs/materials':
-        specifier: ^8.56.2
-        version: 8.56.2(@babylonjs/core@8.56.2)
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -26,11 +23,6 @@ packages:
 
   '@babylonjs/core@8.56.2':
     resolution: {integrity: sha512-UShs1pt8tSTLYOoITWclXPNrUZUpuHvB2Ur2L1D+uM8c9qaAYOi9gjkurOkQwIlbPGqwQHWImGEyiyix0mQ1dg==}
-
-  '@babylonjs/materials@8.56.2':
-    resolution: {integrity: sha512-uBcw0fT3NdQlm/2dG7vmaDyK3yl/MrKWEJVAW64O1oU3KPPvprHAA7r1yhDidHPEFKYmwO9fCazDqW9NN8Z6gQ==}
-    peerDependencies:
-      '@babylonjs/core': ^8.6.0
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -425,10 +417,6 @@ packages:
 snapshots:
 
   '@babylonjs/core@8.56.2': {}
-
-  '@babylonjs/materials@8.56.2(@babylonjs/core@8.56.2)':
-    dependencies:
-      '@babylonjs/core': 8.56.2
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true

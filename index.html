@@ -7,11 +7,19 @@
   </head>
   <body>
     <div id="hud">
-      <div id="score">Score: 0</div>
+      <div id="starMeter" aria-label="Star progress">
+        <div id="smEarned" class="sm-cluster sm-earned"></div>
+        <div id="smBar" class="sm-meter">
+          <div class="sm-track"><div id="smFill" class="sm-fill"></div></div>
+          <div id="smActive" class="sm-active" style="display: none">★</div>
+        </div>
+        <div id="smRemaining" class="sm-cluster sm-remaining"></div>
+      </div>
+      <div id="score" hidden></div>
       <div id="timer">Time 3:00</div>
-      <div id="meter"><div id="meterFill"></div></div>
       <div id="mistakes">Mistakes: 0</div>
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
+      <button id="finishRunButton" type="button" hidden>Finish Run</button>
       <div id="hudInputLabel">Input <div id="quickInputMode" role="group" aria-label="Input mode"></div></div>
       <button id="fullscreenButton" type="button">Full screen</button>
       <div id="perf" hidden></div>
@@ -19,9 +27,13 @@
     <div id="celebration" hidden>
       <div id="celebrationTitle">Perfect Cut</div>
       <div id="celebrationSubtitle">The whole lawn is mowed.</div>
+      <div id="resultStars" aria-label="Result stars"></div>
+      <div id="resultStats"></div>
+      <div id="resultCoach" hidden></div>
       <div id="celebrationActions">
         <button id="nextLevelButton" type="button">Next Level</button>
-        <button id="closeCelebrationButton" type="button">Close</button>
+        <button id="reportCardButton" type="button">Report Card</button>
+        <button id="closeCelebrationButton" type="button">Retry</button>
       </div>
       <div id="celebrationSeeds"></div>
     </div>
@@ -43,6 +55,11 @@
         <summary>Input</summary>
         <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
         <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
+        <label>Player speed <span data-value-for="playerSpeed"></span><input id="playerSpeed" type="range" min="0.4" max="6" step="0.01" value="1.65" /></label>
+        <label>Boost multiplier <span data-value-for="playerBoost"></span><input id="playerBoost" type="range" min="1" max="4" step="0.01" value="1.45" /></label>
+        <label>Mower acceleration <span data-value-for="mowerAcceleration"></span><input id="mowerAcceleration" type="range" min="0.4" max="18" step="0.01" value="3.4" /></label>
+        <label>Torque fade <span data-value-for="mowerTorqueFade"></span><input id="mowerTorqueFade" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+        <label>Minimum torque <span data-value-for="mowerMinTorque"></span><input id="mowerMinTorque" type="range" min="0.05" max="1" step="0.01" value="0.34" /></label>
         <label>Turn speed <span data-value-for="turnMaxSpeed"></span><input id="turnMaxSpeed" type="range" min="0.8" max="4" step="0.01" value="2.25" /></label>
         <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.77" /></label>
         <label>Controller accel threshold <span data-value-for="controllerTurnAccelThreshold"></span><input id="controllerTurnAccelThreshold" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
@@ -51,12 +68,14 @@
         <summary>Game</summary>
         <label>Time limit (s) <span data-value-for="timeLimitSeconds"></span><input id="timeLimitSeconds" type="range" min="30" max="1200" step="5" value="720" /></label>
         <label>Fence bump penalty (s) <span data-value-for="fenceBumpTimePenalty"></span><input id="fenceBumpTimePenalty" type="range" min="0" max="30" step="1" value="5" /></label>
+        <label>Auto-finish at max stars <input id="autoFinishOnMaxStars" type="checkbox" /></label>
       </details>
       <details class="settings-group">
         <summary>Debug</summary>
         <label>Show fence health <input id="showFenceHealth" type="checkbox" /></label>
         <label>Disable fence collision <input id="disableFenceCollision" type="checkbox" /></label>
         <label>Max fence health <span data-value-for="fenceMaxHealth"></span><input id="fenceMaxHealth" type="range" min="1" max="1000" step="1" value="100" /></label>
+        <label>Fence damage speed <span data-value-for="fenceDamageSpeed"></span><input id="fenceDamageSpeed" type="range" min="0.2" max="6" step="0.01" value="1.5" /></label>
       </details>
       <details class="settings-group">
         <summary>Performance</summary>

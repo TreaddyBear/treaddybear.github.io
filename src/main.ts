@@ -3,7 +3,6 @@ import {
   DirectionalLight,
   Engine,
   HemisphericLight,
-  Matrix,
   Mesh,
   MeshBuilder,
   Quaternion,
@@ -13,7 +12,6 @@ import {
   TransformNode,
   Vector3,
 } from "@babylonjs/core";
-import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
 import { createInputController } from "./input";
@@ -22,9 +20,7 @@ import {
   applyActiveMap,
   getActiveMap,
   mowerCutRadius,
-  playerBoost,
   playerFenceRadius,
-  playerSpeed,
   settings,
   yardSegments,
 } from "./config";
@@ -45,11 +41,10 @@ import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
 import { createMowerControl } from "./mowerControl";
 import { isInsideSegments } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, flowerBedHeightAt, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
-const meterFillElement = document.querySelector<HTMLDivElement>("#meterFill");
 const mistakesElement = document.querySelector<HTMLDivElement>("#mistakes");
 const mistakeMeterFillElement = document.querySelector<HTMLDivElement>("#mistakeMeterFill");
 const quickInputModeElement = document.querySelector<HTMLDivElement>("#quickInputMode");
@@ -59,6 +54,11 @@ const celebrationElement = document.querySelector<HTMLDivElement>("#celebration"
 const celebrationSeedsElement = document.querySelector<HTMLDivElement>("#celebrationSeeds");
 const nextLevelButtonElement = document.querySelector<HTMLButtonElement>("#nextLevelButton");
 const closeCelebrationButtonElement = document.querySelector<HTMLButtonElement>("#closeCelebrationButton");
+const reportCardButtonElement = document.querySelector<HTMLButtonElement>("#reportCardButton");
+const finishRunButtonElement = document.querySelector<HTMLButtonElement>("#finishRunButton");
+const resultStarsElement = document.querySelector<HTMLDivElement>("#resultStars");
+const resultStatsElement = document.querySelector<HTMLDivElement>("#resultStats");
+const resultCoachElement = document.querySelector<HTMLDivElement>("#resultCoach");
 const touchPadElement = document.querySelector<HTMLDivElement>("#touchPad");
 const touchKnobElement = document.querySelector<HTMLDivElement>("#touchKnob");
 const timerElement = document.querySelector<HTMLDivElement>("#timer");
@@ -68,7 +68,6 @@ const retryButtonElement = document.querySelector<HTMLButtonElement>("#retryButt
 if (
   !canvasElement
   || !scoreElement
-  || !meterFillElement
   || !mistakesElement
   || !mistakeMeterFillElement
   || !quickInputModeElement
@@ -78,6 +77,11 @@ if (
   || !celebrationSeedsElement
   || !nextLevelButtonElement
   || !closeCelebrationButtonElement
+  || !reportCardButtonElement
+  || !finishRunButtonElement
+  || !resultStarsElement
+  || !resultStatsElement
+  || !resultCoachElement
   || !touchPadElement
   || !touchKnobElement
   || !timerElement
@@ -92,7 +96,6 @@ const scoreEl = scoreElement;
 const timerEl = timerElement;
 const timeupEl = timeupElement;
 const retryButtonEl = retryButtonElement;
-const meterFillEl = meterFillElement;
 const mistakesEl = mistakesElement;
 const mistakeMeterFillEl = mistakeMeterFillElement;
 const quickInputModeEl = quickInputModeElement;
@@ -102,6 +105,11 @@ const celebrationEl = celebrationElement;
 const celebrationSeedsEl = celebrationSeedsElement;
 const nextLevelButtonEl = nextLevelButtonElement;
 const closeCelebrationButtonEl = closeCelebrationButtonElement;
+const reportCardButtonEl = reportCardButtonElement;
+const finishRunButtonEl = finishRunButtonElement;
+const resultStarsEl = resultStarsElement;
+const resultStatsEl = resultStatsElement;
+const resultCoachEl = resultCoachElement;
 const analogInput = createInputController(touchPadElement, touchKnobElement);
 
 const engine = new Engine(canvas, true);
@@ -124,6 +132,7 @@ let mapGroundRoot: TransformNode | null = null;
 let fenceRoot: TransformNode | null = null;
 let secretGunRoot: TransformNode | null = null;
 let playerYaw = 0;
+const playerRotationTarget = Quaternion.Identity();
 let turnHoldSeconds = 0;
 let lastTurnDirection = 0;
 let currentThrottle = 0;
@@ -136,6 +145,7 @@ let mouseSteeringPointer = false;
 let hasSecretGun = false;
 let shootCooldown = 0;
 let timeRemaining = 0;
+let fenceMistakeCount = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
@@ -184,7 +194,7 @@ const {
 } = materials;
 
 const gunEffects = createGunEffects(scene);
-const tulips = createTulips(scene, materials);
+const tulips = createTulips(scene, materials, groundHeightAt);
 
 function createHiddenGunProp() {
   const root = new TransformNode("hidden-gun-cache", scene);
@@ -250,6 +260,12 @@ function isOnRoad(x: number) {
 }
 
 function groundHeightAt(x: number, z: number) {
+  const flowerBedHeight = flowerBedHeightAt(getActiveMap(), x, z);
+
+  if (flowerBedHeight > 0) {
+    return flowerBedHeight;
+  }
+
   if (isInsideYard(x, z)) {
     return 0;
   }
@@ -265,6 +281,44 @@ function groundHeightAt(x: number, z: number) {
 
 function snapPlayerToGround() {
   player.position.y = groundHeightAt(player.position.x, player.position.z);
+}
+
+function terrainNormalAt(x: number, z: number) {
+  const sample = 0.42;
+  const left = groundHeightAt(x - sample, z);
+  const right = groundHeightAt(x + sample, z);
+  const down = groundHeightAt(x, z - sample);
+  const up = groundHeightAt(x, z + sample);
+  return new Vector3(left - right, sample * 2, down - up).normalize();
+}
+
+function updatePlayerGroundPose(deltaSeconds: number, immediate = false) {
+  if (!player.rotationQuaternion) {
+    player.rotationQuaternion = Quaternion.Identity();
+  }
+
+  const normal = terrainNormalAt(player.position.x, player.position.z);
+  const yawForward = new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
+  const forward = yawForward.subtract(normal.scale(Vector3.Dot(yawForward, normal)));
+
+  if (forward.lengthSquared() < 0.0001) {
+    forward.copyFrom(yawForward);
+  }
+
+  forward.normalize();
+  Quaternion.FromLookDirectionLHToRef(forward, normal, playerRotationTarget);
+
+  if (immediate) {
+    player.rotationQuaternion.copyFrom(playerRotationTarget);
+    return;
+  }
+
+  Quaternion.SlerpToRef(
+    player.rotationQuaternion,
+    playerRotationTarget,
+    1 - Math.exp(-deltaSeconds * 7),
+    player.rotationQuaternion,
+  );
 }
 
 function collidingRock(x: number, z: number) {
@@ -309,11 +363,12 @@ function resetGame() {
   player.position = getActiveMap().spawn.clone();
   snapPlayerToGround();
   playerYaw = 0;
-  player.rotation.y = playerYaw;
+  updatePlayerGroundPose(0, true);
   cameraRig.reset();
   hasSecretGun = false;
   shootCooldown = 0;
   timeRemaining = settings.timeLimitSeconds;
+  fenceMistakeCount = 0;
   hud.hideTimeUp();
   hud.setTime(timeRemaining);
   secretGunRoot?.setEnabled(true);
@@ -326,8 +381,8 @@ function resetGame() {
   hud.update();
 }
 
-// The mistakes meter only makes sense where mistakes are possible (maps with
-// protected flowers). On a plain mow-only map it is just confusing, so hide it.
+// Mistakes stay visible in the star-scoring HUD even on maps where the count is
+// usually zero, so the top UI keeps the same shape between levels.
 function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: number) {
   if (settings.disableFenceCollision) {
     nextPosition.y = groundHeightAt(nextPosition.x, nextPosition.z);
@@ -350,7 +405,7 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
   }
 
   const bumpDirection = movement.lengthSquared() > 0.000001 ? movement.normalize() : new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
-  const maxImpactSpeed = playerSpeed * playerBoost;
+  const maxImpactSpeed = settings.playerSpeed * settings.playerBoost;
   const speedRatio = Math.min(1, Math.abs(impactSpeed) / maxImpactSpeed);
   const bumpRatio = speedRatio <= 0.08 ? 0 : (speedRatio - 0.08) / 0.92;
   player.position.subtractInPlace(bumpDirection.scale(0.1 * bumpRatio));
@@ -400,8 +455,6 @@ function movePlayer(deltaSeconds: number) {
     lastTurnDirection = 0;
   }
 
-  player.rotation.y = playerYaw;
-
   currentThrottle = 0;
 
   if (useKeyboard && keys.has("w")) {
@@ -414,11 +467,24 @@ function movePlayer(deltaSeconds: number) {
 
   currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle + scripted.throttle));
 
-  const targetSpeed = currentThrottle === 0
+  const throttleActive = Math.abs(currentThrottle) > 0.05;
+  const isBoosting = (useKeyboard && keys.has(" ")) || analogInput.boost;
+  const targetSpeed = !throttleActive
     ? 0
-    : playerSpeed * ((useKeyboard && keys.has(" ")) || analogInput.boost ? playerBoost : 1) * currentThrottle;
-  const ramp = currentThrottle === 0 ? 7 : 2.8;
-  driveSpeed += (targetSpeed - driveSpeed) * Math.min(1, deltaSeconds * ramp);
+    : settings.playerSpeed * (isBoosting ? settings.playerBoost : 1) * currentThrottle;
+
+  if (!throttleActive) {
+    driveSpeed += (targetSpeed - driveSpeed) * Math.min(1, deltaSeconds * 7);
+  } else {
+    const targetMagnitude = Math.max(0.01, Math.abs(targetSpeed));
+    const sameDirectionSpeed = Math.max(0, Math.sign(targetSpeed) * driveSpeed);
+    const speedRatio = Math.min(1, sameDirectionSpeed / targetMagnitude);
+    const torque = Math.max(settings.mowerMinTorque, 1 - (speedRatio * settings.mowerTorqueFade));
+    const speedDelta = targetSpeed - driveSpeed;
+    const speedStep = Math.sign(speedDelta) * settings.mowerAcceleration * torque * deltaSeconds;
+
+    driveSpeed = Math.abs(speedStep) >= Math.abs(speedDelta) ? targetSpeed : driveSpeed + speedStep;
+  }
 
   if (Math.abs(driveSpeed) < 0.01) {
     driveSpeed = 0;
@@ -438,20 +504,23 @@ function movePlayer(deltaSeconds: number) {
     driveSpeed = 0;
 
     if (bumpCooldown <= 0) {
+      let severity: "soft" | "medium" | "hard" = "soft";
       if (hitFenceIndex >= 0) {
-        fence.damagePiece(hitFenceIndex, impactSpeed);
+        const impact = fence.damagePiece(hitFenceIndex, impactSpeed);
+        severity = impact.severity;
 
-        // Bumping the fence costs you time — the level's bit of tension. This has
-        // its own, longer cooldown than the audio/damage bump so that scraping
-        // along the fence is a steady trickle, not an instant clock-wipe.
-        if (bumpPenaltyCooldown <= 0) {
+        // Only mistake-level crashes damage the fence. Slow and medium contacts
+        // stop the mower and play feedback, but leave plank health untouched.
+        if (impact.mistake && bumpPenaltyCooldown <= 0) {
+          fenceMistakeCount += 1;
           timeRemaining = Math.max(0, timeRemaining - settings.fenceBumpTimePenalty);
           hud.setTime(timeRemaining);
+          hud.update();
           bumpPenaltyCooldown = 1.5;
         }
       }
 
-      prototypeAudio.playWallBump(settings.wallBumpVolume);
+      prototypeAudio.playFenceBump(settings.wallBumpVolume, severity);
       bumpCooldown = 0.35;
     }
   }
@@ -531,7 +600,7 @@ function refreshTextureScales() {
 // Softer, less dominant sky fill so the scene reads as direct sun rather than an
 // overcast wash. Keeping it lower-intensity raises contrast (a sunny look).
 const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
-ambientLight.intensity = 0.24;
+ambientLight.intensity = 0.16;
 ambientLight.diffuse = new Color3(0.72, 0.81, 0.95);
 ambientLight.groundColor = new Color3(0.42, 0.5, 0.24);
 
@@ -545,9 +614,10 @@ sun.specular = new Color3(1, 0.91, 0.66);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
-const shadowGenerator = new ShadowGenerator(1024, sun);
-shadowGenerator.useBlurExponentialShadowMap = true;
-shadowGenerator.blurKernel = 12;
+const shadowGenerator = new ShadowGenerator(2048, sun);
+shadowGenerator.usePercentageCloserFiltering = true;
+shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+shadowGenerator.setDarkness(0.34);
 
 const cameraRig = createCameraRig({
   scene,
@@ -564,19 +634,6 @@ const camera = cameraRig.camera;
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
 const worldTerrain = createWorldTerrain(scene, biomeGroundMaterial);
 
-// The lawn's biome ground shader has no shadow code, so cast shadows can't land
-// on it. Lay a transparent shadow-only copy of the terrain just above it: it
-// shows nothing except where a shadow falls, so the fence/rocks/trees actually
-// cast visible shadows onto the ground without touching the biome shader.
-const shadowOnlyMaterial = new ShadowOnlyMaterial("groundShadow", scene);
-shadowOnlyMaterial.activeLight = sun;
-shadowOnlyMaterial.shadowColor = new Color3(0.05, 0.06, 0.03);
-const shadowOnlyGround = worldTerrain.clone("world-shadow-overlay");
-shadowOnlyGround.material = shadowOnlyMaterial;
-shadowOnlyGround.receiveShadows = true;
-shadowOnlyGround.isPickable = false;
-shadowOnlyGround.position.y += 0.02;
-
 createSimpleTrees(scene, materials, shadowGenerator);
 rockColliders.push(...createSceneryRocks(scene, materials, shadowGenerator));
 
@@ -586,6 +643,7 @@ secretGunRoot = createHiddenGunProp();
 player = MeshBuilder.CreateBox("player", { size: 1 }, scene);
 player.material = playerMaterial;
 player.scaling = new Vector3(0.85, 0.28, 1.1);
+player.rotationQuaternion = Quaternion.Identity();
 shadowGenerator.addShadowCaster(player);
 
 const wind = createWind(scene, camera, player, () => playerYaw);
@@ -607,18 +665,26 @@ grass.refreshMaterial();
 const hud = createHud({
   score: scoreEl,
   timer: timerEl,
-  meterFill: meterFillEl,
   mistakes: mistakesEl,
   mistakeMeterFill: mistakeMeterFillEl,
   celebration: celebrationEl,
   celebrationSeeds: celebrationSeedsEl,
   nextLevelButton: nextLevelButtonEl,
+  closeCelebrationButton: closeCelebrationButtonEl,
+  reportCardButton: reportCardButtonEl,
+  finishRunButton: finishRunButtonEl,
+  resultStars: resultStarsEl,
+  resultStats: resultStatsEl,
+  resultCoach: resultCoachEl,
   timeup: timeupEl,
   retryButton: retryButtonEl,
   loading: loadingEl,
   settingsRoot: settingsEl,
   getMowed: () => grass.mowedCount,
-  getMistakes: () => tulips.mistakeCount,
+  getMistakes: () => tulips.mistakeCount + fenceMistakeCount,
+  getFlowerMistakes: () => tulips.mistakeCount,
+  getFenceMistakes: () => fenceMistakeCount,
+  getElapsedSeconds: () => settings.timeLimitSeconds - timeRemaining,
   isArmed: () => hasSecretGun,
   playFanfare: () => prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume),
   setCompletionLoop: (active) => prototypeAudio.setCompletionLoopActive(active, settings),
@@ -660,8 +726,10 @@ fullscreenButtonEl.addEventListener("keydown", (event) => {
   }
 });
 
-closeCelebrationButtonEl.addEventListener("click", () => hud.closeCelebration());
+closeCelebrationButtonEl.addEventListener("click", () => hud.retryResult());
 nextLevelButtonEl.addEventListener("click", () => hud.goToNextLevel());
+reportCardButtonEl.addEventListener("click", () => hud.toggleReportCard());
+finishRunButtonEl.addEventListener("click", () => hud.finishRun());
 retryButtonEl.addEventListener("click", () => hud.retry());
 
 canvas.addEventListener("contextmenu", (event) => {
@@ -753,7 +821,7 @@ window.addEventListener("keydown", (event) => {
       hud.goToNextLevel();
     } else if (key === "escape") {
       event.preventDefault();
-      hud.closeCelebration();
+      hud.retryResult();
     }
 
     return;
@@ -824,7 +892,7 @@ engine.runRenderLoop(() => {
     if (advance && !lastCelebrationAdvance) {
       hud.goToNextLevel();
     } else if (dismiss && !lastCelebrationDismiss) {
-      hud.closeCelebration();
+      hud.retryResult();
     }
 
     lastCelebrationAdvance = advance;
@@ -842,6 +910,7 @@ engine.runRenderLoop(() => {
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
   fence.resolveOverlap();
+  updatePlayerGroundPose(deltaSeconds);
   cameraRig.follow(deltaSeconds);
   grass.updateMotion(timeSeconds);
   wind.update(deltaSeconds);
@@ -863,6 +932,7 @@ engine.runRenderLoop(() => {
   if (!hud.isCelebrationVisible() && !hud.isTimeUpVisible()) {
     timeRemaining = Math.max(0, timeRemaining - deltaSeconds);
     hud.setTime(timeRemaining);
+    hud.update();
 
     if (timeRemaining <= 0) {
       hud.showTimeUp();

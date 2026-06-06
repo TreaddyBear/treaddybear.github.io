@@ -11,7 +11,7 @@ export type Tulips = ReturnType<typeof createTulips>;
 // Owns the protected tulips and the mistake count (destroying one is the only
 // mistake in the game). The mower position is passed into update(); the gun
 // queries damageAlongShot().
-export function createTulips(scene: Scene, materials: Materials) {
+export function createTulips(scene: Scene, materials: Materials, groundHeightAt: (x: number, z: number) => number = () => 0) {
   const tulips: Tulip[] = [];
   let mistakeCount = 0;
 
@@ -23,7 +23,7 @@ export function createTulips(scene: Scene, materials: Materials) {
 
   const createTulip = (x: number, z: number) => {
     const root = new TransformNode("tulip", scene);
-    root.position = new Vector3(x, 0.09, z);
+    root.position = new Vector3(x, groundHeightAt(x, z) + 0.09, z);
 
     const stem = MeshBuilder.CreateCylinder("tulip-stem", { height: 0.58, diameter: 0.035, tessellation: 5 }, scene);
     stem.parent = root;
@@ -68,7 +68,19 @@ export function createTulips(scene: Scene, materials: Materials) {
 
       for (const bed of getActiveMap().flowerBeds) {
         for (let i = 0; i < bed.count; i += 1) {
-          const { x, z } = randomRectPoint(bed);
+          const edgeFlower = Math.random() < 0.14;
+          const inset = 0.72;
+          const hasInterior = (bed.xMax - bed.xMin) > inset * 2 && (bed.zMax - bed.zMin) > inset * 2;
+          const point = edgeFlower || !hasInterior
+            ? randomRectPoint(bed)
+            : randomRectPoint({
+              ...bed,
+              xMin: bed.xMin + inset,
+              xMax: bed.xMax - inset,
+              zMin: bed.zMin + inset,
+              zMax: bed.zMax - inset,
+            });
+          const { x, z } = point;
           createTulip(x, z);
         }
       }

@@ -13,12 +13,21 @@ Changed during the same pass and believed working, but worth confirming hands-on
 - **The completion card is reachable by every control scheme:** keyboard (Enter/Space advance, Esc close), gamepad (A/B), and mouse/touch click.
 - **Find-the-last-strands highlight.** When under 1% of the lawn is left and ~30s pass with nothing cut, the remaining blades gently pulse brighter so they are easy to locate (`updateRemainingHighlight` in `src/main.ts`).
 - **Loading overlay on Next Level.** Building the next lawn blocks for a beat (felt like a dead button on mobile); a spinner now shows while it generates (`#loading`, deferred regen in `goToNextLevel`).
-- **Mistakes meter hidden on flowerless maps.** The first level has nothing to mis-do, so the meter is hidden there (`syncMistakesVisibility`); fence hits remain non-punishing.
+- **Mistakes meter uses star-scoring context.** The meter stays visible on every map because fence mistakes now matter too. The report-card copy should name whether flowers, fences, or both caused the mistake penalty.
 - **Dandelion destruction bounces.** Popped heads and obliterated petals now bounce on the ground and linger before fading, instead of fading mid-air.
+- **Latest fence/result-card pass.** Gentle and medium fence contact should do no damage and no mistake; only mistake-level hits at or above `fenceDamageSpeed` damage planks. Breaking a plank now clears a mower-width opening so the mower can fit through. The results card now distinguishes flower mistakes from fence mistakes instead of always saying "Mind the flowers."
+- **Flower Court bed/mower terrain pass.** The protected bed is now a raised dirt mesh with a sloped edge, tulips sit on the raised surface, and the mower smoothly tilts to the sampled ground normal on slopes/raised terrain.
 
 ## Near-Term Polish
 
 - Verify the completion card in real play after the click-through fix. `#celebrationSeeds` no longer accepts pointer events and the overlay no longer fades to invisible, but the full 100% flow should be smoke-tested by actually completing a level.
+- Verify the new star meter in a real run. The live HUD now mounts the compact star meter, hides the normal clock, and keeps Mistakes visible, but the first/second/third star banking animation should be watched during actual mowing.
+- Verify the star results card in real play. It now triggers on 100%, hard time limit, or `nextStarOutOfReach` and shows stars/verdict/stats with Next/Retry, but the verdict copy, star timing, and whether out-of-reach should feel too abrupt need a full run.
+- Verify fence escape in real play. The code now clears a mower-width opening around broken planks, including close corner planks, but the feel still needs hands-on testing at straight segments and corners.
+- Tune fence damage thresholds. Current intent: slow/medium contact = no damage/no mistake, full-speed unboosted or boosted hard crash at or above `fenceDamageSpeed` = mistake + fence damage. This may need value tuning once playtested.
+- Verify mower tilt on Flower Court and outer slopes. The mower now eases toward the sampled terrain normal, but the visual tilt rate and sample distance may need tuning.
+- Tune result-card action feel. Current first pass uses contextual actions: perfect = Next Level + Report Card; non-perfect = Retry + Report Card, plus Next Level if at least one star was earned. Max-stars-before-100% shows Finish Run unless `autoFinishOnMaxStars` is enabled.
+- Tune Flower Court flower-bed risk. Tulips now mostly spawn inset from the bed edge, with a small chance of edge flowers; verify whether the edge-risk amount feels fun without making accidental flower mistakes feel cheap.
 - Keep tuning terrain texture/mask readability. The current terrain uses a baked biome mask plus shader-tiled grass/dirt textures, but the grass/dirt art, texture scale, and ground visibility are still active visual risks.
 - Continue tuning medium/outside grass. The rectangular near-fence density pass was replaced with a smoother distance/noise falloff, but it still needs visual review in play so outside grass is dense enough without square transitions or mindless uniform thickness.
 - Verify the new three-tone cut grass in real mowing. Cut grass now has root/top vertex tones and per-instance neutral variation, but the final mowed patch needs eyes-on tuning.
@@ -39,6 +48,7 @@ Changed during the same pass and believed working, but worth confirming hands-on
 - Make the far out-of-bounds wheat/wilderness grass more naturally clumpy and less like a rectangular transition.
 - Continue improving neighbor yards so grass density thins with distance, but still meets the main lawn without visible gaps.
 - Add real cloud shadows eventually. Current cloud shadow effect only modulates sun intensity/specular; a projected cloud texture would be better.
+- Revisit real ground shadows without adding `@babylonjs/materials`. A `ShadowOnlyMaterial` overlay briefly existed, but it added a second Babylon dependency and broke the local no-install build path, so it was backed out during the star-meter handoff.
 - Explore small tiled ground textures and texture blending. Dirt has a normal map now; grassy/dirt mixing could use Perlin masks later.
 - Apply the same edge-randomization to ALL grass/dirt boundaries, not just the fence dirt. The fence dirt overlay now uses noise-wobbled, soft-alpha edges, but the world biome ground (`createBiomeGroundMaterial` in `src/world.ts`) still hard-thresholds its mask with `step(0.5, ...)`, so the biome grass/dirt line is crisper/simpler than the fence dirt. A final pass could soften and noise-up the biome boundary to match.
 - Fence clearance is one knob if it still feels tight: the no-grass margin is `grassFenceFalloff` in `src/main.ts` (~0.22m clear) and the dirt band half-width is `0.3` in `createFenceDirtOverlay`.

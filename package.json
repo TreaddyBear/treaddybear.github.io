@@ -11,8 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babylonjs/core": "^8.0.0",
-    "@babylonjs/materials": "^8.56.2"
+    "@babylonjs/core": "^8.0.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

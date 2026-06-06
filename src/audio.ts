@@ -13,6 +13,9 @@ import flowerPop5Url from "./assets/flower-pop-5.mp3?url";
 import flowerPop6Url from "./assets/flower-pop-6.mp3?url";
 import flowerPop7Url from "./assets/flower-pop-7.mp3?url";
 import wallBumpUrl from "./assets/wall-bump.mp3?url";
+import wallBumpSoftUrl from "./assets/wall-bump-soft.mp3?url";
+import wallBumpMediumUrl from "./assets/wall-bump-medium.mp3?url";
+import wallBumpHardUrl from "./assets/wall-bump-hard.mp3?url";
 import reverseBeepUrl from "./assets/reverse-beep.mp3?url";
 import gunShotUrl from "./assets/gun-shot.mp3?url";
 
@@ -251,6 +254,9 @@ export function createPrototypeAudio() {
   const flowerPops = flowerPopBank.map((entry) => createOneShotTrack(entry.src));
   const flowerPopWeights = flowerPopBank.map((entry) => entry.weight);
   const wallBump = createOneShotTrack(wallBumpUrl);
+  const wallBumpSoft = createOneShotTrack(wallBumpSoftUrl);
+  const wallBumpMedium = createOneShotTrack(wallBumpMediumUrl);
+  const wallBumpHard = createOneShotTrack(wallBumpHardUrl);
   const gunShot = createOneShotTrack(gunShotUrl);
   let unlocked = false;
   let cuttingActive = false;
@@ -274,6 +280,9 @@ export function createPrototypeAudio() {
       flowerPop.unlock();
     }
     wallBump.unlock();
+    wallBumpSoft.unlock();
+    wallBumpMedium.unlock();
+    wallBumpHard.unlock();
     gunShot.unlock();
   };
 
@@ -298,6 +307,16 @@ export function createPrototypeAudio() {
 
     playWallBump(volume: number) {
       wallBump.play(volume);
+    },
+
+    playFenceBump(volume: number, severity: "soft" | "medium" | "hard") {
+      if (severity === "hard") {
+        wallBumpHard.play(volume);
+      } else if (severity === "medium") {
+        wallBumpMedium.play(volume * 0.82);
+      } else {
+        wallBumpSoft.play(volume * 0.48);
+      }
     },
 
     playGunShot(volume: number) {

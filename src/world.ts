@@ -532,8 +532,8 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
     const t = steps === 0 ? 0 : i / steps;
     const x = start.x + (dx * t);
     const z = start.z + (dz * t);
-    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${i}`, { width: 0.34, height: 0.46, depth: 0.08 }, scene);
-    plank.position = new Vector3(x, 0.28, z);
+    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${i}`, { width: 0.34, height: 0.34, depth: 0.08 }, scene);
+    plank.position = new Vector3(x, 0.21, z);
     plank.rotation.y = yaw;
     plank.material = material;
   }
@@ -634,7 +634,7 @@ export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segme
     createFencePlanks(scene, fenceMaterial, index, segment.start, segment.end);
 
     for (const position of [segment.start, segment.end]) {
-      createFencePost(scene, fenceMaterial, new Vector3(position.x, 0.35, position.z), new Vector3(0.18, 0.7, 0.18));
+      createFencePost(scene, fenceMaterial, new Vector3(position.x, 0.27, position.z), new Vector3(0.18, 0.54, 0.18));
     }
   }
 
@@ -647,20 +647,83 @@ export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segme
   return root;
 }
 
+const flowerBedPlateauHeight = 0.12;
+const flowerBedSlopeWidth = 0.72;
+
+export function flowerBedHeightAt(map: LawnMap, x: number, z: number) {
+  let height = 0;
+
+  for (const bed of map.flowerBeds) {
+    if (x < bed.xMin || x > bed.xMax || z < bed.zMin || z > bed.zMax) {
+      continue;
+    }
+
+    const edgeDistance = Math.min(x - bed.xMin, bed.xMax - x, z - bed.zMin, bed.zMax - z);
+    const slope = smoothstep01(edgeDistance / flowerBedSlopeWidth);
+    height = Math.max(height, flowerBedPlateauHeight * slope);
+  }
+
+  return height;
+}
+
+function createRaisedFlowerBed(scene: Scene, map: LawnMap, material: Material, index: number, bed: LawnMap["flowerBeds"][number]) {
+  const width = bed.xMax - bed.xMin;
+  const depth = bed.zMax - bed.zMin;
+  const subdivisionsX = 18;
+  const subdivisionsZ = 12;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
+
+  for (let zIndex = 0; zIndex <= subdivisionsZ; zIndex += 1) {
+    const z = bed.zMin + ((zIndex / subdivisionsZ) * depth);
+
+    for (let xIndex = 0; xIndex <= subdivisionsX; xIndex += 1) {
+      const x = bed.xMin + ((xIndex / subdivisionsX) * width);
+      positions.push(x, flowerBedHeightAt(map, x, z) + 0.006, z);
+      uvs.push((x - bed.xMin) * 0.72, (z - bed.zMin) * 0.72);
+    }
+  }
+
+  const row = subdivisionsX + 1;
+
+  for (let zIndex = 0; zIndex < subdivisionsZ; zIndex += 1) {
+    for (let xIndex = 0; xIndex < subdivisionsX; xIndex += 1) {
+      const base = (zIndex * row) + xIndex;
+      indices.push(base, base + 1, base + row);
+      indices.push(base + 1, base + row + 1, base + row);
+    }
+  }
+
+  const normals: number[] = [];
+  VertexData.ComputeNormals(positions, indices, normals);
+
+  const mesh = new Mesh(`flower-bed-${index}`, scene);
+  const vertexData = new VertexData();
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.normals = normals;
+  vertexData.uvs = uvs;
+  vertexData.applyToMesh(mesh);
+  mesh.material = material;
+  mesh.receiveShadows = true;
+  return mesh;
+}
+
 export function createMapGrounds(scene: Scene, map: LawnMap, groundMaterial: Material) {
   const root = new TransformNode("map-ground-root", scene);
   const bedMaterial = new StandardMaterial("flowerBedMaterial", scene);
-  bedMaterial.diffuseColor = new Color3(0.27, 0.15, 0.07);
+  const bedTexture = new Texture(dirtGroundTextureUrl, scene, false, false, Texture.TRILINEAR_SAMPLINGMODE);
+  bedTexture.wrapU = Texture.WRAP_ADDRESSMODE;
+  bedTexture.wrapV = Texture.WRAP_ADDRESSMODE;
+  bedMaterial.diffuseTexture = bedTexture;
+  bedMaterial.diffuseColor = Color3.White();
   bedMaterial.specularColor = new Color3(0.03, 0.02, 0.01);
 
   void groundMaterial;
 
   for (const [index, bed] of map.flowerBeds.entries()) {
-    const width = bed.xMax - bed.xMin;
-    const height = bed.zMax - bed.zMin;
-    const bedMesh = MeshBuilder.CreateBox(`flower-bed-${index}`, { width, height: 0.12, depth: height }, scene);
-    bedMesh.position = new Vector3((bed.xMin + bed.xMax) / 2, 0.035, (bed.zMin + bed.zMax) / 2);
-    bedMesh.material = bedMaterial;
+    const bedMesh = createRaisedFlowerBed(scene, map, bedMaterial, index, bed);
     bedMesh.parent = root;
   }
 
