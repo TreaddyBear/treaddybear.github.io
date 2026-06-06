@@ -72,6 +72,20 @@ export const settings = {
   mapId: "main",
 };
 
+// Star scoring. Internal points only (never shown raw to the player): the meter
+// and the end-of-level verdict are derived from these. Tunable here.
+export const scoring = {
+  parSeconds: 360, // target time; finishing under par adds points, over subtracts
+  timePerSecond: 5, // points per second under par (and lost per second over)
+  grassPerPercent: 100, // points per % of the lawn mowed (max 10000 at 100%)
+  mistakeBase: 1000, // first mistake's penalty
+  mistakeFalloff: 0.7, // each later mistake is this fraction of the previous
+  thresholds: {
+    3: [4000, 7000, 10000],
+    5: [4000, 6000, 8000, 9000, 10000],
+  } as Record<number, number[]>,
+};
+
 export type FenceSegment = {
   start: Vector3;
   end: Vector3;
