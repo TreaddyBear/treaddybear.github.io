@@ -3,71 +3,66 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Star Meter — design mockup v2</title>
+<title>Star Meter — design mockup v3</title>
 <style>
   :root{
     --bg:#11150f; --panel:#1b2417; --ink:#e8f0dd; --muted:#9fb38c;
-    --fill1:#6fbf2f; --fill2:#b6e84a; --gold:#ffcf33; --goldsoft:#ffe487;
-    --track:#0d120a; --empty:#3c4a30;
+    --fill1:#6fbf2f; --fill2:#b6e84a; --gold:#ffcf33; --goldsoft:#ffe487; --track:#0d120a;
   }
   *{box-sizing:border-box}
   html,body{margin:0;min-height:100%;background:radial-gradient(1200px 600px at 50% -10%,#1c2a14,var(--bg));
     color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
-  .wrap{max-width:880px;margin:0 auto;padding:26px 18px 70px}
-  h1{font-size:20px;margin:0 0 2px}
-  .sub{color:var(--muted);margin:0 0 20px;font-size:13px}
-  .stage{background:var(--panel);border:1px solid #2c3a23;border-radius:18px;padding:26px 22px 24px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+  .wrap{max-width:900px;margin:0 auto;padding:26px 18px 70px}
+  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+  .stage{background:var(--panel);border:1px solid #2c3a23;border-radius:18px;padding:30px 22px 24px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
 
-  .row{display:flex;align-items:center;gap:14px}
-  .cluster{position:relative;width:58px;height:58px;flex:0 0 58px}
-  .cluster .st{position:absolute;transform:translate(-50%,-50%);font-size:21px;line-height:1;color:var(--gold);
+  .row{display:flex;align-items:center;gap:16px}
+  .cluster{position:relative;width:62px;height:62px;flex:0 0 62px}
+  .cluster .st{position:absolute;transform:translate(-50%,-50%);font-size:16px;line-height:1;color:var(--gold);
     filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
   .cluster.remaining .st{color:#5d6c46}
-  .cluster .st.lean{animation:lean .9s ease-in-out infinite}
-  @keyframes lean{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.18)}}
-  .cluster .st.fresh{animation:freshpop .55s cubic-bezier(.2,1.5,.4,1)}
-  @keyframes freshpop{0%{transform:translate(-50%,-50%) scale(2.2);opacity:0}60%{transform:translate(-50%,-50%) scale(.85)}100%{transform:translate(-50%,-50%) scale(1)}}
+  .cluster .st.big{font-size:46px}
+  .cluster.glimmer{animation:glim .5s ease-out}
+  @keyframes glim{0%{filter:brightness(3) drop-shadow(0 0 16px var(--gold))}100%{filter:none}}
+  .cluster .st.fresh{animation:freshpop .5s cubic-bezier(.2,1.5,.4,1)}
+  @keyframes freshpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{transform:translate(-50%,-50%) scale(.85)}100%{transform:translate(-50%,-50%) scale(1)}}
 
-  .meter{position:relative;flex:1;height:34px}
-  .track{position:absolute;inset:0;border-radius:999px;background:var(--track);
-    box-shadow:inset 0 2px 6px rgba(0,0,0,.6),inset 0 0 0 1px #243018;overflow:hidden}
-  .fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,var(--fill1),var(--fill2));
-    border-radius:999px;box-shadow:0 0 16px rgba(150,230,60,.45)}
-  .fill::after{content:"";position:absolute;right:0;top:0;bottom:0;width:40px;
-    background:linear-gradient(90deg,transparent,rgba(255,255,255,.5));border-radius:999px}
+  .meter{position:relative;flex:1;height:36px}
+  .track{position:absolute;inset:0;border-radius:999px;background:var(--track);box-shadow:inset 0 2px 6px rgba(0,0,0,.6),inset 0 0 0 1px #243018;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,var(--fill1),var(--fill2));border-radius:999px;box-shadow:0 0 16px rgba(150,230,60,.45)}
+  .fill::after{content:"";position:absolute;right:0;top:0;bottom:0;width:38px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5));border-radius:999px}
+  .target{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:26px;color:var(--gold);
+    filter:drop-shadow(0 0 10px rgba(255,207,51,.55));z-index:3;transition:left .15s linear}
+  .target.big{font-size:46px}
+  .target.reaching{animation:reach .8s ease-in-out infinite}
+  @keyframes reach{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.18)}}
   .meter.shake{animation:shake .4s}
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
   .spark{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--goldsoft);box-shadow:0 0 8px var(--gold);pointer-events:none}
-  .flystar{position:fixed;font-size:22px;color:var(--gold);pointer-events:none;z-index:50;filter:drop-shadow(0 0 10px rgba(255,207,51,.7))}
+  .flystar{position:fixed;color:var(--gold);pointer-events:none;z-index:60;filter:drop-shadow(0 0 10px rgba(255,207,51,.7))}
 
-  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;align-items:center}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;align-items:center}
   button{appearance:none;border:1px solid #38491f;background:#26331c;color:var(--ink);padding:9px 15px;border-radius:11px;font-size:14px;cursor:pointer;font-weight:600}
-  button:hover{background:#2f3f23}
-  button.primary{background:var(--fill1);color:#0c1505;border-color:var(--fill2)}
-  button.danger{background:#4a241c;border-color:#7a3a2a}
-  .seg{display:inline-flex;border:1px solid #38491f;border-radius:11px;overflow:hidden}
-  .seg button{border:0;border-radius:0}.seg button.on{background:var(--gold);color:#1a1200}
+  button:hover{background:#2f3f23}button.primary{background:var(--fill1);color:#0c1505;border-color:var(--fill2)}button.danger{background:#4a241c;border-color:#7a3a2a}
+  .seg{display:inline-flex;border:1px solid #38491f;border-radius:11px;overflow:hidden}.seg button{border:0;border-radius:0}.seg button.on{background:var(--gold);color:#1a1200}
   label.k{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px}
-  input[type=range]{accent-color:var(--fill1)}
-  input[type=number]{width:66px;background:#0f150b;border:1px solid #38491f;color:var(--ink);border-radius:8px;padding:5px 7px}
-
-  .debug{margin-top:20px;border-top:1px dashed #2c3a23;padding-top:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  input[type=range]{accent-color:var(--fill1)}input[type=number]{width:64px;background:#0f150b;border:1px solid #38491f;color:var(--ink);border-radius:8px;padding:5px 7px}
+  .verdict{margin-top:14px;color:var(--goldsoft);font-size:13px;min-height:18px}
+  .debug{margin-top:18px;border-top:1px dashed #2c3a23;padding-top:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
   .debug .tag{color:#6f8456;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:6px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 18px}
-  .grid b{color:var(--ink);font-weight:600}
-  .verdict{margin-top:12px;color:var(--goldsoft);font-size:13px;min-height:18px}
-  .note{color:var(--muted);font-size:12px;margin-top:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 18px}.grid b{color:var(--ink);font-weight:600}
+  .note{color:var(--muted);font-size:12px;margin-top:12px}.note b{color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Star Meter — design mockup v2</h1>
-  <p class="sub">Simulated run: a decaying time bonus + grass being mowed + mistakes. Stars are won on the right, kept on the left, and the meter resets for each one. The numbers below are internal (hidden from the player) — they're here so we can tune.</p>
+  <h1>Star Meter — design mockup v3</h1>
+  <p class="sub">Each star fills only to <i>its</i> portion of the bar (1/N … 100%), so the later ones travel farther and feel bigger. The star meets your fill, banks small on the left, the bar resets — and the final star is always large. Mistakes use 70% falloff. Numbers are internal (for tuning).</p>
 
   <div class="stage">
     <div class="row">
       <div class="cluster earned" id="earned"></div>
-      <div class="meter" id="meter"><div class="track"><div class="fill" id="fill"></div></div></div>
+      <div class="meter" id="meter"><div class="track"><div class="fill" id="fill"></div></div><div class="target" id="target" style="display:none">★</div></div>
       <div class="cluster remaining" id="remaining"></div>
     </div>
 
@@ -77,10 +72,7 @@
       <button class="primary" id="play">▶ Play run</button>
       <button id="reset">Reset</button>
       <button class="danger" id="mistake">Mistake −</button>
-      <div class="seg" id="modeSeg">
-        <button data-mode="3" class="on">3★</button>
-        <button data-mode="5">5★</button>
-      </div>
+      <div class="seg" id="modeSeg"><button data-mode="3" class="on">3★</button><button data-mode="5">5★</button></div>
       <label class="k">mow %/s <input id="mow" type="range" min="0.2" max="3" step="0.1" value="1.3"></label>
       <label class="k">par(s) <input id="par" type="number" min="30" max="900" step="10" value="400"></label>
     </div>
@@ -88,166 +80,132 @@
     <div class="debug">
       <div class="tag">internal (hidden in game)</div>
       <div class="grid">
-        <span>time left: <b id="dTime">0s</b></span>
-        <span>grass: <b id="dGrass">0%</b></span>
-        <span>time pts: <b id="dTimePts">0</b></span>
-        <span>grass pts: <b id="dGrassPts">0</b></span>
-        <span>mistakes: <b id="dMist">0</b></span>
-        <span>mistake pts: <b id="dMistPts">0</b></span>
-        <span>SCORE: <b id="dScore">0</b></span>
-        <span>this star: <b id="dBand">0 / 0</b></span>
-        <span>fill: <b id="dFill">0%</b></span>
+        <span>time left: <b id="dTime">0s</b></span><span>grass: <b id="dGrass">0%</b></span>
+        <span>time pts: <b id="dTimePts">0</b></span><span>grass pts: <b id="dGrassPts">0</b></span>
+        <span>mistakes: <b id="dMist">0</b></span><span>mistake pts: <b id="dMistPts">0</b></span>
+        <span>SCORE: <b id="dScore">0</b></span><span>this star: <b id="dBand">0 / 0</b></span>
+        <span>portion: <b id="dPortion">0%</b></span>
       </div>
-      <p class="note">Model: <b>score = 5·(par − elapsed) + 100·grass% − Σ mistakes</b> (mistakes 1000, then ×0.9 each). Stars at the thresholds shown in "this star". Meter fills from one threshold to the next, resets on each star. Mistakes/time only ever push the fill back — a won star is permanent.</p>
+      <p class="note">Model: <b>score = 5·(par−elapsed) + 100·grass% − Σ mistakes</b>, mistakes <b>1000 then ×0.7</b> (1000, 700, 490, 343 … caps at ~3333 total). Stars at 3★ <b>4k / 7k / 10k</b>, 5★ <b>4/6/8/9/10k</b>. A won star is permanent; the bar only ever pushes back.</p>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const $ = id => document.getElementById(id);
-  const fill=$('fill'), meter=$('meter'), earnedEl=$('earned'), remainingEl=$('remaining'), verdict=$('verdict');
+  const $=id=>document.getElementById(id);
+  const fill=$('fill'),meter=$('meter'),target=$('target'),earnedEl=$('earned'),remainingEl=$('remaining'),verdict=$('verdict');
+  const TIME_PER_SEC=5,GRASS_PER_PCT=100,MIST_BASE=1000,MIST_FALLOFF=0.7;
+  const THRESH={3:[4000,7000,10000],5:[4000,6000,8000,9000,10000]};
 
-  const TIME_PER_SEC = 5, GRASS_PER_PCT = 100;
-  const THRESH = { 3:[4000,7000,10000], 5:[4000,6000,8000,9000,10000] };
+  let total=3,par=400,mowRate=1.3;
+  let elapsed=0,grass=0,mistakes=0,penalty=0,earned=0,playing=false,last=0;
 
-  let total=3, par=400, mowRate=1.3;
-  let elapsed=0, grass=0, mistakes=0, penalty=0, earned=0, playing=false, last=0;
+  const bandFloor=()=>TIME_PER_SEC*par;
+  const T=()=>THRESH[total];
+  const timePts=()=>Math.round(TIME_PER_SEC*(par-elapsed));
+  const grassPts=()=>Math.round(GRASS_PER_PCT*grass);
+  const score=()=>timePts()+grassPts()-Math.round(penalty);
+  const prevT=()=>earned===0?bandFloor():T()[earned-1];
+  const nextT=()=>earned<total?T()[earned]:T()[total-1];
+  const bandProgress=()=>earned>=total?1:Math.max(0,Math.min(1,(score()-prevT())/(nextT()-prevT())));
+  const targetFrac=()=>(earned+1)/total;            // this star's portion of the bar
+  const isFinalTarget=()=>earned+1===total;
 
-  const bandFloor = () => TIME_PER_SEC*par;            // score at t=0, 0% grass -> meter 0%
-  const thresholds = () => THRESH[total];
-  const timePts = () => Math.round(TIME_PER_SEC*(par-elapsed));
-  const grassPts = () => Math.round(GRASS_PER_PCT*grass);
-  const score = () => timePts() + grassPts() - Math.round(penalty);
-
-  function prevT(){ return earned===0 ? bandFloor() : thresholds()[earned-1]; }
-  function nextT(){ return earned<total ? thresholds()[earned] : thresholds()[total-1]; }
-  function fillPct(){
-    if(earned>=total) return 1;
-    return Math.max(0, Math.min(1,(score()-prevT())/(nextT()-prevT())));
-  }
-
-  // ----- shaped clusters -----
-  const SHAPES = {
-    1:[[50,50]],
-    2:[[50,27],[50,73]],
-    3:[[30,32],[70,32],[50,76]],
-    4:[[30,30],[70,30],[30,70],[70,70]],
-    5:[[28,30],[72,30],[50,50],[28,72],[72,72]],
-  };
-  function renderCluster(el, n, opts={}){
-    el.innerHTML='';
-    if(n<=0) return;
-    const pts = SHAPES[n] || SHAPES[5];
-    pts.forEach((p,i)=>{
-      const s=document.createElement('div'); s.className='st'; s.textContent='★';
-      s.style.left=p[0]+'%'; s.style.top=p[1]+'%';
-      if(opts.lean && i===pts.length-1) s.classList.add('lean');
-      if(opts.fresh && i===n-1) s.classList.add('fresh');
+  const SHAPES={1:[[50,50]],2:[[50,27],[50,73]],3:[[30,32],[70,32],[50,76]],
+    4:[[30,30],[70,30],[30,70],[70,70]],5:[[28,30],[72,30],[50,50],[28,72],[72,72]]};
+  function renderCluster(el,n,opts={}){
+    el.innerHTML=''; if(n<=0)return;
+    (SHAPES[n]||SHAPES[5]).forEach((p,i)=>{
+      const s=document.createElement('div');s.className='st';s.textContent='★';
+      s.style.left=p[0]+'%';s.style.top=p[1]+'%';
+      if(opts.bigLast&&i===n-1)s.classList.add('big');
+      if(opts.fresh&&i===n-1)s.classList.add('fresh');
       el.appendChild(s);
     });
+    if(opts.glimmer){el.classList.remove('glimmer');void el.offsetWidth;el.classList.add('glimmer');}
   }
-
-  function clusterCenter(el){ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2, y:r.top+r.height/2}; }
-  function flyStar(){
-    const a=clusterCenter(remainingEl), b=clusterCenter(earnedEl);
-    const f=document.createElement('div'); f.className='flystar'; f.textContent='★';
-    f.style.left=a.x+'px'; f.style.top=a.y+'px'; document.body.appendChild(f);
-    f.animate([
-      {transform:'translate(-50%,-50%) scale(1.3)',offset:0},
-      {transform:`translate(${(b.x-a.x)*.5-50}%,${b.y-a.y-30}px) scale(1.8)`,offset:.5},
-      {transform:`translate(${b.x-a.x-50}%,${b.y-a.y}px) scale(1)`,offset:1}
-    ],{duration:520,easing:'cubic-bezier(.3,.7,.3,1)'});
+  function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}}
+  function flyStar(big){
+    const a={x:target.getBoundingClientRect().left+target.getBoundingClientRect().width/2,
+             y:target.getBoundingClientRect().top+target.getBoundingClientRect().height/2};
+    const b=center(earnedEl);
+    const f=document.createElement('div');f.className='flystar';f.textContent='★';
+    f.style.fontSize=(big?46:16)+'px';f.style.left=a.x+'px';f.style.top=a.y+'px';document.body.appendChild(f);
+    f.animate([{transform:'translate(-50%,-50%) scale(1.2)',offset:0},
+      {transform:`translate(${(b.x-a.x)*.5-50}%,${b.y-a.y-26}px) scale(1.7)`,offset:.5},
+      {transform:`translate(${b.x-a.x-50}%,${b.y-a.y}px) scale(1)`,offset:1}],
+      {duration:520,easing:'cubic-bezier(.3,.7,.3,1)'});
     setTimeout(()=>f.remove(),540);
   }
-
-  function sparkle(){
-    const r=meter.getBoundingClientRect(); const cx=r.width*fillPct(); const cy=r.height/2;
-    for(let i=0;i<14;i++){
-      const p=document.createElement('div'); p.className='spark';
-      p.style.left=cx+'px'; p.style.top=cy+'px'; meter.appendChild(p);
-      const ang=Math.random()*Math.PI*2, d=24+Math.random()*44;
-      const dx=Math.cos(ang)*d, dy=Math.sin(ang)*d-8;
-      p.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},
-        {transform:`translate(${dx-50}%,${dy}px) scale(.3)`,opacity:0}],
-        {duration:480+Math.random()*240,easing:'cubic-bezier(.2,.8,.3,1)'});
-      setTimeout(()=>p.remove(),740);
-    }
+  function sparkle(xFrac){
+    const r=meter.getBoundingClientRect(),cx=r.width*xFrac,cy=r.height/2;
+    for(let i=0;i<14;i++){const p=document.createElement('div');p.className='spark';
+      p.style.left=cx+'px';p.style.top=cy+'px';meter.appendChild(p);
+      const ang=Math.random()*Math.PI*2,d=24+Math.random()*44,dx=Math.cos(ang)*d,dy=Math.sin(ang)*d-8;
+      p.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(${dx-50}%,${dy}px) scale(.3)`,opacity:0}],
+        {duration:460+Math.random()*240,easing:'cubic-bezier(.2,.8,.3,1)'});
+      setTimeout(()=>p.remove(),720);}
     blip();
   }
-  let actx; function blip(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-    const o=actx.createOscillator(),g=actx.createGain(); o.type='triangle';
-    o.frequency.setValueAtTime(880,actx.currentTime); o.frequency.exponentialRampToValueAtTime(1760,actx.currentTime+.12);
-    g.gain.setValueAtTime(.0001,actx.currentTime); g.gain.exponentialRampToValueAtTime(.22,actx.currentTime+.02);
+  let actx;function blip(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();o.type='triangle';
+    o.frequency.setValueAtTime(880,actx.currentTime);o.frequency.exponentialRampToValueAtTime(1760,actx.currentTime+.12);
+    g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(.22,actx.currentTime+.02);
     g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.3);
-    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+.32);}catch(e){} }
+    o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.32);}catch(e){}}
 
-  function checkEarn(){
-    let earnedOne=false;
-    while(earned<total && score()>=thresholds()[earned]){ earned++; earnedOne=true; }
-    if(earnedOne){
-      sparkle(); flyStar();
-      renderCluster(earnedEl, earned, {fresh:true});
-      renderCluster(remainingEl, total-earned, {lean:true});
-    }
+  function placeTarget(){
+    if(earned>=total){target.style.display='none';return;}
+    target.style.display='';
+    target.className='target'+(isFinalTarget()?' big':'')+(bandProgress()>0.82?' reaching':'');
+    target.style.left=(targetFrac()*100)+'%';
   }
-
+  function earnStar(){
+    const big=isFinalTarget();
+    sparkle(targetFrac()); flyStar(big);
+    earned++;
+    renderCluster(earnedEl,earned,{fresh:true,bigLast:earned===total});
+    renderCluster(remainingEl,Math.max(0,total-earned-1),{glimmer:true});
+    placeTarget();
+  }
   function render(){
-    fill.style.width=(fillPct()*100).toFixed(1)+'%';
-    $('dTime').textContent=Math.max(0,Math.round(par-elapsed))+'s'+(par-elapsed<0?' (over)':'');
-    $('dGrass').textContent=grass.toFixed(0)+'%';
-    $('dTimePts').textContent=timePts();
-    $('dGrassPts').textContent=grassPts();
-    $('dMist').textContent=mistakes;
-    $('dMistPts').textContent='-'+Math.round(penalty);
-    $('dScore').textContent=score();
-    $('dBand').textContent= earned>=total ? 'maxed' : (prevT()+' / '+nextT());
-    $('dFill').textContent=(fillPct()*100).toFixed(0)+'%';
-
-    // verdict line (what a player would be told)
-    if(earned>=total) verdict.textContent='★'.repeat(total)+'  Perfect — nailed it!';
-    else verdict.textContent='★'.repeat(earned)+'☆'.repeat(total-earned)+'  rank '+earned+'/'+total;
+    fill.style.width=(bandProgress()*targetFrac()*100).toFixed(1)+'%';
+    placeTarget();
+    $('dTime').textContent=Math.round(par-elapsed)+'s'+(par-elapsed<0?' (over)':'');
+    $('dGrass').textContent=grass.toFixed(0)+'%';$('dTimePts').textContent=timePts();
+    $('dGrassPts').textContent=grassPts();$('dMist').textContent=mistakes;
+    $('dMistPts').textContent='-'+Math.round(penalty);$('dScore').textContent=score();
+    $('dBand').textContent=earned>=total?'maxed':(prevT()+' / '+nextT());
+    $('dPortion').textContent=Math.round(targetFrac()*100)+'%';
+    verdict.textContent=earned>=total?('★'.repeat(total)+'  Immaculate. The neighbors are jealous.')
+      :('★'.repeat(earned)+'☆'.repeat(total-earned)+'  rank '+earned+'/'+total);
   }
-
   function tick(now){
-    if(!playing) return;
-    const dt=Math.min(0.05,(now-last)/1000); last=now;
-    elapsed+=dt;
-    grass=Math.min(100, grass + mowRate*dt);
-    checkEarn(); render();
-    // stop when done (all grass) or no further star reachable even at 100% grass
-    const ceilingScore = timePts() + GRASS_PER_PCT*100 - Math.round(penalty);
-    const stuck = earned<total && ceilingScore < thresholds()[earned];
-    if(grass>=100 || earned>=total || stuck){ playing=false; $('play').textContent='▶ Play run';
-      if(stuck && earned<total) verdict.textContent=verdict.textContent+' — out of reach for the next star';
-      return; }
+    if(!playing)return;const dt=Math.min(0.05,(now-last)/1000);last=now;
+    elapsed+=dt;grass=Math.min(100,grass+mowRate*dt);
+    while(earned<total&&score()>=T()[earned])earnStar();
+    render();
+    const ceiling=timePts()+GRASS_PER_PCT*100-Math.round(penalty);
+    const stuck=earned<total&&ceiling<T()[earned];
+    if(grass>=100||earned>=total||stuck){playing=false;$('play').textContent='▶ Play run';
+      if(stuck&&earned<total)verdict.textContent+=' — next star out of reach';return;}
     requestAnimationFrame(tick);
   }
-
   function reset(){
-    elapsed=0; grass=0; mistakes=0; penalty=0; earned=0; playing=false;
-    $('play').textContent='▶ Play run';
-    renderCluster(earnedEl,0); renderCluster(remainingEl,total,{lean:true});
-    render();
+    elapsed=0;grass=0;mistakes=0;penalty=0;earned=0;playing=false;$('play').textContent='▶ Play run';
+    renderCluster(earnedEl,0);renderCluster(remainingEl,total-1);placeTarget();render();
   }
-
-  $('play').addEventListener('click',e=>{
-    if(playing){playing=false;e.target.textContent='▶ Play run';return;}
-    if(grass>=100||earned>=total) reset();
-    playing=true; last=performance.now(); e.target.textContent='❚❚ Pause'; requestAnimationFrame(tick);
-  });
+  $('play').addEventListener('click',e=>{if(playing){playing=false;e.target.textContent='▶ Play run';return;}
+    if(grass>=100||earned>=total)reset();playing=true;last=performance.now();e.target.textContent='❚❚ Pause';requestAnimationFrame(tick);});
   $('reset').addEventListener('click',reset);
-  $('mistake').addEventListener('click',()=>{
-    mistakes++; penalty += 1000*Math.pow(0.9,mistakes-1);
-    meter.classList.remove('shake'); void meter.offsetWidth; meter.classList.add('shake');
-    render();
-  });
+  $('mistake').addEventListener('click',()=>{mistakes++;penalty+=MIST_BASE*Math.pow(MIST_FALLOFF,mistakes-1);
+    meter.classList.remove('shake');void meter.offsetWidth;meter.classList.add('shake');render();});
   $('mow').addEventListener('input',e=>mowRate=parseFloat(e.target.value));
-  $('par').addEventListener('input',e=>{par=parseFloat(e.target.value)||400; render();});
+  $('par').addEventListener('input',e=>{par=parseFloat(e.target.value)||400;render();});
   $('modeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
     document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-    total=parseInt(b.dataset.mode,10); reset();});
-
+    total=parseInt(b.dataset.mode,10);reset();});
   reset();
 })();
 </script>
