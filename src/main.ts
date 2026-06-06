@@ -13,6 +13,7 @@ import {
   TransformNode,
   Vector3,
 } from "@babylonjs/core";
+import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
 import { createInputController } from "./input";
@@ -579,7 +580,21 @@ const cameraRig = createCameraRig({
 const camera = cameraRig.camera;
 
 const biomeGroundMaterial = createBiomeGroundMaterial(scene, settings.grassyTextureScale, settings.dirtTextureUScale, settings.dirtTextureVScale);
-createWorldTerrain(scene, biomeGroundMaterial);
+const worldTerrain = createWorldTerrain(scene, biomeGroundMaterial);
+
+// The lawn's biome ground shader has no shadow code, so cast shadows can't land
+// on it. Lay a transparent shadow-only copy of the terrain just above it: it
+// shows nothing except where a shadow falls, so the fence/rocks/trees actually
+// cast visible shadows onto the ground without touching the biome shader.
+const shadowOnlyMaterial = new ShadowOnlyMaterial("groundShadow", scene);
+shadowOnlyMaterial.activeLight = sun;
+shadowOnlyMaterial.shadowColor = new Color3(0.05, 0.06, 0.03);
+const shadowOnlyGround = worldTerrain.clone("world-shadow-overlay");
+shadowOnlyGround.material = shadowOnlyMaterial;
+shadowOnlyGround.receiveShadows = true;
+shadowOnlyGround.isPickable = false;
+shadowOnlyGround.position.y += 0.02;
+
 createSimpleTrees(scene, materials, shadowGenerator);
 rockColliders.push(...createSceneryRocks(scene, materials, shadowGenerator));
 
