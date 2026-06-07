@@ -1,6 +1,6 @@
 import { Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import { getActiveMap, settings, yardSegments } from "./config";
+import { getActiveMap, yardSegments } from "./config";
 import type { Materials } from "./materials";
 import type { Dandelion, FallingPetal, FloatingSeed } from "./types";
 import type { Wind } from "./wind";
@@ -25,7 +25,20 @@ export function createDandelions(
 
   const clear = () => {
     while (dandelions.length > 0) {
-      dandelions.pop()?.root.dispose(false, true);
+      const dandelion = dandelions.pop();
+      dandelion?.root.dispose(false, true);
+      // Detached seeds/petals were re-parented OFF the root, so disposing the
+      // root leaves them behind as stray white fluff at random spots on the next
+      // level. Dispose them explicitly.
+      for (const piece of dandelion?.detachedPieces ?? []) {
+        piece.dispose();
+      }
+    }
+    while (floatingSeeds.length > 0) {
+      floatingSeeds.pop()?.mesh.dispose();
+    }
+    while (fallingPetals.length > 0) {
+      fallingPetals.pop()?.mesh.dispose();
     }
   };
 
@@ -284,7 +297,7 @@ export function createDandelions(
     // Mow any dandelion the mower is currently over, and bow the ones it's
     // approaching away from the mower body so they don't poke through it.
     mowAt(mowerX: number, mowerZ: number, radiusSquared: number) {
-      const leanRadius = 0.85;
+      const leanRadius = 1;
       for (const dandelion of dandelions) {
         const target = targetPosition(dandelion);
         const dx = mowerX - target.x;
@@ -301,11 +314,14 @@ export function createDandelions(
 
         const dist = Math.sqrt(distSq);
         if (dist < leanRadius && dist > 0.0001) {
-          const lean = (1 - (dist / leanRadius)) * 0.9; // bow harder the closer the mower is
+          // Hook away from the mower — harder and snappier the closer it gets, so
+          // the head curves well clear of the body instead of poking through it.
+          const proximity = 1 - (dist / leanRadius);
+          const lean = (proximity ** 1.4) * 1.45; // up to ~83°, nearly laid flat away
           const awayX = -dx / dist; // direction from mower to plant
           const awayZ = -dz / dist;
-          dandelion.leanX += ((lean * awayZ) - dandelion.leanX) * 0.3;
-          dandelion.leanZ += ((-lean * awayX) - dandelion.leanZ) * 0.3;
+          dandelion.leanX += ((lean * awayZ) - dandelion.leanX) * 0.5;
+          dandelion.leanZ += ((-lean * awayX) - dandelion.leanZ) * 0.5;
         } else {
           dandelion.leanX += (0 - dandelion.leanX) * 0.12;
           dandelion.leanZ += (0 - dandelion.leanZ) * 0.12;
@@ -335,7 +351,7 @@ export function createDandelions(
       for (const dandelion of dandelions) {
         if (dandelion.shrinking) {
           dandelion.shrinkAge += deltaSeconds;
-          const t = Math.min(1, dandelion.shrinkAge / 0.18);
+          const t = Math.min(1, dandelion.shrinkAge / 0.13);
           const eased = t * t; // accelerate as it's yanked under
           const scaleY = 1 - (0.86 * eased);
           dandelion.stem.scaling.y = scaleY;
@@ -367,13 +383,6 @@ export function createDandelions(
           }
         }
 
-        if (dandelion.cut || dandelion.kind !== "seed") {
-          continue;
-        }
-
-        if (Math.random() < settings.seedPopRate * deltaSeconds) {
-          releaseDandelionSeeds(dandelion, 1 + Math.floor(Math.random() * 5), false);
-        }
       }
 
       for (let i = floatingSeeds.length - 1; i >= 0; i -= 1) {

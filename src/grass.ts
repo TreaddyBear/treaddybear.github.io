@@ -85,7 +85,9 @@ export function createGrass(deps: GrassDeps) {
   const highlightRepeatDelay = 5;
 
   const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
-  const isOnRoad = (x: number) => x > 11.8 && x < 17.2;
+  // Match the road influence zone world.ts uses (|x-14.5| < 4.1) plus a hair of
+  // margin, so blades never spawn on the road — even after the road was widened.
+  const isOnRoad = (x: number) => Math.abs(x - 14.5) < 4.3;
   const randomYardPoint = () => randomPointInSegments(yardSegments);
 
   // Four cut-blade silhouettes. backFaceCulling is off on the cut material, so
@@ -853,6 +855,9 @@ export function createGrass(deps: GrassDeps) {
       const nowSeconds = performance.now() / 1000;
       const motionDelta = Math.min(0.05, Math.max(0, nowSeconds - lastMotionSeconds));
       lastMotionSeconds = nowSeconds;
+      // A blade only relaxes once the mower is this far away; closer than this it
+      // holds its bend so it can never spring back up through the mower body.
+      const nearRadiusSq = 1.7 * 1.7;
       let changed = false;
 
       for (let i = 0; i < bladeCount; i += 1) {
@@ -883,10 +888,12 @@ export function createGrass(deps: GrassDeps) {
           // pokes straight through the mower on a second pass from a new angle.
           grassPressure[i] = Math.max(grassPressure[i], targetPressure);
           grassPressureYaw[i] = Math.atan2(dx, dz);
-        } else if (grassPressure[i] > 0) {
-          // Spring back upright once the mower is no longer touching it, so a
-          // later pass re-bends it fresh instead of finding it stuck flat.
-          grassPressure[i] = Math.max(0, grassPressure[i] - (motionDelta * 0.7));
+        } else if (grassPressure[i] > 0 && ((dx * dx) + (dz * dz)) > nearRadiusSq) {
+          // Only relax once the mower has clearly moved on — never while it is
+          // still alongside the blade, which is what flicked the blade up through
+          // the mower. And relax slowly, so a pressed blade reads as bent into
+          // place rather than snapping upright the instant the mower passes.
+          grassPressure[i] = Math.max(0, grassPressure[i] - (motionDelta * 0.28));
         }
 
         const pressure = grassPressure[i];
