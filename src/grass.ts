@@ -17,6 +17,7 @@ import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
+import "./devSettings"; // dev-only: load saved setting overrides before anything reads them
 import { createMowField } from "./mowField";
 import { createGrassBake } from "./grassBake";
 import { createGrassField } from "./grassField";
