@@ -1,6 +1,6 @@
-import { Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
+import { Color3, DynamicTexture, Material, Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import { getActiveMap, settings, yardSegments } from "./config";
+import { getActiveMap, yardSegments } from "./config";
 import type { Materials } from "./materials";
 import type { Dandelion, FallingPetal, FloatingSeed } from "./types";
 import type { Wind } from "./wind";
@@ -23,9 +23,67 @@ export function createDandelions(
   const floatingSeeds: FloatingSeed[] = [];
   const fallingPetals: FallingPetal[] = [];
 
+  // One soft seed-tuft sprite (fine light filaments + a dark seed dot in the
+  // middle), drawn once and shared by every billboarded fuzz plane, so the puff
+  // reads as dense airy fluff instead of a cluster of hard little balls.
+  const fluffTexture = new DynamicTexture("dandelionFluff", { width: 64, height: 64 }, scene, false);
+  fluffTexture.hasAlpha = true;
+  const fluffCtx = fluffTexture.getContext() as CanvasRenderingContext2D;
+  fluffCtx.clearRect(0, 0, 64, 64);
+  for (let i = 0; i < 46; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 16 + (Math.random() * 14);
+    fluffCtx.strokeStyle = `rgba(255,255,250,${0.18 + (Math.random() * 0.3)})`;
+    fluffCtx.lineWidth = 1;
+    fluffCtx.beginPath();
+    fluffCtx.moveTo(32, 32);
+    fluffCtx.lineTo(32 + (Math.cos(a) * r), 32 + (Math.sin(a) * r));
+    fluffCtx.stroke();
+  }
+  const fluffGlow = fluffCtx.createRadialGradient(32, 32, 1, 32, 32, 17);
+  fluffGlow.addColorStop(0, "rgba(255,255,250,0.85)");
+  fluffGlow.addColorStop(0.5, "rgba(255,255,250,0.3)");
+  fluffGlow.addColorStop(1, "rgba(255,255,250,0)");
+  fluffCtx.fillStyle = fluffGlow;
+  fluffCtx.beginPath();
+  fluffCtx.arc(32, 32, 17, 0, Math.PI * 2);
+  fluffCtx.fill();
+  fluffCtx.fillStyle = "rgba(58,36,15,0.95)"; // the dark seed dot
+  fluffCtx.beginPath();
+  fluffCtx.arc(32, 32, 2.3, 0, Math.PI * 2);
+  fluffCtx.fill();
+  fluffTexture.update();
+
+  const fluffMaterial = new StandardMaterial("dandelionFluffMaterial", scene);
+  fluffMaterial.diffuseTexture = fluffTexture;
+  fluffMaterial.diffuseColor = new Color3(1, 1, 1);
+  fluffMaterial.emissiveColor = new Color3(0.46, 0.46, 0.42); // lift so it reads light/airy
+  fluffMaterial.specularColor = Color3.Black();
+  fluffMaterial.useAlphaFromDiffuseTexture = true;
+  fluffMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  fluffMaterial.backFaceCulling = false;
+
+  // Tiny dark-brown seed knob at the centre of the puff.
+  const seedCoreMaterial = new StandardMaterial("dandelionSeedCoreMaterial", scene);
+  seedCoreMaterial.diffuseColor = new Color3(0.2, 0.12, 0.05);
+  seedCoreMaterial.specularColor = Color3.Black();
+
   const clear = () => {
     while (dandelions.length > 0) {
-      dandelions.pop()?.root.dispose(false, true);
+      const dandelion = dandelions.pop();
+      dandelion?.root.dispose(false, true);
+      // Detached seeds/petals were re-parented OFF the root, so disposing the
+      // root leaves them behind as stray white fluff at random spots on the next
+      // level. Dispose them explicitly.
+      for (const piece of dandelion?.detachedPieces ?? []) {
+        piece.dispose();
+      }
+    }
+    while (floatingSeeds.length > 0) {
+      floatingSeeds.pop()?.mesh.dispose();
+    }
+    while (fallingPetals.length > 0) {
+      fallingPetals.pop()?.mesh.dispose();
     }
   };
 
@@ -90,27 +148,26 @@ export function createDandelions(
         pieces.push(petal);
       }
     } else {
-      const core = MeshBuilder.CreateSphere("seed-core", { diameter: 0.06, segments: 5 }, scene);
+      const core = MeshBuilder.CreateIcoSphere("seed-core", { radius: 0.026, subdivisions: 1, flat: true }, scene);
       core.parent = head;
-      core.material = materials.dandelionStemMaterial;
+      core.material = seedCoreMaterial;
       pieces.push(core);
 
-      const fuzzCount = 120 + Math.floor(Math.random() * 58);
+      const fuzzCount = 150 + Math.floor(Math.random() * 60);
 
       for (let i = 0; i < fuzzCount; i += 1) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = 0.14 + (Math.random() * 0.07);
-        const fuzz = MeshBuilder.CreateSphere(`seed-fuzz-${i}`, { diameter: 0.018 + (Math.random() * 0.014), segments: 4 }, scene);
+        const radius = 0.12 + (Math.random() * 0.08);
+        const fuzz = MeshBuilder.CreatePlane(`seed-fuzz-${i}`, { size: 0.07 + (Math.random() * 0.05) }, scene);
         fuzz.parent = head;
         fuzz.position = new Vector3(
           Math.sin(phi) * Math.cos(theta) * radius,
           Math.cos(phi) * radius,
           Math.sin(phi) * Math.sin(theta) * radius,
         );
-        fuzz.scaling = new Vector3(1, 0.55, 1);
         fuzz.billboardMode = Mesh.BILLBOARDMODE_ALL;
-        fuzz.material = materials.dandelionSeedMaterial;
+        fuzz.material = fluffMaterial;
         pieces.push(fuzz);
       }
     }
@@ -284,7 +341,7 @@ export function createDandelions(
     // Mow any dandelion the mower is currently over, and bow the ones it's
     // approaching away from the mower body so they don't poke through it.
     mowAt(mowerX: number, mowerZ: number, radiusSquared: number) {
-      const leanRadius = 0.85;
+      const leanRadius = 1;
       for (const dandelion of dandelions) {
         const target = targetPosition(dandelion);
         const dx = mowerX - target.x;
@@ -301,11 +358,14 @@ export function createDandelions(
 
         const dist = Math.sqrt(distSq);
         if (dist < leanRadius && dist > 0.0001) {
-          const lean = (1 - (dist / leanRadius)) * 0.9; // bow harder the closer the mower is
+          // Hook away from the mower — harder and snappier the closer it gets, so
+          // the head curves well clear of the body instead of poking through it.
+          const proximity = 1 - (dist / leanRadius);
+          const lean = (proximity ** 1.4) * 1.45; // up to ~83°, nearly laid flat away
           const awayX = -dx / dist; // direction from mower to plant
           const awayZ = -dz / dist;
-          dandelion.leanX += ((lean * awayZ) - dandelion.leanX) * 0.3;
-          dandelion.leanZ += ((-lean * awayX) - dandelion.leanZ) * 0.3;
+          dandelion.leanX += ((lean * awayZ) - dandelion.leanX) * 0.5;
+          dandelion.leanZ += ((-lean * awayX) - dandelion.leanZ) * 0.5;
         } else {
           dandelion.leanX += (0 - dandelion.leanX) * 0.12;
           dandelion.leanZ += (0 - dandelion.leanZ) * 0.12;
@@ -335,7 +395,7 @@ export function createDandelions(
       for (const dandelion of dandelions) {
         if (dandelion.shrinking) {
           dandelion.shrinkAge += deltaSeconds;
-          const t = Math.min(1, dandelion.shrinkAge / 0.18);
+          const t = Math.min(1, dandelion.shrinkAge / 0.13);
           const eased = t * t; // accelerate as it's yanked under
           const scaleY = 1 - (0.86 * eased);
           dandelion.stem.scaling.y = scaleY;
@@ -367,13 +427,6 @@ export function createDandelions(
           }
         }
 
-        if (dandelion.cut || dandelion.kind !== "seed") {
-          continue;
-        }
-
-        if (Math.random() < settings.seedPopRate * deltaSeconds) {
-          releaseDandelionSeeds(dandelion, 1 + Math.floor(Math.random() * 5), false);
-        }
       }
 
       for (let i = floatingSeeds.length - 1; i >= 0; i -= 1) {
