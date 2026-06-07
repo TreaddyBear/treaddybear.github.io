@@ -42,13 +42,13 @@ type LoopWindow = {
 };
 
 const flowerPopBank = [
-  { src: flowerPop1Url, weight: 28 },
-  { src: flowerPop2Url, weight: 24 },
-  { src: flowerPop3Url, weight: 20 },
-  { src: flowerPop4Url, weight: 16 },
-  { src: flowerPop5Url, weight: 8 },
-  { src: flowerPop6Url, weight: 3 },
-  { src: flowerPop7Url, weight: 1 },
+  { sourceUrl: flowerPop1Url, weight: 28 },
+  { sourceUrl: flowerPop2Url, weight: 24 },
+  { sourceUrl: flowerPop3Url, weight: 20 },
+  { sourceUrl: flowerPop4Url, weight: 16 },
+  { sourceUrl: flowerPop5Url, weight: 8 },
+  { sourceUrl: flowerPop6Url, weight: 3 },
+  { sourceUrl: flowerPop7Url, weight: 1 },
 ];
 
 function clamp01(value: number) {
@@ -56,9 +56,10 @@ function clamp01(value: number) {
 }
 
 function getAudioContext() {
-  const Context = window.AudioContext
+  const AudioContextConstructor = window.AudioContext
     ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  return Context ? new Context() : null;
+
+  return AudioContextConstructor ? new AudioContextConstructor() : null;
 }
 
 function findLoopWindow(buffer: AudioBuffer): LoopWindow {
@@ -68,11 +69,11 @@ function findLoopWindow(buffer: AudioBuffer): LoopWindow {
   let startSample = 0;
   let endSample = buffer.length - 1;
 
-  while (startSample < maxTrimSamples && Math.abs(firstChannel[startSample]) < threshold) {
+  while(startSample < maxTrimSamples && Math.abs(firstChannel[startSample]) < threshold) {
     startSample += 1;
   }
 
-  while (
+  while(
     endSample > buffer.length - maxTrimSamples
     && endSample > startSample
     && Math.abs(firstChannel[endSample]) < threshold
@@ -86,19 +87,19 @@ function findLoopWindow(buffer: AudioBuffer): LoopWindow {
   };
 }
 
-async function loadAudioBuffer(src: string, audioContext: AudioContext) {
-  const response = await fetch(src);
+async function loadAudioBuffer(sourceUrl: string, audioContext: AudioContext) {
+  const response = await fetch(sourceUrl);
   const data = await response.arrayBuffer();
 
-  if (data.byteLength === 0) {
+  if(data.byteLength === 0) {
     return null;
   }
 
   return audioContext.decodeAudioData(data);
 }
 
-function createFallbackAudio(src: string, loop: boolean) {
-  const audio = new Audio(src);
+function createFallbackAudio(sourceUrl: string, loop: boolean) {
+  const audio = new Audio(sourceUrl);
   audio.loop = loop;
   audio.preload = "auto";
   audio.volume = 0;
@@ -108,8 +109,8 @@ function createFallbackAudio(src: string, loop: boolean) {
   return audio;
 }
 
-function createLoopingTrack(src: string) {
-  const fallbackAudio = createFallbackAudio(src, true);
+function createLoopingTrack(sourceUrl: string) {
+  const fallbackAudio = createFallbackAudio(sourceUrl, true);
   let audioContext: AudioContext | null = null;
   let gainNode: GainNode | null = null;
   let sourceNode: AudioBufferSourceNode | null = null;
@@ -125,20 +126,20 @@ function createLoopingTrack(src: string) {
   const startWebAudio = async () => {
     audioContext ??= getAudioContext();
 
-    if (!audioContext) {
+    if(!audioContext) {
       playFallback();
       return;
     }
 
     await audioContext.resume();
 
-    if (sourceNode) {
+    if(sourceNode) {
       return;
     }
 
-    const buffer = await loadAudioBuffer(src, audioContext);
+    const buffer = await loadAudioBuffer(sourceUrl, audioContext);
 
-    if (!buffer) {
+    if(!buffer) {
       playFallback();
       return;
     }
@@ -163,7 +164,7 @@ function createLoopingTrack(src: string) {
       volume = clamp01(nextVolume);
       fallbackAudio.volume = volume;
 
-      if (gainNode && audioContext) {
+      if(gainNode && audioContext) {
         gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, Math.max(0.001, response));
       }
     },
@@ -176,8 +177,8 @@ function createLoopingTrack(src: string) {
   };
 }
 
-function createOneShotTrack(src: string) {
-  const fallbackAudio = createFallbackAudio(src, false);
+function createOneShotTrack(sourceUrl: string) {
+  const fallbackAudio = createFallbackAudio(sourceUrl, false);
   let audioContext: AudioContext | null = null;
   let buffer: AudioBuffer | null = null;
   let loading: Promise<AudioBuffer | null> | null = null;
@@ -185,12 +186,12 @@ function createOneShotTrack(src: string) {
   const load = async () => {
     audioContext ??= getAudioContext();
 
-    if (!audioContext) {
+    if(!audioContext) {
       return null;
     }
 
     await audioContext.resume();
-    buffer = await loadAudioBuffer(src, audioContext);
+    buffer = await loadAudioBuffer(sourceUrl, audioContext);
     return buffer;
   };
 
@@ -209,7 +210,7 @@ function createOneShotTrack(src: string) {
       const safeVolume = clamp01(volume);
       loading ??= load().catch(() => null);
       loading.then((loadedBuffer) => {
-        if (!loadedBuffer || !audioContext) {
+        if(!loadedBuffer || !audioContext) {
           playFallback(safeVolume);
           return;
         }
@@ -232,11 +233,11 @@ function chooseWeightedIndex(weights: number[]) {
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   let roll = Math.random() * total;
 
-  for (let i = 0; i < weights.length; i += 1) {
-    roll -= weights[i];
+  for(let index = 0; index < weights.length; index += 1) {
+    roll -= weights[index];
 
-    if (roll <= 0) {
-      return i;
+    if(roll <= 0) {
+      return index;
     }
   }
 
@@ -251,7 +252,7 @@ export function createPrototypeAudio() {
   const reverseBeep = createLoopingTrack(reverseBeepUrl);
   const completionLoop = createLoopingTrack(completionLoopUrl);
   const completionFanfare = createOneShotTrack(completionFanfareUrl);
-  const flowerPops = flowerPopBank.map((entry) => createOneShotTrack(entry.src));
+  const flowerPops = flowerPopBank.map((entry) => createOneShotTrack(entry.sourceUrl));
   const flowerPopWeights = flowerPopBank.map((entry) => entry.weight);
   const wallBump = createOneShotTrack(wallBumpUrl);
   const wallBumpSoft = createOneShotTrack(wallBumpSoftUrl);
@@ -264,7 +265,7 @@ export function createPrototypeAudio() {
   let reversingActive = false;
 
   const unlock = () => {
-    if (unlocked) {
+    if(unlocked) {
       return;
     }
 
@@ -276,7 +277,7 @@ export function createPrototypeAudio() {
     reverseBeep.unlock();
     completionLoop.unlock();
     completionFanfare.unlock();
-    for (const flowerPop of flowerPops) {
+    for(const flowerPop of flowerPops) {
       flowerPop.unlock();
     }
     wallBump.unlock();
@@ -291,7 +292,7 @@ export function createPrototypeAudio() {
 
   return {
     setCuttingActive(active: boolean) {
-      if (active && !cuttingActive) {
+      if(active && !cuttingActive) {
         cuttingStartedAt = performance.now() / 1000;
       }
       cuttingActive = active;
@@ -310,9 +311,9 @@ export function createPrototypeAudio() {
     },
 
     playFenceBump(volume: number, severity: "soft" | "medium" | "hard") {
-      if (severity === "hard") {
+      if(severity === "hard") {
         wallBumpHard.play(volume);
-      } else if (severity === "medium") {
+      } else if(severity === "medium") {
         wallBumpMedium.play(volume * 0.82);
       } else {
         wallBumpSoft.play(volume * 0.48);
@@ -348,7 +349,7 @@ export function createPrototypeAudio() {
       );
       reverseBeep.setVolume(reversingActive ? settings.reverseBeepVolume : 0, reversingActive ? 0.012 : 0.045);
 
-      if (unlocked) {
+      if(unlocked) {
         mower.unlock();
         directionalBreeze.unlock();
         ambientBreeze.unlock();

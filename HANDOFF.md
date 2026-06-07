@@ -16,7 +16,11 @@ This document is the compact handoff for starting a fresh conversation without r
 - Dependency security policy currently requires `minimumReleaseAge: 57600` in `pnpm-workspace.yaml`.
 - Internal asset/source tracking lives in `INTERNAL_ATTRIBUTION.md`.
 - Deferred ideas and non-active follow-ups live in `BACKLOG.md`.
-- Local Wi-Fi phone testing: run `pnpm run dev:lan`, find the PC's LAN IPv4 address, then open `http://<LAN-IP>:5173/` on a phone connected to the same Wi-Fi. If Vite chooses a different port, use the port printed in the terminal. Windows Firewall may ask to allow Node/Vite on private networks.
+- Code and copy quality guidelines live in `CODE_QUALITY.md`.
+- Local Wi-Fi phone testing: run `pnpm run dev:lan`, find the PC's LAN IPv4
+  address, then open `http://<LAN-IP>:5173/` on a phone connected to the same
+  Wi-Fi. If Vite chooses a different port, use the port printed in the terminal.
+  Windows Firewall may ask to allow Node/Vite on private networks.
 
 ## Current Working Tree
 
@@ -131,9 +135,13 @@ Important defaults in `src/config.ts`:
 - `completionLoopVolume = 0.35`
 - `gunShotVolume = 0.35`
 - Normal-mode scoring: `completePercent = 99.5`, `nearCompletePercent = 95`, `partialPercent = 80`
-- Normal-mode timing: 3-star time is `1.2x par`, 2-star time is `1.55x par`, 1-star time is `2.25x par`
-- Normal-mode mistakes: `0` mistakes is the 3-star facet, `1` or fewer is the 2-star facet, `4` or fewer is the 1-star facet
-- Master mode has 5 stars, but stars 1-3 use the same quality bar as normal. Master adds 4-star at `1.1x par` clean/complete and 5-star at exact 100%, no mistakes, at or under par.
+- Normal-mode timing: 3-star time is `1.2x par`, 2-star time is `1.55x par`,
+  1-star time is `2.25x par`
+- Normal-mode mistakes: `0` mistakes is the 3-star facet, `1` or fewer is the
+  2-star facet, `4` or fewer is the 1-star facet
+- Master mode has 5 stars, but stars 1-3 use the same quality bar as normal.
+  Master adds 4-star at `1.1x par` clean/complete and 5-star at exact 100%,
+  no mistakes, at or under par.
 - `grassBaseColor = "#0d2c02"`
 - `cutGrassRootColor = "#2d2e00"`
 - `cutGrassTopColorA = "#869325"`

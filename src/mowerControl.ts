@@ -12,10 +12,10 @@
 export type MowerState = { x: number; z: number; heading: number; speed: number };
 
 // What the active command wants the vehicle to do this frame.
-type Drive = { turn: number; throttle: number };
+type DriveIntent = { turn: number; throttle: number };
 
 type Command = {
-  update: (state: MowerState, deltaSeconds: number) => Drive;
+  update: (state: MowerState, deltaSeconds: number) => DriveIntent;
   isDone: (state: MowerState) => boolean;
   resolve: () => void;
 };
@@ -26,18 +26,27 @@ export type MowerControlDeps = {
 
 export type MowerControl = ReturnType<typeof createMowerControl>;
 
-const idle: Drive = { turn: 0, throttle: 0 };
+const idle: DriveIntent = { turn: 0, throttle: 0 };
 
 // Wrap an angle to (-pi, pi] so heading errors take the short way round.
 const wrapAngle = (angle: number) => {
-  let a = angle;
-  while (a > Math.PI) {
-    a -= Math.PI * 2;
+  let wrappedAngle = angle;
+
+  while(wrappedAngle > Math.PI) {
+    wrappedAngle -= Math.PI * 2;
   }
-  while (a < -Math.PI) {
-    a += Math.PI * 2;
+
+  while(wrappedAngle < -Math.PI) {
+    wrappedAngle += Math.PI * 2;
   }
-  return a;
+
+  return wrappedAngle;
+};
+
+const distanceBetween = (fromX: number, fromZ: number, toX: number, toZ: number) => {
+  const deltaX = toX - fromX;
+  const deltaZ = toZ - fromZ;
+  return Math.sqrt((deltaX * deltaX) + (deltaZ * deltaZ));
 };
 
 export function createMowerControl(deps: MowerControlDeps) {
@@ -45,7 +54,11 @@ export function createMowerControl(deps: MowerControlDeps) {
 
   // Heading convention matches the movement code: forward = (sin(yaw), cos(yaw)),
   // so the heading that points at (dx, dz) is atan2(dx, dz). 0 = +z.
-  const headingTo = (state: MowerState, x: number, z: number) => Math.atan2(x - state.x, z - state.z);
+  const headingTo = (
+    state: MowerState,
+    targetX: number,
+    targetZ: number,
+  ) => Math.atan2(targetX - state.x, targetZ - state.z);
 
   // Steer toward a target heading: proportional turn that eases off near zero error.
   const steer = (state: MowerState, targetHeading: number) => {
@@ -59,16 +72,16 @@ export function createMowerControl(deps: MowerControlDeps) {
 
   // Drains finished commands (including ones already satisfied) and returns the
   // drive the front command wants. Called once per frame by the movement code.
-  const update = (deltaSeconds: number): Drive => {
+  const update = (deltaSeconds: number): DriveIntent => {
     let state = deps.getState();
 
-    while (queue.length > 0 && queue[0].isDone(state)) {
+    while(queue.length > 0 && queue[0].isDone(state)) {
       queue[0].resolve();
       queue.shift();
       state = deps.getState();
     }
 
-    if (queue.length === 0) {
+    if(queue.length === 0) {
       return idle;
     }
 
@@ -78,7 +91,10 @@ export function createMowerControl(deps: MowerControlDeps) {
   // Turn in place to an absolute heading (radians, 0 = +z).
   const turnToHeading = (headingRadians: number) => enqueue((resolve) => ({
     update: (state) => ({ turn: steer(state, headingRadians), throttle: 0 }),
-    isDone: (state) => Math.abs(wrapAngle(headingRadians - state.heading)) < 0.02 && Math.abs(state.speed) < 0.06,
+    isDone: (state) => (
+      Math.abs(wrapAngle(headingRadians - state.heading)) < 0.02
+      && Math.abs(state.speed) < 0.06
+    ),
     resolve,
   }));
 
@@ -88,13 +104,18 @@ export function createMowerControl(deps: MowerControlDeps) {
     let captured = false;
     return enqueue((resolve) => ({
       update: (state) => {
-        if (!captured) {
+        if(!captured) {
           target = state.heading + (degrees * Math.PI / 180);
           captured = true;
         }
+
         return { turn: steer(state, target), throttle: 0 };
       },
-      isDone: (state) => captured && Math.abs(wrapAngle(target - state.heading)) < 0.02 && Math.abs(state.speed) < 0.06,
+      isDone: (state) => (
+        captured
+        && Math.abs(wrapAngle(target - state.heading)) < 0.02
+        && Math.abs(state.speed) < 0.06
+      ),
       resolve,
     }));
   };
@@ -107,20 +128,20 @@ export function createMowerControl(deps: MowerControlDeps) {
     const direction = metres < 0 ? -1 : 1;
     return enqueue((resolve) => ({
       update: (state) => {
-        if (!captured) {
+        if(!captured) {
           startX = state.x;
           startZ = state.z;
           captured = true;
         }
+
         return { turn: 0, throttle: direction };
       },
       isDone: (state) => {
-        if (!captured) {
+        if(!captured) {
           return false;
         }
-        const dx = state.x - startX;
-        const dz = state.z - startZ;
-        return Math.sqrt((dx * dx) + (dz * dz)) >= Math.abs(metres);
+
+        return distanceBetween(startX, startZ, state.x, state.z) >= Math.abs(metres);
       },
       resolve,
     }));
@@ -128,25 +149,26 @@ export function createMowerControl(deps: MowerControlDeps) {
 
   // Drive to a world point, steering toward it and easing off forward speed while
   // badly misaligned. Stops once within stopRadius metres.
-  const driveTo = (x: number, z: number, stopRadius = 0.35) => enqueue((resolve) => ({
+  const driveTo = (
+    targetX: number,
+    targetZ: number,
+    stopRadius = 0.35,
+  ) => enqueue((resolve) => ({
     update: (state) => {
-      const error = wrapAngle(headingTo(state, x, z) - state.heading);
+      const error = wrapAngle(headingTo(state, targetX, targetZ) - state.heading);
       const throttle = Math.abs(error) > 1.1 ? 0 : 1;
       return { turn: Math.max(-1, Math.min(1, error * 2.4)), throttle };
     },
-    isDone: (state) => {
-      const dx = x - state.x;
-      const dz = z - state.z;
-      return Math.sqrt((dx * dx) + (dz * dz)) <= stopRadius;
-    },
+    isDone: (state) => distanceBetween(state.x, state.z, targetX, targetZ) <= stopRadius,
     resolve,
   }));
 
   // Abandon all queued/active commands and let the vehicle coast to a halt.
   const stop = () => {
-    for (const command of queue) {
+    for(const command of queue) {
       command.resolve();
     }
+
     queue.length = 0;
   };
 
