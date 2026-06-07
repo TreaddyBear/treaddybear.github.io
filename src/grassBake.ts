@@ -9,6 +9,8 @@ import type { Scene } from "@babylonjs/core";
 
 const RES = 256;
 
+export type GrassBake = ReturnType<typeof createGrassBake>;
+
 // Value noise on an integer lattice that wraps at `period` (so the texture tiles).
 function tileNoise(period: number, seed: number) {
   const rand = (ix: number, iy: number) => {
@@ -79,7 +81,8 @@ export function createGrassBake(scene: Scene) {
       aimg.data[i] = 22 + (h * 70);
       aimg.data[i + 1] = 60 + (h * 150);
       aimg.data[i + 2] = 12 + (h * 34);
-      aimg.data[i + 3] = 255;
+      aimg.data[i + 3] = Math.round(Math.min(1, h * 1.25) * 255); // blade-density mask for slat cutout
+
     }
   }
   nctx.putImageData(nimg, 0, 0);

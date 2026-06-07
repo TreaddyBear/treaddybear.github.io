@@ -3,7 +3,7 @@ import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
 import { hexToColor3 } from "./utils/color";
-import { createGrassBake } from "./grassBake";
+import type { GrassBake } from "./grassBake";
 
 // Step 2 of the grass-LOD plan: one ground mesh that reads as a field of grass.
 // The vertex shader samples the live mow-state field and raises the surface where
@@ -14,7 +14,7 @@ import { createGrassBake } from "./grassBake";
 // GGX highlight + grazing sheen approximate the real blades' specular. All tunable
 // live from the "Grass LOD" settings group.
 
-export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
+export function createGrassField(scene: Scene, mowTexture: DynamicTexture, bake: GrassBake) {
   const { minX, maxX, minZ, maxZ } = MOW_FIELD;
   const width = maxX - minX;
   const depth = maxZ - minZ;
@@ -44,8 +44,6 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
   data.positions = positions;
   data.indices = indices;
   data.applyToMesh(mesh);
-
-  const bake = createGrassBake(scene);
 
   if (!Effect.ShadersStore.grassFieldVertexShader) {
     Effect.ShadersStore.grassFieldVertexShader = `

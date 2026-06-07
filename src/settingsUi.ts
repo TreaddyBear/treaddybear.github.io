@@ -199,6 +199,9 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSpecular",
       "lodRoughness",
       "lodSheen",
+      "lodSlatHeight",
+      "lodSlatTileScale",
+      "lodSlatCutoff",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -217,6 +220,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "autoFinishOnMaxStars",
       "ssaoEnabled",
       "lodShow",
+      "lodSlatsShow",
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
     const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");
@@ -295,6 +299,9 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSpecular",
           "lodRoughness",
           "lodSheen",
+          "lodSlatHeight",
+          "lodSlatTileScale",
+          "lodSlatCutoff",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {
@@ -339,7 +346,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           deps.syncFenceHealth();
         } else if (id === "ssaoEnabled") {
           deps.refreshLighting();
-        } else if (id === "lodShow") {
+        } else if (id === "lodShow" || id === "lodSlatsShow") {
           deps.refreshLod();
         }
       });

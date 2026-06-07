@@ -18,7 +18,9 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
 import { createMowField } from "./mowField";
+import { createGrassBake } from "./grassBake";
 import { createGrassField } from "./grassField";
+import { createGrassSlats } from "./grassSlats";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -44,7 +46,9 @@ export function createGrass(deps: GrassDeps) {
   // (step 2). Both are dev-gated and non-destructive for now (toggle from the
   // console); nothing in normal play renders from them yet.
   const mowField = createMowField(scene);
-  const grassField = createGrassField(scene, mowField.texture);
+  const lodBake = createGrassBake(scene);
+  const grassField = createGrassField(scene, mowField.texture, lodBake);
+  const grassSlats = createGrassSlats(scene, mowField.texture, lodBake);
   if (!import.meta.env.PROD) {
     (window as unknown as { mowField: unknown }).mowField = {
       showDebug: (on = true) => mowField.showDebug(on),
@@ -373,8 +377,10 @@ export function createGrass(deps: GrassDeps) {
     const bladeMeshes = [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes];
     (window as unknown as { grassField: unknown }).grassField = {
       show: (on = true) => grassField.show(on),
+      slats: (on = true) => grassSlats.show(on),
       solo: (on = true) => {
         grassField.show(on);
+        grassSlats.show(on);
         for (const mesh of bladeMeshes) {
           mesh.setEnabled(!on);
         }
@@ -829,6 +835,7 @@ export function createGrass(deps: GrassDeps) {
 
     refreshLod() {
       grassField.applySettings();
+      grassSlats.applySettings();
     },
 
     refreshMaterial() {

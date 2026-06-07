@@ -66,6 +66,11 @@ export const settings = {
   lodSpecular: 0.04, // highlight strength
   lodRoughness: 0.22, // highlight breadth — match the blade material to match shine
   lodSheen: 0.35, // grazing-angle velvety glow (sells distant grass)
+  // Grass LOD — vertical SLAT layer (separate from the flat mesh above).
+  lodSlatsShow: false, // show the cross-hatched vertical slats
+  lodSlatHeight: 0.5, // slat height where uncut
+  lodSlatTileScale: 0.6, // baked-detail tiling on the slats
+  lodSlatCutoff: 0.3, // alpha-cutout threshold (lower = denser/leafier blades)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
