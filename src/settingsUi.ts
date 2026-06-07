@@ -196,6 +196,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodNormalStrength",
       "lodNormalScale",
       "lodSpecular",
+      "lodRoughness",
+      "lodSheen",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -289,6 +291,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodNormalStrength",
           "lodNormalScale",
           "lodSpecular",
+          "lodRoughness",
+          "lodSheen",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {

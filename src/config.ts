@@ -59,10 +59,12 @@ export const settings = {
   lodBottomColor: "#16380a", // dark, for the valleys (reads as self-shadow)
   lodHeightTotal: 0.42, // displacement amplitude
   lodHeightOffset: -0.02, // base offset; negative dips valleys into the terrain
-  lodNoiseScale: 1.7, // lumpiness frequency
-  lodNormalStrength: 0.5, // fine normal deviation (sparkle/texture)
-  lodNormalScale: 22, // frequency of that normal deviation
-  lodSpecular: 0.25, // reflection/highlight strength
+  lodNoiseScale: 1.7, // big-lump (geometry) frequency
+  lodNormalStrength: 0.85, // how hard the baked grass normal map tilts the surface
+  lodNormalScale: 4, // baked-detail tiling (texture repeats per world unit)
+  lodSpecular: 0.04, // highlight strength
+  lodRoughness: 0.22, // highlight breadth — match the blade material to match shine
+  lodSheen: 0.35, // grazing-angle velvety glow (sells distant grass)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
