@@ -50,9 +50,6 @@ export function createGrass(deps: GrassDeps) {
       showDebug: (on = true) => mowField.showDebug(on),
       coverage: () => mowField.coverage(),
     };
-    (window as unknown as { grassField: unknown }).grassField = {
-      show: (on = true) => grassField.show(on),
-    };
   }
 
   const grassGrid = new Map<string, number[]>();
@@ -367,6 +364,21 @@ export function createGrass(deps: GrassDeps) {
   // tree shadows actually land on something the player sees.
   for (const mesh of [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes]) {
     mesh.receiveShadows = true;
+  }
+
+  // Dev toggle for the far-LOD grass mesh. `solo(true)` hides the real blades and
+  // shows ONLY the LOD mesh, so it is unambiguous whether the mesh renders.
+  if (!import.meta.env.PROD) {
+    const bladeMeshes = [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes];
+    (window as unknown as { grassField: unknown }).grassField = {
+      show: (on = true) => grassField.show(on),
+      solo: (on = true) => {
+        grassField.show(on);
+        for (const mesh of bladeMeshes) {
+          mesh.setEnabled(!on);
+        }
+      },
+    };
   }
 
   const refreshCutBladeVertexColors = () => {
