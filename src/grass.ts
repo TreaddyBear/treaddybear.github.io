@@ -18,6 +18,7 @@ import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
 import { createMowField } from "./mowField";
+import { createGrassField } from "./grassField";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -39,13 +40,18 @@ export type GrassDeps = {
 export function createGrass(deps: GrassDeps) {
   const { scene, materials, player, getYaw, getThrottle, groundHeightAt, fence, wind, onMowProgress } = deps;
 
-  // Mow-state field (grass-LOD step 1): records where the mower has cut. Today
-  // it only records + can be shown as a debug overlay via the dev hook below.
+  // Mow-state field (grass-LOD step 1) + the far-LOD grass mesh that samples it
+  // (step 2). Both are dev-gated and non-destructive for now (toggle from the
+  // console); nothing in normal play renders from them yet.
   const mowField = createMowField(scene);
+  const grassField = createGrassField(scene, mowField.texture);
   if (!import.meta.env.PROD) {
     (window as unknown as { mowField: unknown }).mowField = {
       showDebug: (on = true) => mowField.showDebug(on),
       coverage: () => mowField.coverage(),
+    };
+    (window as unknown as { grassField: unknown }).grassField = {
+      show: (on = true) => grassField.show(on),
     };
   }
 
