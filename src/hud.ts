@@ -4,6 +4,7 @@ import { earnedStars, limitingFactor, nextStarOutOfReach, totalScore } from "./s
 import type { LimitingFactor, StarMode } from "./scoring";
 
 export type Hud = ReturnType<typeof createHud>;
+type ResultReason = "complete" | "out-of-reach" | "time-up" | "maxed" | "offer";
 
 export type HudDeps = {
   score: HTMLDivElement;
@@ -31,6 +32,7 @@ export type HudDeps = {
   isArmed: () => boolean;
   playFanfare: () => void;
   setCompletionLoop: (active: boolean) => void;
+  onRequestHelp: () => void;
   onRequestReset: () => void;
 };
 
@@ -41,6 +43,10 @@ export function createHud(deps: HudDeps) {
   let celebrationShown = false;
   let celebrationHideTimer = 0;
   let bestStars = 0;
+  let currentResultReason: ResultReason | null = null;
+  let softPromptShown = false;
+  let lastMowedCount = deps.getMowed();
+  let lastMowProgressSeconds = performance.now() / 1000;
   const starMeter = createStarMeter();
   const starMode: StarMode = 3;
 
@@ -121,7 +127,7 @@ export function createHud(deps: HudDeps) {
       return "Your route is close. Try longer straight passes, fewer fence bumps, and use boost only when the mower is already lined up.";
     }
 
-    return "There was still score left on the lawn. Sweep the edges, corners, and the little remaining islands before ending the run.";
+    return "There was still grass left on the lawn. Sweep the edges, corners, and the little remaining islands before ending the run.";
   };
 
   const renderResultDetails = (stars: number, grassPercent: number, elapsedSeconds: number, mistakes: number) => {
@@ -155,14 +161,18 @@ export function createHud(deps: HudDeps) {
   };
 
   const resultTitleFor = (
-    reason: "complete" | "out-of-reach" | "time-up" | "maxed",
+    reason: ResultReason,
     factor: LimitingFactor,
     stars: number,
     grassPercent: number,
     mistakes: number,
   ) => {
+    if (reason === "offer") {
+      return "Fine Work";
+    }
+
     if (reason === "maxed") {
-      return "Top Score";
+      return "Three Stars";
     }
 
     if (reason === "time-up") {
@@ -174,6 +184,10 @@ export function createHud(deps: HudDeps) {
     }
 
     if (reason === "out-of-reach") {
+      if (stars < 1) {
+        return "Oops";
+      }
+
       if (factor === "mistakes") {
         return "Too Many Mistakes";
       }
@@ -190,16 +204,65 @@ export function createHud(deps: HudDeps) {
     return "Run Complete";
   };
 
-  const showResult = (reason: "complete" | "out-of-reach" | "time-up" | "maxed") => {
+  const offerSubtitleFor = (stars: number) => {
+    if (stars >= 1) {
+      return "Keep mowing, get a little help, or head to the next lawn.";
+    }
+
+    return "Give it another pass and clean up one thing at a time.";
+  };
+
+  const hideResultCard = () => {
+    window.clearTimeout(celebrationHideTimer);
+    celebrationShown = false;
+    currentResultReason = null;
+    deps.celebration.hidden = true;
+    deps.celebration.dataset.result = "";
+    deps.celebrationSeeds.replaceChildren();
+    deps.resultCoach.hidden = true;
+    deps.reportCardButton.textContent = "Report Card";
+    deps.setCompletionLoop(false);
+  };
+
+  const requestHelpAndContinue = () => {
+    deps.onRequestHelp();
+    hideResultCard();
+  };
+
+  const shouldOfferPrompt = (
+    grassPercent: number,
+    stars: number,
+    elapsedSeconds: number,
+    mistakes: number,
+  ) => {
+    if (softPromptShown || stars < 1 || !nextStarOutOfReach(stars, starMode, elapsedSeconds, mistakes)) {
+      return false;
+    }
+
+    const remainingPercent = Math.max(0, 100 - grassPercent);
+    if (remainingPercent > 20) {
+      return false;
+    }
+
+    const now = performance.now() / 1000;
+    const stallDelay = remainingPercent <= 10
+      ? 10
+      : 10 + (((remainingPercent - 10) / 10) * 10);
+
+    return (now - lastMowProgressSeconds) >= stallDelay;
+  };
+
+  const showResult = (reason: ResultReason) => {
     if (celebrationShown) {
       return;
     }
 
     celebrationShown = true;
+    currentResultReason = reason;
+    softPromptShown ||= reason === "offer";
     window.clearTimeout(celebrationHideTimer);
     deps.celebrationSeeds.replaceChildren();
-    deps.playFanfare();
-    deps.setCompletionLoop(true);
+    deps.setCompletionLoop(false);
     const mowed = deps.getMowed();
     const grassPercent = (mowed / bladeCount) * 100;
     const elapsedSeconds = deps.getElapsedSeconds();
@@ -213,38 +276,48 @@ export function createHud(deps: HudDeps) {
     bestStars = stars;
     deps.celebration.dataset.result = reason;
     deps.celebration.querySelector("#celebrationTitle")!.textContent = resultTitleFor(reason, factor, stars, grassPercent, mistakes);
-    deps.celebration.querySelector("#celebrationSubtitle")!.textContent = verdictFor(
-      factor,
-      stars,
-      grassPercent,
-      flowerMistakes,
-      fenceMistakes,
-    );
+    deps.celebration.querySelector("#celebrationSubtitle")!.textContent = reason === "offer"
+      ? offerSubtitleFor(stars)
+      : verdictFor(
+        factor,
+        stars,
+        grassPercent,
+        flowerMistakes,
+        fenceMistakes,
+      );
     renderResultDetails(stars, grassPercent, elapsedSeconds, mistakes);
     deps.resultCoach.textContent = coachFor(factor, stars, grassPercent, mistakes, flowerMistakes, fenceMistakes);
     deps.resultCoach.hidden = true;
+
+    if (reason !== "offer") {
+      deps.playFanfare();
+      deps.setCompletionLoop(true);
+    }
+
     const perfect = reason === "complete" && stars >= starMode && mistakes === 0;
     const unlockedNext = stars >= 1;
     deps.nextLevelButton.hidden = !perfect && !unlockedNext;
     deps.nextLevelButton.textContent = "Next Level";
     deps.reportCardButton.hidden = false;
-    deps.reportCardButton.textContent = "Report Card";
+    deps.reportCardButton.textContent = reason === "offer" ? "Help Me" : "Report Card";
     deps.closeCelebrationButton.hidden = perfect;
-    deps.closeCelebrationButton.textContent = "Retry";
+    deps.closeCelebrationButton.textContent = reason === "offer" ? "Keep Going" : "Retry";
 
-    for (let i = 0; i < 96; i += 1) {
-      const seed = document.createElement("span");
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 110 + (Math.random() * 420);
-      const verticalLift = 40 + (Math.random() * 220);
+    if (reason !== "offer") {
+      for (let i = 0; i < 96; i += 1) {
+        const seed = document.createElement("span");
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 110 + (Math.random() * 420);
+        const verticalLift = 40 + (Math.random() * 220);
 
-      seed.className = "celebration-seed";
-      seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
-      seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
-      seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
-      seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
-      seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
-      deps.celebrationSeeds.append(seed);
+        seed.className = "celebration-seed";
+        seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
+        seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
+        seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
+        seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
+        seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
+        deps.celebrationSeeds.append(seed);
+      }
     }
 
     deps.celebration.hidden = false;
@@ -291,6 +364,12 @@ export function createHud(deps: HudDeps) {
       const elapsedSeconds = deps.getElapsedSeconds();
       const mistakes = deps.getMistakes();
       const score = totalScore(grassPercent, elapsedSeconds, mistakes);
+
+      if (mowed > lastMowedCount) {
+        lastMowedCount = mowed;
+        lastMowProgressSeconds = performance.now() / 1000;
+      }
+
       bestStars = Math.max(bestStars, earnedStars(score, starMode));
       starMeter.update(grassPercent, elapsedSeconds, mistakes, starMode);
       deps.finishRunButton.hidden = celebrationShown || percentage === 100 || bestStars < starMode;
@@ -308,7 +387,9 @@ export function createHud(deps: HudDeps) {
         showResult("complete");
       } else if (bestStars >= starMode && settings.autoFinishOnMaxStars) {
         showResult("maxed");
-      } else if (nextStarOutOfReach(bestStars, starMode, elapsedSeconds, mistakes)) {
+      } else if (shouldOfferPrompt(grassPercent, bestStars, elapsedSeconds, mistakes)) {
+        showResult("offer");
+      } else if (bestStars < 1 && nextStarOutOfReach(bestStars, starMode, elapsedSeconds, mistakes)) {
         showResult("out-of-reach");
       }
     },
@@ -317,6 +398,10 @@ export function createHud(deps: HudDeps) {
       window.clearTimeout(celebrationHideTimer);
       celebrationShown = false;
       bestStars = 0;
+      currentResultReason = null;
+      softPromptShown = false;
+      lastMowedCount = 0;
+      lastMowProgressSeconds = performance.now() / 1000;
       deps.celebration.hidden = true;
       deps.celebration.dataset.result = "";
       deps.celebrationSeeds.replaceChildren();
@@ -333,10 +418,43 @@ export function createHud(deps: HudDeps) {
     retryResult() {
       celebrationShown = false;
       bestStars = 0;
+      currentResultReason = null;
       deps.celebration.hidden = true;
       deps.finishRunButton.hidden = true;
       deps.setCompletionLoop(false);
       deps.onRequestReset();
+    },
+
+    closeResultAction() {
+      if (currentResultReason === "offer") {
+        hideResultCard();
+        return;
+      }
+
+      this.retryResult();
+    },
+
+    activatePrimaryAction() {
+      if (!deps.nextLevelButton.hidden) {
+        this.goToNextLevel();
+        return;
+      }
+
+      if (currentResultReason === "offer") {
+        requestHelpAndContinue();
+        return;
+      }
+
+      this.retryResult();
+    },
+
+    activateAssistAction() {
+      if (currentResultReason === "offer") {
+        requestHelpAndContinue();
+        return;
+      }
+
+      this.toggleReportCard();
     },
 
     toggleReportCard() {

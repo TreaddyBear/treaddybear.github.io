@@ -77,6 +77,8 @@ export function createGrass(deps: GrassDeps) {
   // Whether the glow has appeared yet this level (it kicks in faster after the
   // first time, since the player is clearly hunting).
   let highlightHasShown = false;
+  let helpRequested = false;
+  let helpPulseUntilSeconds = 0;
   let clippingBurstCooldown = 0;
   let grassCuttingAudioTimer = 0;
   // Seconds of "stuck near the end" before the survivors glow: longer the first
@@ -721,9 +723,17 @@ export function createGrass(deps: GrassDeps) {
       remainingHighlightActive = false;
       highlightStrength = 0;
       highlightHasShown = false;
+      helpRequested = false;
+      helpPulseUntilSeconds = 0;
       placeMediumGrass();
       placeWheatGrass();
       placeGrass();
+    },
+
+    requestHelp() {
+      helpRequested = true;
+      highlightHasShown = true;
+      helpPulseUntilSeconds = (performance.now() / 1000) + 7;
     },
 
     mowUnderMower(deltaSeconds: number) {
@@ -921,8 +931,16 @@ export function createGrass(deps: GrassDeps) {
     updateHighlight(timeSeconds: number, deltaSeconds: number) {
       const remaining = bladeCount - mowedCount;
       const threshold = Math.max(1, Math.ceil(bladeCount * 0.01));
+      const helpThreshold = Math.max(1, Math.ceil(bladeCount * 0.2));
       const delay = highlightHasShown ? highlightRepeatDelay : highlightFirstDelay;
-      const shouldHighlight = remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > delay;
+      const helpEligible = helpRequested && remaining > 0 && remaining <= helpThreshold;
+
+      if (helpEligible && timeSeconds > helpPulseUntilSeconds && (timeSeconds - lastMowSeconds) > highlightRepeatDelay) {
+        helpPulseUntilSeconds = timeSeconds + 6;
+      }
+
+      const helpHighlight = helpEligible && timeSeconds <= helpPulseUntilSeconds;
+      const shouldHighlight = helpHighlight || (remaining > 0 && remaining <= threshold && (timeSeconds - lastMowSeconds) > delay);
 
       if (shouldHighlight) {
         highlightHasShown = true;

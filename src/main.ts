@@ -770,6 +770,7 @@ const hud = createHud({
   isArmed: () => hasSecretGun,
   playFanfare: () => prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume),
   setCompletionLoop: (active) => prototypeAudio.setCompletionLoopActive(active, settings),
+  onRequestHelp: () => grass.requestHelp(),
   onRequestReset: resetGame,
 });
 
@@ -809,9 +810,9 @@ fullscreenButtonEl.addEventListener("keydown", (event) => {
   }
 });
 
-closeCelebrationButtonEl.addEventListener("click", () => hud.retryResult());
+closeCelebrationButtonEl.addEventListener("click", () => hud.closeResultAction());
 nextLevelButtonEl.addEventListener("click", () => hud.goToNextLevel());
-reportCardButtonEl.addEventListener("click", () => hud.toggleReportCard());
+reportCardButtonEl.addEventListener("click", () => hud.activateAssistAction());
 finishRunButtonEl.addEventListener("click", () => hud.finishRun());
 retryButtonEl.addEventListener("click", () => hud.retry());
 
@@ -901,10 +902,10 @@ window.addEventListener("keydown", (event) => {
   if (hud.isCelebrationVisible()) {
     if (key === "enter" || key === " ") {
       event.preventDefault();
-      hud.goToNextLevel();
+      hud.activatePrimaryAction();
     } else if (key === "escape") {
       event.preventDefault();
-      hud.retryResult();
+      hud.closeResultAction();
     }
 
     return;
@@ -973,9 +974,9 @@ engine.runRenderLoop(() => {
     const dismiss = Boolean(gamepad?.buttons[1]?.pressed);
 
     if (advance && !lastCelebrationAdvance) {
-      hud.goToNextLevel();
+      hud.activatePrimaryAction();
     } else if (dismiss && !lastCelebrationDismiss) {
-      hud.retryResult();
+      hud.closeResultAction();
     }
 
     lastCelebrationAdvance = advance;
