@@ -220,8 +220,12 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       const input = deps.settingsRoot.querySelector<HTMLInputElement>(`#${id}`);
       const valueEl = deps.settingsRoot.querySelector<HTMLSpanElement>(`[data-value-for="${id}"]`);
 
-      if (valueEl && input) {
-        valueEl.textContent = input.value;
+      if (input) {
+        input.value = String(settings[id]);
+
+        if (valueEl) {
+          valueEl.textContent = input.value;
+        }
       }
 
       input?.addEventListener("input", () => {
@@ -275,6 +279,10 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
     for (const id of colorControls) {
       const input = deps.settingsRoot.querySelector<HTMLInputElement>(`#${id}`);
+
+      if (input) {
+        input.value = settings[id];
+      }
 
       input?.addEventListener("input", () => {
         settings[id] = input.value;

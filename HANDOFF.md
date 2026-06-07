@@ -16,6 +16,7 @@ This document is the compact handoff for starting a fresh conversation without r
 - Dependency security policy currently requires `minimumReleaseAge: 57600` in `pnpm-workspace.yaml`.
 - Internal asset/source tracking lives in `INTERNAL_ATTRIBUTION.md`.
 - Deferred ideas and non-active follow-ups live in `BACKLOG.md`.
+- Local Wi-Fi phone testing: run `pnpm run dev:lan`, find the PC's LAN IPv4 address, then open `http://<LAN-IP>:5173/` on a phone connected to the same Wi-Fi. If Vite chooses a different port, use the port printed in the terminal. Windows Firewall may ask to allow Node/Vite on private networks.
 
 ## Current Working Tree
 
@@ -49,6 +50,8 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - TypeScript compile passed via bundled Node: `node node_modules/typescript/bin/tsc -p tsconfig.json`.
 - Vite production build passed via bundled Node: `node node_modules/vite/bin/vite.js build`. The first sandboxed Vite attempt may fail with `Cannot read directory "../.."`; rerun with approval because esbuild needs access to load the config/native helper.
 - A browser smoke test on `http://127.0.0.1:5175/` confirmed the canvas rendered, Flower Court could be selected, the raised flower bed/tulips loaded, and no browser console errors were reported.
+- During the current dev pass, TypeScript compile and Vite build were re-run after the mobile render-profile, Help Me, and isolated-blade cleanup changes and both passed.
+- A LAN dev server was tested from the host at `http://10.0.0.223:5175/` and returned `200 OK`; use the current LAN IP and printed Vite port on the actual phone.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
 - `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags.
 - `v0.1.2` added terrain hiding, fence debug controls, simple trees, and related world polish, then pushed `dev`, `master`, and the `v0.1.2` tag.
@@ -74,6 +77,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Settings include a map selector.
 - Production builds hide the settings panel.
 - Fullscreen button that does not conflict with spacebar boost.
+- Touch-primary or narrow screens get a mobile render profile: dynamic resolution stays off by default, the target is 30 FPS if the player enables it, SSAO is disabled, and the shadow-map cap is lower than desktop.
 - Keyboard movement with forward/reverse throttle, steering, and boost.
 - Stubbed controller/touch input behind an input mode selector.
 - Mouse position can steer the mower when the canvas is focused in `auto` or controller-oriented modes, but not in forced `keyboard` or `touch` mode.
@@ -84,7 +88,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Retry` buttons. Current completion audio files are placeholders unless replaced.
 - Completion-card decorative seeds should not intercept clicks, and the overlay should remain visible until the player chooses `Next Level` or `Close`.
 - The top HUD uses the compact star meter from `src/starMeter.ts` instead of the old "Mowed: %" text and green progress bar. The normal clock is hidden during play; `Mistakes` stays visible on every map and increments when protected tulips are destroyed.
-- The level ending now uses a star results card in the existing celebration overlay. It shows earned stars, a short verdict from `limitingFactor`, grass/time/mistake stats, and contextual actions. Perfect 100% runs show `Next Level` + `Report Card`; non-perfect runs show `Retry` + `Report Card`, with `Next Level` also shown once at least one star is earned. It triggers when the lawn reaches 100%, the hard time limit reaches zero, `nextStarOutOfReach` says the next star can no longer be earned, or the player clicks `Finish Run` after maxing stars.
+- The level ending now uses a star results card in the existing celebration overlay. It shows earned stars, a short verdict from `limitingFactor`, grass/time/mistake stats, and contextual actions. Perfect 100% runs show `Next Level` + `Report Card`; non-perfect runs show `Retry` + `Report Card`, with `Next Level` also shown once at least one star is earned. Hard endings happen on 100%, the hard time limit, no-star failure, or the player choosing `Finish Run` after maxing stars. For one-star-or-better near-end runs where the next star is out of reach and the player has stalled, the game shows a soft "Fine Work" prompt with `Keep Going`, `Help Me`, and `Next Level` instead of immediately ending the run. `Help Me` clears isolated single blades with no unmowed neighbor within 0.3m; if those singles were all that remained, the game finishes as `Good Enough`.
 
 ## Current Tuning Defaults
 
@@ -126,6 +130,10 @@ Important defaults in `src/config.ts`:
 - `completionFanfareVolume = 0.7`
 - `completionLoopVolume = 0.35`
 - `gunShotVolume = 0.35`
+- Normal-mode scoring: `completePercent = 99.5`, `nearCompletePercent = 95`, `partialPercent = 80`
+- Normal-mode timing: 3-star time is `1.2x par`, 2-star time is `1.55x par`, 1-star time is `2.25x par`
+- Normal-mode mistakes: `0` mistakes is the 3-star facet, `1` or fewer is the 2-star facet, `4` or fewer is the 1-star facet
+- Master mode has 5 stars, but stars 1-3 use the same quality bar as normal. Master adds 4-star at `1.1x par` clean/complete and 5-star at exact 100%, no mistakes, at or under par.
 - `grassBaseColor = "#0d2c02"`
 - `cutGrassRootColor = "#2d2e00"`
 - `cutGrassTopColorA = "#869325"`
@@ -167,8 +175,9 @@ Important defaults in `src/config.ts`:
 - Texture tiling for grassy ground, dirt albedo/normal, dirt normal strength, and road pattern are exposed in the dev settings `Textures` group.
 - Road and stripe texture files should not be modified by code. Runtime sampling uses filtered road textures to reduce harsh aliasing, and stripe atlas black is treated as opacity so it does not paint black rectangles over the road.
 - Procedural boulders have simple circular mower-body collision in the ground plane.
-- Trees farther out beyond the hilly area are on the future docket, but not implemented yet.
+- Simple procedural trees exist as placeholders; better tree art, placement, and variety are still future work.
 - Cloud shadows are currently approximated by slow directional-light intensity/specular modulation, not a real projected cloud texture.
+- Dynamic resolution is currently a debug/tuning tool, not the performance answer. It is off by default because the current likely bottleneck is the per-frame grass CPU loop and thin-instance matrix-buffer upload, so lowering resolution can destroy image quality without raising FPS. Revisit it after the grass LOD/mow-state-field work, make any adaptive scaler prove that degraded quality actually improves frame rate before it stays degraded, and choose targets that respect the observed display/browser refresh cadence.
 - Keep future art additions small and cache-friendly. Current placeholders are tiny PNGs; if replacing them, prefer small tiled textures and already-compressed files. Vite fingerprints imported assets for browser caching.
 - When an idea is deferred instead of implemented, add it to `BACKLOG.md` so it survives context resets.
 - Mower top speed is fixed by live settings `playerSpeed` and `playerBoost`; it should not grow over time. `playerSpeed` is the tunable unboosted top speed. Acceleration uses a torque-style curve: `mowerAcceleration` is strongest at low speed, then fades toward `mowerMinTorque` according to `mowerTorqueFade` as the mower approaches the fixed target speed.
@@ -183,8 +192,10 @@ Important defaults in `src/config.ts`:
 ```bash
 pnpm install --frozen-lockfile
 pnpm run dev
+pnpm run dev:lan
 pnpm run build
 pnpm run build:gh-pages
+pnpm run preview:lan
 ```
 
 For release:

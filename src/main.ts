@@ -117,6 +117,13 @@ const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
 const prototypeAudio = createPrototypeAudio();
 const perfEl = document.querySelector<HTMLDivElement>("#perf");
+const useMobileRenderProfile = matchMedia("(pointer: coarse)").matches || window.innerWidth < 620;
+
+if (useMobileRenderProfile) {
+  settings.dynamicResolution = false;
+  settings.targetFps = 30;
+  settings.ssaoEnabled = false;
+}
 
 if (!import.meta.env.PROD) {
   settingsEl.hidden = false;
@@ -618,7 +625,7 @@ sun.specular = new Color3(1, 0.91, 0.66);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
-const shadowMapSize = Math.min(8192, engine.getCaps().maxTextureSize);
+const shadowMapSize = Math.min(useMobileRenderProfile ? 2048 : 8192, engine.getCaps().maxTextureSize);
 const shadowGenerator = new ShadowGenerator(shadowMapSize, sun);
 shadowGenerator.usePercentageCloserFiltering = true;
 shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW;
@@ -770,6 +777,7 @@ const hud = createHud({
   isArmed: () => hasSecretGun,
   playFanfare: () => prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume),
   setCompletionLoop: (active) => prototypeAudio.setCompletionLoopActive(active, settings),
+  clearIsolatedGrass: () => grass.clearIsolatedBlades(),
   onRequestHelp: () => grass.requestHelp(),
   onRequestReset: resetGame,
 });

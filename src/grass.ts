@@ -693,6 +693,99 @@ export function createGrass(deps: GrassDeps) {
     }
   };
 
+  const flushCutMatrixUpdates = (cutDirty: boolean[]) => {
+    longGrass.thinInstanceBufferUpdated("matrix");
+    for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+      if (cutDirty[v]) {
+        cutGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+      }
+    }
+  };
+
+  const cutBladeAt = (index: number, cutDirty: boolean[]) => {
+    if (isMowed[index]) {
+      return false;
+    }
+
+    isMowed[index] = true;
+    mowedCount += 1;
+    writeMatrix(longGrassMatrices, index, emptyMatrix());
+    writeMatrix(cutVariantMatrices[cutVariant[index]], cutLocalIndex[index], matrixForBlade(index, true));
+    cutDirty[cutVariant[index]] = true;
+    return true;
+  };
+
+  const hasUnmowedNeighborWithin = (index: number, radius: number) => {
+    const x = grassX[index];
+    const z = grassZ[index];
+    const cellX = Math.floor(x / cellSize);
+    const cellZ = Math.floor(z / cellSize);
+    const radiusSquared = radius * radius;
+    const cellRange = Math.max(1, Math.ceil(radius / cellSize));
+
+    for (let offsetX = -cellRange; offsetX <= cellRange; offsetX += 1) {
+      for (let offsetZ = -cellRange; offsetZ <= cellRange; offsetZ += 1) {
+        const cell = grassGrid.get(gridKey(cellX + offsetX, cellZ + offsetZ));
+
+        if (!cell) {
+          continue;
+        }
+
+        for (const otherIndex of cell) {
+          if (otherIndex === index || isMowed[otherIndex]) {
+            continue;
+          }
+
+          const dx = grassX[otherIndex] - x;
+          const dz = grassZ[otherIndex] - z;
+
+          if ((dx * dx) + (dz * dz) <= radiusSquared) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  };
+
+  const clearIsolatedBlades = () => {
+    const isolatedRadius = 0.3;
+    const isolated: number[] = [];
+    let remainingBefore = 0;
+
+    for (let i = 0; i < bladeCount; i += 1) {
+      if (isMowed[i]) {
+        continue;
+      }
+
+      remainingBefore += 1;
+
+      if (!hasUnmowedNeighborWithin(i, isolatedRadius)) {
+        isolated.push(i);
+      }
+    }
+
+    if (isolated.length === 0) {
+      return { cleared: 0, remaining: remainingBefore, onlyIsolated: false };
+    }
+
+    const cutDirty = [false, false, false, false];
+
+    for (const index of isolated) {
+      cutBladeAt(index, cutDirty);
+    }
+
+    lastMowSeconds = performance.now() / 1000;
+    flushCutMatrixUpdates(cutDirty);
+
+    return {
+      cleared: isolated.length,
+      remaining: Math.max(0, remainingBefore - isolated.length),
+      onlyIsolated: isolated.length === remainingBefore,
+    };
+  };
+
   return {
     get mowedCount() {
       return mowedCount;
@@ -731,9 +824,15 @@ export function createGrass(deps: GrassDeps) {
     },
 
     requestHelp() {
+      const cleanup = clearIsolatedBlades();
       helpRequested = true;
       highlightHasShown = true;
       helpPulseUntilSeconds = (performance.now() / 1000) + 7;
+      return cleanup;
+    },
+
+    clearIsolatedBlades() {
+      return clearIsolatedBlades();
     },
 
     mowUnderMower(deltaSeconds: number) {

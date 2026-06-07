@@ -435,6 +435,69 @@ body {
   display: block;
 }
 
+@media (max-width: 620px) {
+  #hud {
+    top: 8px;
+    left: 8px;
+    width: min(270px, calc(100vw - 16px));
+    padding: 7px 10px;
+  }
+
+  #starMeter {
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+    gap: 6px;
+    min-height: 34px;
+  }
+
+  .sm-cluster {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sm-st {
+    font-size: 11px;
+  }
+
+  .sm-st.sm-big {
+    font-size: 25px;
+  }
+
+  #mistakes {
+    margin-top: 6px;
+  }
+
+  #hudInputLabel {
+    margin-top: 7px;
+  }
+
+  #fullscreenButton,
+  #finishRunButton {
+    min-height: 28px;
+    margin-top: 7px;
+  }
+
+  #settings:not([hidden]) {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    width: min(210px, calc(100vw - 176px));
+    min-width: 168px;
+    max-height: 48vh;
+  }
+
+  #touchPad {
+    left: 16px;
+    bottom: 16px;
+    width: 116px;
+    height: 116px;
+  }
+
+  #touchKnob {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 #perf {
   margin-top: 8px;
   color: #cfe9bf;

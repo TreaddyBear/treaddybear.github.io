@@ -95,6 +95,22 @@ export const scoring = {
   grassPerPercent: 100, // points per % of the lawn mowed (max 10000 at 100%)
   mistakeBase: 1000, // first mistake's penalty
   mistakeFalloff: 0.7, // each later mistake is this fraction of the previous
+  normal: {
+    partialPercent: 80, // enough grass to begin considering stars without full cleanup
+    nearCompletePercent: 95,
+    completePercent: 99.5, // strays/rounding forgiveness; still "the whole lawn" in normal mode
+    threeStarTimeMultiplier: 1.2, // normal 3-star time is looser than master/par
+    twoStarTimeMultiplier: 1.55,
+    oneStarTimeMultiplier: 2.25,
+    oneMistakeLimit: 4,
+    twoMistakeLimit: 1,
+  },
+  master: {
+    fourStarTimeMultiplier: 1.1,
+    fiveStarTimeMultiplier: 1,
+    completePercent: 99.5,
+    perfectPercent: 100,
+  },
   thresholds: {
     3: [4000, 7000, 10000],
     5: [4000, 6000, 8000, 9000, 10000],

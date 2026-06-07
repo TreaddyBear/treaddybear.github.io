@@ -6,6 +6,12 @@ import { scoring } from "./config";
 
 export type StarMode = 3 | 5;
 export type LimitingFactor = "grass" | "time" | "mistakes" | "none";
+type NormalFacetRanks = {
+  completion: number;
+  time: number;
+  mistakes: number;
+  cap: number;
+};
 
 const thresholdsFor = (mode: StarMode) => scoring.thresholds[mode];
 
@@ -37,6 +43,119 @@ export const meterFloor = () => Math.round(scoring.timePerSecond * scoring.parSe
 export const earnedStars = (score: number, mode: StarMode) =>
   thresholdsFor(mode).filter((threshold) => score >= threshold).length;
 
+const normalCompletionRank = (mowedPercent: number) => {
+  if (mowedPercent >= scoring.normal.completePercent) {
+    return 3;
+  }
+  if (mowedPercent >= scoring.normal.nearCompletePercent) {
+    return 2;
+  }
+  if (mowedPercent >= scoring.normal.partialPercent) {
+    return 1;
+  }
+  return 0;
+};
+
+const normalCompletionCap = (mowedPercent: number) => {
+  if (mowedPercent >= scoring.normal.completePercent) {
+    return 3;
+  }
+  if (mowedPercent >= scoring.normal.nearCompletePercent) {
+    return 2;
+  }
+  return mowedPercent >= scoring.normal.partialPercent ? 2 : 0;
+};
+
+const normalTimeRank = (elapsedSeconds: number) => {
+  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.threeStarTimeMultiplier) {
+    return 3;
+  }
+  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.twoStarTimeMultiplier) {
+    return 2;
+  }
+  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.oneStarTimeMultiplier) {
+    return 1;
+  }
+  return 0;
+};
+
+const normalMistakeRank = (mistakeCount: number) => {
+  if (mistakeCount <= 0) {
+    return 3;
+  }
+  if (mistakeCount <= scoring.normal.twoMistakeLimit) {
+    return 2;
+  }
+  if (mistakeCount <= scoring.normal.oneMistakeLimit) {
+    return 1;
+  }
+  return 0;
+};
+
+const normalFacetRanks = (
+  mowedPercent: number,
+  elapsedSeconds: number,
+  mistakeCount: number,
+): NormalFacetRanks => ({
+  completion: normalCompletionRank(mowedPercent),
+  time: normalTimeRank(elapsedSeconds),
+  mistakes: normalMistakeRank(mistakeCount),
+  cap: normalCompletionCap(mowedPercent),
+});
+
+const normalStarsForRun = (mowedPercent: number, elapsedSeconds: number, mistakeCount: number) => {
+  const ranks = normalFacetRanks(mowedPercent, elapsedSeconds, mistakeCount);
+
+  if (ranks.cap === 0) {
+    return 0;
+  }
+
+  const holisticStars = Math.floor((ranks.completion + ranks.time + ranks.mistakes) / 3);
+  const completionFloor = mowedPercent >= scoring.normal.completePercent ? 1 : 0;
+
+  return Math.max(completionFloor, Math.min(ranks.cap, holisticStars));
+};
+
+const masterStarsForRun = (mowedPercent: number, elapsedSeconds: number, mistakeCount: number) => {
+  const stars = normalStarsForRun(mowedPercent, elapsedSeconds, mistakeCount);
+  if (stars < 3) {
+    return stars;
+  }
+
+  const clean = mistakeCount <= 0;
+  if (!clean || mowedPercent < scoring.master.completePercent) {
+    return 3;
+  }
+
+  if (mowedPercent >= scoring.master.perfectPercent && elapsedSeconds <= scoring.parSeconds * scoring.master.fiveStarTimeMultiplier) {
+    return 5;
+  }
+
+  if (elapsedSeconds <= scoring.parSeconds * scoring.master.fourStarTimeMultiplier) {
+    return 4;
+  }
+
+  return 3;
+};
+
+export const earnedStarsForRun = (
+  mowedPercent: number,
+  elapsedSeconds: number,
+  mistakeCount: number,
+  mode: StarMode,
+  rules: "normal" | "master" = mode === 5 ? "master" : "normal",
+) => {
+  if (rules === "normal") {
+    return Math.min(mode, normalStarsForRun(mowedPercent, elapsedSeconds, mistakeCount));
+  }
+
+  if (mode === 5) {
+    return masterStarsForRun(mowedPercent, elapsedSeconds, mistakeCount);
+  }
+
+  return earnedStars(totalScore(mowedPercent, elapsedSeconds, mistakeCount), mode);
+};
+
 // Progress (0..1) within the current star's band — what the meter fill rides.
 export const bandProgress = (score: number, earned: number, mode: StarMode) => {
   const thresholds = thresholdsFor(mode);
@@ -57,6 +176,12 @@ export const nextStarOutOfReach = (earned: number, mode: StarMode, elapsedSecond
   if (earned >= mode) {
     return false;
   }
+  if (mode === 3) {
+    return earnedStarsForRun(100, elapsedSeconds, mistakeCount, mode) <= earned;
+  }
+  if (mode === 5) {
+    return earnedStarsForRun(100, elapsedSeconds, mistakeCount, mode, "master") <= earned;
+  }
   return reachableCeiling(elapsedSeconds, mistakeCount) < thresholdsFor(mode)[earned];
 };
 
@@ -67,9 +192,32 @@ export const limitingFactor = (
   mistakeCount: number,
   mode: StarMode,
 ): LimitingFactor => {
-  const earned = earnedStars(totalScore(mowedPercent, elapsedSeconds, mistakeCount), mode);
+  const earned = earnedStarsForRun(mowedPercent, elapsedSeconds, mistakeCount, mode);
   if (earned >= mode) {
     return "none";
+  }
+
+  if (mode === 3 || (mode === 5 && earned < 3)) {
+    const ranks = normalFacetRanks(mowedPercent, elapsedSeconds, mistakeCount);
+    const worstRank = Math.min(ranks.completion, ranks.time, ranks.mistakes);
+
+    if (ranks.completion === worstRank) {
+      return "grass";
+    }
+    if (ranks.mistakes === worstRank) {
+      return "mistakes";
+    }
+    return "time";
+  }
+
+  if (mode === 5) {
+    if (mistakeCount > 0) {
+      return "mistakes";
+    }
+    if (mowedPercent < scoring.master.perfectPercent) {
+      return "grass";
+    }
+    return "time";
   }
 
   const grassGap = grassPoints(100) - grassPoints(mowedPercent); // points left on the lawn

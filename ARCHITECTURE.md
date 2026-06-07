@@ -12,9 +12,17 @@ The prototype is still intentionally small, but the big one-file scene has been 
 
 ## Code Map
 
-- `src/main.ts` owns the Babylon scene lifecycle, input, game loop, mowing rules, grass blades, flowers, and wind actors.
-- `src/config.ts` centralizes gameplay constants, settings defaults, and the playable yard shape.
-- `src/world.ts` builds static world pieces: road, neighboring yards, fence planks, and the chase camera follow behavior.
+- `src/main.ts` owns the Babylon scene lifecycle and high-level orchestration: scene setup, input wiring, game loop, map reset, and cross-system rules.
+- `src/config.ts` centralizes gameplay constants, settings defaults, map data, and the playable yard shape.
+- `src/world.ts` builds static world pieces: road, terrain, neighboring yards, fence planks, biome ground, and fence dirt overlays.
+- `src/grass.ts` owns grass generation, thin instances, mowing state, pressure/wind response, highlighting, and isolated-blade cleanup.
+- `src/dandelions.ts` and `src/tulips.ts` own flower gameplay and visual lifecycle.
+- `src/wind.ts` owns large breeze wisps and tiny wind motes.
+- `src/fence.ts` owns plank collision, damage, health labels, and broken-plank openings.
+- `src/mowerControl.ts` contains mower movement/collision helpers.
+- `src/cameraRig.ts` owns chase-camera input, auto-return, and optional adaptive resolution.
+- `src/hud.ts`, `src/starMeter.ts`, and `src/scoring.ts` own player-facing progress, end prompts/results, and pure scoring logic.
+- `src/materials.ts` centralizes shared Babylon materials.
 - `src/textures.ts` creates procedural dynamic textures for the ground and road.
 - `src/audio.ts` owns the simple looping prototype audio layer and gracefully ignores missing, empty, or malformed audio assets.
 - `src/input.ts` owns non-keyboard input stubs: browser gamepad polling and a coarse-pointer virtual touchpad.
@@ -35,7 +43,7 @@ The mowing blade cuts a smaller circular area near the center of the mower, whil
 
 Progress is now shown through the compact star meter in the HUD, backed by the pure scoring helpers in `src/scoring.ts`. The old "Mowed: %" text and green percent bar are gone; the normal clock is hidden during calm play, and Mistakes stays visible on every map because it feeds the scoring story. Settings are available in development for tuning and hidden in production builds. The settings element is hidden in HTML by default and only unhidden in dev so production builds do not briefly flash the tuning panel.
 
-The end-of-level flow uses the same scoring helpers. The existing celebration overlay now doubles as the star results card: it shows earned stars, a short limiting-factor verdict, grass/time/mistake stats, and contextual actions. Mistake verdicts distinguish flower mistakes from fence mistakes, so fence crashes do not produce "Mind the flowers" unless flowers were actually damaged. Perfect 100% runs can advance immediately; non-perfect runs emphasize retry/report-card coaching, with next-level access once at least one star is earned. A run ends when the lawn is 100% complete, the hard time limit reaches zero, `nextStarOutOfReach` says the next star cannot be reached anymore, or the player clicks Finish Run after earning all stars early.
+The end-of-level flow uses the same scoring helpers. The existing celebration overlay now doubles as the star results card: it shows earned stars, a short limiting-factor verdict, grass/time/mistake stats, and contextual actions. Mistake verdicts distinguish flower mistakes from fence mistakes, so fence crashes do not produce "Mind the flowers" unless flowers were actually damaged. Perfect 100% runs can advance immediately; non-perfect runs emphasize retry/report-card coaching, with next-level access once at least one star is earned. Hard endings happen when the lawn is 100% complete, the hard time limit reaches zero, the player cannot earn even one star, or the player clicks Finish Run after earning all stars early. For one-star-or-better near-end runs where `nextStarOutOfReach` says the next star cannot be reached and the mower has stalled, the HUD shows a soft "Fine Work" prompt instead of ending immediately. "Help Me" clears isolated single blades, and if only those singles were left the game ends as "Good Enough."
 
 Protected flowers are a new map objective type. Tulips can be destroyed by the mower, but doing so increments the mistakes meter. That is intentionally allowed physically but bad for scoring. Flower beds are raised dirt terrain patches with a subtle sloped edge and a flat center; tulips sit on that raised surface and the mower height/tilt follows it. Grass may creep close at a few edges, but most grass should keep a visible buffer from the flowers.
 
@@ -47,9 +55,11 @@ The outer terrain currently uses a generated biome mask plus a small shader mate
 
 Road and stripe textures use filtered sampling at runtime to reduce harsh high-frequency aliasing without touching the source texture files. Stripe rendering uses the stripe atlas as both diffuse and opacity, with opacity taken from RGB luminance so black atlas background acts transparent instead of painting over the road.
 
-The outer ground is a generated terrain mesh rather than a flat ground plane. `terrainHeightAt()` keeps the area near the yard mostly flat for about 10 meters, increases much taller rolling noise farther out, damps height near the road corridor, and includes a deliberate concealment mound between the main yard and the hidden gun. Outside the authored flat lawn and road surfaces, mower height and medium/wheat grass placement reference the same terrain surface. The mower rides slopes below the steepness cutoff, treats too-steep hills like collision, and visually eases its pitch/roll toward the sampled ground normal instead of staying perfectly flat. Future idea: add trees farther beyond the hilly area.
+The outer ground is a generated terrain mesh rather than a flat ground plane. `terrainHeightAt()` keeps the area near the yard mostly flat for about 10 meters, increases much taller rolling noise farther out, damps height near the road corridor, and includes a deliberate concealment mound between the main yard and the hidden gun. Outside the authored flat lawn and road surfaces, mower height and medium/wheat grass placement reference the same terrain surface. The mower rides slopes below the steepness cutoff, treats too-steep hills like collision, and visually eases its pitch/roll toward the sampled ground normal instead of staying perfectly flat. Simple procedural trees exist now as placeholders; future work should replace or enrich them rather than treating trees as totally unimplemented.
 
 The main lawn grass tracks two influences per blade: wind sway and mower pressure. Mower pressure is painted onto blades as the mower body passes over them, and wind is reduced on blades that have been pressed down so wheel/body tracks can read separately from the ambient breeze.
+
+Performance note: the current full-detail grass path is still a likely 30 FPS bottleneck. The main grass update iterates tens of thousands of blades every frame and updates thin-instance matrix buffers, so adaptive render resolution can lower image quality without improving FPS when the frame is CPU or buffer-upload bound. Treat dynamic resolution as a temporary debug setting until grass LOD and the shared mow-state field exist.
 
 The grass is rendered with thin instances and should stay dense. The main lawn uses long, noisy, clumpy grass that becomes short when cut instead of disappearing. Neighbor yards should visually meet the main lawn with no visible ground gap, use mid-length grass, and must thin out with distance. Far out-of-bounds areas should read more like patchy wheat/wilderness grass than manicured lawn, with irregular taller edge patches so the transition is not a hard box. The expanded outer world currently has five simple procedural trees and several simple boulders as placeholders for future art direction. Boulders have simple circular ground-plane collision against the mower body.
 

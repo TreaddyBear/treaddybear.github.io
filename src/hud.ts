@@ -1,10 +1,11 @@
 import { bladeCount, settings } from "./config";
 import { createStarMeter } from "./starMeter";
-import { earnedStars, limitingFactor, nextStarOutOfReach, totalScore } from "./scoring";
+import { earnedStarsForRun, limitingFactor, nextStarOutOfReach } from "./scoring";
 import type { LimitingFactor, StarMode } from "./scoring";
 
 export type Hud = ReturnType<typeof createHud>;
-type ResultReason = "complete" | "out-of-reach" | "time-up" | "maxed" | "offer";
+type ResultReason = "complete" | "out-of-reach" | "time-up" | "maxed" | "offer" | "good-enough";
+type GrassHelpResult = { cleared: number; remaining: number; onlyIsolated: boolean };
 
 export type HudDeps = {
   score: HTMLDivElement;
@@ -32,7 +33,8 @@ export type HudDeps = {
   isArmed: () => boolean;
   playFanfare: () => void;
   setCompletionLoop: (active: boolean) => void;
-  onRequestHelp: () => void;
+  clearIsolatedGrass: () => GrassHelpResult;
+  onRequestHelp: () => GrassHelpResult;
   onRequestReset: () => void;
 };
 
@@ -171,6 +173,10 @@ export function createHud(deps: HudDeps) {
       return "Fine Work";
     }
 
+    if (reason === "good-enough") {
+      return "Good Enough";
+    }
+
     if (reason === "maxed") {
       return "Three Stars";
     }
@@ -225,8 +231,12 @@ export function createHud(deps: HudDeps) {
   };
 
   const requestHelpAndContinue = () => {
-    deps.onRequestHelp();
+    const help = deps.onRequestHelp();
     hideResultCard();
+
+    if (help.cleared > 0 && help.remaining === 0) {
+      showResult("good-enough");
+    }
   };
 
   const shouldOfferPrompt = (
@@ -259,7 +269,7 @@ export function createHud(deps: HudDeps) {
 
     celebrationShown = true;
     currentResultReason = reason;
-    softPromptShown ||= reason === "offer";
+    softPromptShown ||= reason === "offer" || reason === "good-enough";
     window.clearTimeout(celebrationHideTimer);
     deps.celebrationSeeds.replaceChildren();
     deps.setCompletionLoop(false);
@@ -269,8 +279,7 @@ export function createHud(deps: HudDeps) {
     const mistakes = deps.getMistakes();
     const flowerMistakes = deps.getFlowerMistakes();
     const fenceMistakes = deps.getFenceMistakes();
-    const score = totalScore(grassPercent, elapsedSeconds, mistakes);
-    const stars = Math.max(bestStars, earnedStars(score, starMode));
+    const stars = Math.max(bestStars, earnedStarsForRun(grassPercent, elapsedSeconds, mistakes, starMode));
     const factor = limitingFactor(grassPercent, elapsedSeconds, mistakes, starMode);
 
     bestStars = stars;
@@ -278,13 +287,15 @@ export function createHud(deps: HudDeps) {
     deps.celebration.querySelector("#celebrationTitle")!.textContent = resultTitleFor(reason, factor, stars, grassPercent, mistakes);
     deps.celebration.querySelector("#celebrationSubtitle")!.textContent = reason === "offer"
       ? offerSubtitleFor(stars)
-      : verdictFor(
-        factor,
-        stars,
-        grassPercent,
-        flowerMistakes,
-        fenceMistakes,
-      );
+      : reason === "good-enough"
+        ? "The rest was just stray single blades. That lawn is done enough."
+        : verdictFor(
+          factor,
+          stars,
+          grassPercent,
+          flowerMistakes,
+          fenceMistakes,
+        );
     renderResultDetails(stars, grassPercent, elapsedSeconds, mistakes);
     deps.resultCoach.textContent = coachFor(factor, stars, grassPercent, mistakes, flowerMistakes, fenceMistakes);
     deps.resultCoach.hidden = true;
@@ -363,14 +374,12 @@ export function createHud(deps: HudDeps) {
       const percentage = mowed === bladeCount ? 100 : Math.floor(grassPercent);
       const elapsedSeconds = deps.getElapsedSeconds();
       const mistakes = deps.getMistakes();
-      const score = totalScore(grassPercent, elapsedSeconds, mistakes);
-
       if (mowed > lastMowedCount) {
         lastMowedCount = mowed;
         lastMowProgressSeconds = performance.now() / 1000;
       }
 
-      bestStars = Math.max(bestStars, earnedStars(score, starMode));
+      bestStars = Math.max(bestStars, earnedStarsForRun(grassPercent, elapsedSeconds, mistakes, starMode));
       starMeter.update(grassPercent, elapsedSeconds, mistakes, starMode);
       deps.finishRunButton.hidden = celebrationShown || percentage === 100 || bestStars < starMode;
       deps.score.hidden = !deps.isArmed();
@@ -388,7 +397,17 @@ export function createHud(deps: HudDeps) {
       } else if (bestStars >= starMode && settings.autoFinishOnMaxStars) {
         showResult("maxed");
       } else if (shouldOfferPrompt(grassPercent, bestStars, elapsedSeconds, mistakes)) {
-        showResult("offer");
+        const cleanup = deps.clearIsolatedGrass();
+        if (cleanup.cleared > 0) {
+          lastMowedCount = deps.getMowed();
+          lastMowProgressSeconds = performance.now() / 1000;
+        }
+
+        if (cleanup.cleared > 0 && cleanup.remaining === 0) {
+          showResult("good-enough");
+        } else {
+          showResult("offer");
+        }
       } else if (bestStars < 1 && nextStarOutOfReach(bestStars, starMode, elapsedSeconds, mistakes)) {
         showResult("out-of-reach");
       }

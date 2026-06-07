@@ -1,4 +1,4 @@
-import { bandProgress, earnedStars, totalScore } from "./scoring";
+import { bandProgress, earnedStarsForRun, totalScore } from "./scoring";
 import type { StarMode } from "./scoring";
 
 // The HUD star meter. Owns its DOM (#starMeter and children) and ports the
@@ -158,7 +158,7 @@ export function createStarMeter() {
         lastRight = -1;
       }
       const score = totalScore(grassPercent, elapsedSeconds, mistakeCount);
-      const target = earnedStars(score, mode); // stars are permanent, so only ever climb
+      const target = earnedStarsForRun(grassPercent, elapsedSeconds, mistakeCount, mode); // stars are permanent, so only ever climb
       let banked = false;
       while (earned < target) {
         sparkle((earned + 1) / mode);

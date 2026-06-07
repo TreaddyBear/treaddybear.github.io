@@ -202,11 +202,14 @@ export function createCameraRig(deps: CameraRigDeps) {
       const fps = engine.getFps();
 
       if (settings.dynamicResolution) {
-        if (fps < settings.targetFps - 4 && currentHardwareScale < 2.5) {
-          currentHardwareScale = Math.min(2.5, currentHardwareScale + 0.15);
+        const mobileLike = getInputMode() === "touch" || window.innerWidth < 620;
+        const maxHardwareScale = mobileLike ? 1.45 : 2;
+
+        if (fps < settings.targetFps - 5 && currentHardwareScale < maxHardwareScale) {
+          currentHardwareScale = Math.min(maxHardwareScale, currentHardwareScale + 0.08);
           engine.setHardwareScalingLevel(currentHardwareScale);
-        } else if (fps > settings.targetFps + 6 && currentHardwareScale > 1) {
-          currentHardwareScale = Math.max(1, currentHardwareScale - 0.1);
+        } else if (fps >= settings.targetFps - 1 && currentHardwareScale > 1) {
+          currentHardwareScale = Math.max(1, currentHardwareScale - 0.06);
           engine.setHardwareScalingLevel(currentHardwareScale);
         }
       } else if (currentHardwareScale !== 1) {
