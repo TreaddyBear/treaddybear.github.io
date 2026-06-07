@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
+import { Color3, DynamicTexture, Material, Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import { getActiveMap, yardSegments } from "./config";
 import type { Materials } from "./materials";
@@ -22,6 +22,51 @@ export function createDandelions(
   const dandelions: Dandelion[] = [];
   const floatingSeeds: FloatingSeed[] = [];
   const fallingPetals: FallingPetal[] = [];
+
+  // One soft seed-tuft sprite (fine light filaments + a dark seed dot in the
+  // middle), drawn once and shared by every billboarded fuzz plane, so the puff
+  // reads as dense airy fluff instead of a cluster of hard little balls.
+  const fluffTexture = new DynamicTexture("dandelionFluff", { width: 64, height: 64 }, scene, false);
+  fluffTexture.hasAlpha = true;
+  const fluffCtx = fluffTexture.getContext() as CanvasRenderingContext2D;
+  fluffCtx.clearRect(0, 0, 64, 64);
+  for (let i = 0; i < 46; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 16 + (Math.random() * 14);
+    fluffCtx.strokeStyle = `rgba(255,255,250,${0.18 + (Math.random() * 0.3)})`;
+    fluffCtx.lineWidth = 1;
+    fluffCtx.beginPath();
+    fluffCtx.moveTo(32, 32);
+    fluffCtx.lineTo(32 + (Math.cos(a) * r), 32 + (Math.sin(a) * r));
+    fluffCtx.stroke();
+  }
+  const fluffGlow = fluffCtx.createRadialGradient(32, 32, 1, 32, 32, 17);
+  fluffGlow.addColorStop(0, "rgba(255,255,250,0.85)");
+  fluffGlow.addColorStop(0.5, "rgba(255,255,250,0.3)");
+  fluffGlow.addColorStop(1, "rgba(255,255,250,0)");
+  fluffCtx.fillStyle = fluffGlow;
+  fluffCtx.beginPath();
+  fluffCtx.arc(32, 32, 17, 0, Math.PI * 2);
+  fluffCtx.fill();
+  fluffCtx.fillStyle = "rgba(58,36,15,0.95)"; // the dark seed dot
+  fluffCtx.beginPath();
+  fluffCtx.arc(32, 32, 2.3, 0, Math.PI * 2);
+  fluffCtx.fill();
+  fluffTexture.update();
+
+  const fluffMaterial = new StandardMaterial("dandelionFluffMaterial", scene);
+  fluffMaterial.diffuseTexture = fluffTexture;
+  fluffMaterial.diffuseColor = new Color3(1, 1, 1);
+  fluffMaterial.emissiveColor = new Color3(0.46, 0.46, 0.42); // lift so it reads light/airy
+  fluffMaterial.specularColor = Color3.Black();
+  fluffMaterial.useAlphaFromDiffuseTexture = true;
+  fluffMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  fluffMaterial.backFaceCulling = false;
+
+  // Tiny dark-brown seed knob at the centre of the puff.
+  const seedCoreMaterial = new StandardMaterial("dandelionSeedCoreMaterial", scene);
+  seedCoreMaterial.diffuseColor = new Color3(0.2, 0.12, 0.05);
+  seedCoreMaterial.specularColor = Color3.Black();
 
   const clear = () => {
     while (dandelions.length > 0) {
@@ -103,27 +148,26 @@ export function createDandelions(
         pieces.push(petal);
       }
     } else {
-      const core = MeshBuilder.CreateSphere("seed-core", { diameter: 0.06, segments: 5 }, scene);
+      const core = MeshBuilder.CreateIcoSphere("seed-core", { radius: 0.026, subdivisions: 1, flat: true }, scene);
       core.parent = head;
-      core.material = materials.dandelionStemMaterial;
+      core.material = seedCoreMaterial;
       pieces.push(core);
 
-      const fuzzCount = 120 + Math.floor(Math.random() * 58);
+      const fuzzCount = 150 + Math.floor(Math.random() * 60);
 
       for (let i = 0; i < fuzzCount; i += 1) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = 0.14 + (Math.random() * 0.07);
-        const fuzz = MeshBuilder.CreateSphere(`seed-fuzz-${i}`, { diameter: 0.018 + (Math.random() * 0.014), segments: 4 }, scene);
+        const radius = 0.12 + (Math.random() * 0.08);
+        const fuzz = MeshBuilder.CreatePlane(`seed-fuzz-${i}`, { size: 0.07 + (Math.random() * 0.05) }, scene);
         fuzz.parent = head;
         fuzz.position = new Vector3(
           Math.sin(phi) * Math.cos(theta) * radius,
           Math.cos(phi) * radius,
           Math.sin(phi) * Math.sin(theta) * radius,
         );
-        fuzz.scaling = new Vector3(1, 0.55, 1);
         fuzz.billboardMode = Mesh.BILLBOARDMODE_ALL;
-        fuzz.material = materials.dandelionSeedMaterial;
+        fuzz.material = fluffMaterial;
         pieces.push(fuzz);
       }
     }
