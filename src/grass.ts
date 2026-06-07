@@ -366,26 +366,20 @@ export function createGrass(deps: GrassDeps) {
     mesh.receiveShadows = true;
   }
 
-  // Dev toggle for the far-LOD grass mesh. `solo(true)` hides the real blades and
-  // shows ONLY the LOD mesh, so it is unambiguous whether the mesh renders.
+  // The far-LOD grass mesh is now toggled/tuned from the "Grass LOD" settings
+  // group (lodShow + the sliders). A small dev console hook stays for quick
+  // poking: grassField.solo(true) hides the real blades to view the LOD alone.
   if (!import.meta.env.PROD) {
     const bladeMeshes = [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes];
-    const solo = (on = true) => {
-      grassField.show(on);
-      for (const mesh of bladeMeshes) {
-        mesh.setEnabled(!on);
-      }
-    };
     (window as unknown as { grassField: unknown }).grassField = {
       show: (on = true) => grassField.show(on),
-      solo,
+      solo: (on = true) => {
+        grassField.show(on);
+        for (const mesh of bladeMeshes) {
+          mesh.setEnabled(!on);
+        }
+      },
     };
-    // TEMP DIAGNOSTIC: show ONLY the far-LOD mesh on load so it is obvious
-    // whether it renders at all. Real blades come back with grassField.solo(false)
-    // in the console. (This auto-solo gets removed once we confirm the look.)
-    // eslint-disable-next-line no-console
-    console.log("[grassField] DIAGNOSTIC: showing ONLY the LOD mesh. Run grassField.solo(false) to restore the real blades.");
-    solo(true);
   }
 
   const refreshCutBladeVertexColors = () => {
@@ -832,6 +826,10 @@ export function createGrass(deps: GrassDeps) {
     },
 
     refreshColors,
+
+    refreshLod() {
+      grassField.applySettings();
+    },
 
     refreshMaterial() {
       materials.bladeMaterial.roughness = settings.grassRoughness;

@@ -121,6 +121,19 @@
         <label>Ground color <input id="groundColor" type="color" value="#295c00" /></label>
       </details>
       <details class="settings-group">
+        <summary>Grass LOD</summary>
+        <label>Show LOD mesh <input id="lodShow" type="checkbox" /></label>
+        <label>LOD opacity <span data-value-for="lodOpacity"></span><input id="lodOpacity" type="range" min="0" max="1" step="0.02" value="1" /></label>
+        <label>Top color (tips) <input id="lodTopColor" type="color" value="#74c247" /></label>
+        <label>Bottom color (valleys) <input id="lodBottomColor" type="color" value="#16380a" /></label>
+        <label>Height total <span data-value-for="lodHeightTotal"></span><input id="lodHeightTotal" type="range" min="0" max="1.2" step="0.01" value="0.42" /></label>
+        <label>Height offset <span data-value-for="lodHeightOffset"></span><input id="lodHeightOffset" type="range" min="-0.2" max="0.3" step="0.01" value="-0.02" /></label>
+        <label>Lumpiness scale <span data-value-for="lodNoiseScale"></span><input id="lodNoiseScale" type="range" min="0.3" max="6" step="0.05" value="1.7" /></label>
+        <label>Normal strength <span data-value-for="lodNormalStrength"></span><input id="lodNormalStrength" type="range" min="0" max="2" step="0.02" value="0.5" /></label>
+        <label>Normal scale <span data-value-for="lodNormalScale"></span><input id="lodNormalScale" type="range" min="2" max="80" step="1" value="22" /></label>
+        <label>Specular <span data-value-for="lodSpecular"></span><input id="lodSpecular" type="range" min="0" max="1" step="0.02" value="0.25" /></label>
+      </details>
+      <details class="settings-group">
         <summary>Textures</summary>
         <label>Grass texture scale <span data-value-for="grassyTextureScale"></span><input id="grassyTextureScale" type="range" min="1" max="360" step="1" value="160" /></label>
         <label>Dirt texture width <span data-value-for="dirtTextureUScale"></span><input id="dirtTextureUScale" type="range" min="1" max="520" step="1" value="240" /></label>

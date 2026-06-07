@@ -13,6 +13,7 @@ export type SettingsUiDeps = {
   refreshTextureScales: () => void;
   refreshGroundColor: () => void;
   refreshLighting: () => void;
+  refreshLod: () => void;
   updateCameraProjection: () => void;
   syncFenceHealth: () => void;
 };
@@ -189,6 +190,13 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "portraitDistance",
       "portraitHeight",
       "portraitLookAhead",
+      "lodOpacity",
+      "lodHeightTotal",
+      "lodHeightOffset",
+      "lodNoiseScale",
+      "lodNormalStrength",
+      "lodNormalScale",
+      "lodSpecular",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -197,6 +205,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "cutGrassTopColorB",
       "groundColor",
       "skyAmbientColor",
+      "lodTopColor",
+      "lodBottomColor",
     ] as const;
     const checkboxControls = [
       "showFenceHealth",
@@ -204,6 +214,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "dynamicResolution",
       "autoFinishOnMaxStars",
       "ssaoEnabled",
+      "lodShow",
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
     const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");
@@ -271,6 +282,16 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "ssaoSamples",
         ].includes(id)) {
           deps.refreshLighting();
+        } else if ([
+          "lodOpacity",
+          "lodHeightTotal",
+          "lodHeightOffset",
+          "lodNoiseScale",
+          "lodNormalStrength",
+          "lodNormalScale",
+          "lodSpecular",
+        ].includes(id)) {
+          deps.refreshLod();
         } else if (id === "portraitFov") {
           deps.updateCameraProjection();
         }
@@ -291,6 +312,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           deps.refreshGroundColor();
         } else if (id === "skyAmbientColor") {
           deps.refreshLighting();
+        } else if (id === "lodTopColor" || id === "lodBottomColor") {
+          deps.refreshLod();
         } else {
           deps.refreshGrassColors();
         }
@@ -311,6 +334,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           deps.syncFenceHealth();
         } else if (id === "ssaoEnabled") {
           deps.refreshLighting();
+        } else if (id === "lodShow") {
+          deps.refreshLod();
         }
       });
     }

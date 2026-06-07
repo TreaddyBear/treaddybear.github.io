@@ -52,6 +52,17 @@ export const settings = {
   cutGrassRoughness: 0.36,
   cutGrassMetallic: 0,
   cutGrassClearCoat: 0.003,
+  // Grass LOD (far-field mesh) — tunable live from the "Grass LOD" settings group.
+  lodShow: false, // off by default; check to preview the LOD mesh
+  lodOpacity: 1, // 0 = fully see the real blades, 1 = fully the LOD mesh
+  lodTopColor: "#74c247", // light, for the raised tips
+  lodBottomColor: "#16380a", // dark, for the valleys (reads as self-shadow)
+  lodHeightTotal: 0.42, // displacement amplitude
+  lodHeightOffset: -0.02, // base offset; negative dips valleys into the terrain
+  lodNoiseScale: 1.7, // lumpiness frequency
+  lodNormalStrength: 0.5, // fine normal deviation (sparkle/texture)
+  lodNormalScale: 22, // frequency of that normal deviation
+  lodSpecular: 0.25, // reflection/highlight strength
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

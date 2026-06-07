@@ -792,6 +792,7 @@ const settingsUi = createSettingsUi({
   refreshTextureScales,
   refreshGroundColor,
   refreshLighting,
+  refreshLod: () => grass.refreshLod(),
   updateCameraProjection: cameraRig.updateProjection,
   syncFenceHealth: () => fence.syncHealthLabels(),
 });
