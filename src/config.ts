@@ -57,11 +57,12 @@ export const settings = {
   lodOpacity: 1, // 0 = fully see the real blades, 1 = fully the LOD mesh
   lodTopColor: "#74c247", // light, for the raised tips
   lodBottomColor: "#16380a", // dark, for the valleys (reads as self-shadow)
-  lodHeightTotal: 0.42, // displacement amplitude
+  lodHeightTotal: 0.3, // base grass height
+  lodBumpAmplitude: 0.06, // +/- surface deviation around the base (tune separately now)
   lodHeightOffset: -0.02, // base offset; negative dips valleys into the terrain
   lodNoiseScale: 1.7, // big-lump (geometry) frequency
   lodNormalStrength: 0.85, // how hard the baked grass normal map tilts the surface
-  lodNormalScale: 4, // baked-detail tiling (texture repeats per world unit)
+  lodNormalScale: 0.3, // baked-detail tiling (texture repeats per world unit)
   lodSpecular: 0.04, // highlight strength
   lodRoughness: 0.22, // highlight breadth — match the blade material to match shine
   lodSheen: 0.35, // grazing-angle velvety glow (sells distant grass)

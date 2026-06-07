@@ -54,7 +54,8 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
       uniform mat4 worldViewProjection;
       uniform sampler2D mowField;
       uniform vec4 bounds;        // minX, minZ, width, depth
-      uniform float heightTotal;
+      uniform float heightTotal;     // base grass height
+      uniform float bumpAmplitude;   // +/- surface deviation around the base
       uniform float heightOffset;
       uniform float noiseScale;
       varying float vT;
@@ -79,7 +80,8 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
       float heightAt(vec2 xz){
         float bump = fbm(xz * noiseScale);
         float uncut = 1.0 - (mowedAt(xz) * 0.85);
-        return heightOffset + (heightTotal * bump * uncut);
+        float surf = heightTotal + (bumpAmplitude * (bump - 0.5) * 2.0);
+        return heightOffset + (uncut * max(0.0, surf));
       }
 
       void main(void){
@@ -89,7 +91,7 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
         float hx = heightAt(xz + vec2(e, 0.0));
         float hz = heightAt(xz + vec2(0.0, e));
         vGeoNormal = normalize(vec3(-(hx - h) / e, 1.0, -(hz - h) / e));
-        vT = clamp((h - heightOffset) / max(0.001, heightTotal), 0.0, 1.0);
+        vT = clamp((fbm(xz * noiseScale) - 0.25) / 0.5, 0.0, 1.0);
         vec3 wp = vec3(position.x, position.y + h, position.z);
         vWorldPos = wp;
         gl_Position = worldViewProjection * vec4(wp, 1.0);
@@ -149,9 +151,9 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
   const material = new ShaderMaterial("grassFieldMat", scene, "grassField", {
     attributes: ["position"],
     uniforms: [
-      "worldViewProjection", "cameraPosition", "bounds", "heightTotal", "heightOffset",
-      "noiseScale", "topColor", "bottomColor", "lightDir", "tileScale", "normalStrength",
-      "roughness", "specIntensity", "sheen", "opacity",
+      "worldViewProjection", "cameraPosition", "bounds", "heightTotal", "bumpAmplitude",
+      "heightOffset", "noiseScale", "topColor", "bottomColor", "lightDir", "tileScale",
+      "normalStrength", "roughness", "specIntensity", "sheen", "opacity",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
   });
@@ -167,6 +169,7 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
 
   const applySettings = () => {
     material.setFloat("heightTotal", settings.lodHeightTotal);
+    material.setFloat("bumpAmplitude", settings.lodBumpAmplitude);
     material.setFloat("heightOffset", settings.lodHeightOffset);
     material.setFloat("noiseScale", settings.lodNoiseScale);
     material.setFloat("tileScale", settings.lodNormalScale); // repurposed: baked-detail tiling

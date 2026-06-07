@@ -191,6 +191,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "portraitLookAhead",
       "lodOpacity",
       "lodHeightTotal",
+      "lodBumpAmplitude",
       "lodHeightOffset",
       "lodNoiseScale",
       "lodNormalStrength",
@@ -286,6 +287,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
         } else if ([
           "lodOpacity",
           "lodHeightTotal",
+          "lodBumpAmplitude",
           "lodHeightOffset",
           "lodNoiseScale",
           "lodNormalStrength",
