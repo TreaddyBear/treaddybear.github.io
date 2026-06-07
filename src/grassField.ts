@@ -67,7 +67,9 @@ export function createGrassField(scene: Scene, mowTexture: DynamicTexture) {
         return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
       }
       float mowedAt(vec2 xz){
-        vec2 uv = vec2((xz.x - bounds.x) / bounds.z, (xz.y - bounds.y) / bounds.w);
+        // V is flipped vs the canvas paint (mowField.toPixelY uses maxZ - z),
+        // so raw texture2D here must flip too or the field samples Z-mirrored.
+        vec2 uv = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
         return texture2D(mowField, uv).r;
       }
       float heightAt(vec2 xz){
