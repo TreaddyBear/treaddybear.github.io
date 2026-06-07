@@ -376,6 +376,23 @@ body {
   color: #e7f7d6;
 }
 
+.settings-category > summary {
+  color: #d4eeb4;
+  font-weight: 800;
+}
+
+.settings-subgroup {
+  margin-left: 9px;
+  padding: 4px 0 3px;
+  border-top: 1px solid rgb(255 255 255 / 7%);
+}
+
+.settings-subgroup > summary {
+  color: #b9d69b;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
 #settings label {
   display: grid;
   grid-template-columns: 1fr auto;

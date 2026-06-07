@@ -51,114 +51,119 @@
     <div id="touchPad" aria-hidden="true"><div id="touchKnob"></div></div>
     <details id="settings" hidden>
       <summary>Settings</summary>
-      <details class="settings-group" open>
-        <summary>Input</summary>
-        <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
-        <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
+      <details class="settings-group settings-category">
+        <summary>Gameplay</summary>
+        <details class="settings-subgroup">
+          <summary>Input</summary>
+          <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
+          <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Movement</summary>
+          <label>Player speed <span data-value-for="playerSpeed"></span><input id="playerSpeed" type="range" min="0.4" max="6" step="0.01" value="1.65" /></label>
+          <label>Boost multiplier <span data-value-for="playerBoost"></span><input id="playerBoost" type="range" min="1" max="4" step="0.01" value="1.45" /></label>
+          <label>Mower acceleration <span data-value-for="mowerAcceleration"></span><input id="mowerAcceleration" type="range" min="0.4" max="18" step="0.01" value="3.4" /></label>
+          <label>Torque fade <span data-value-for="mowerTorqueFade"></span><input id="mowerTorqueFade" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+          <label>Minimum torque <span data-value-for="mowerMinTorque"></span><input id="mowerMinTorque" type="range" min="0.05" max="1" step="0.01" value="0.34" /></label>
+          <label>Turn speed <span data-value-for="turnMaxSpeed"></span><input id="turnMaxSpeed" type="range" min="0.8" max="4" step="0.01" value="2.25" /></label>
+          <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.77" /></label>
+          <label>Controller accel threshold <span data-value-for="controllerTurnAccelThreshold"></span><input id="controllerTurnAccelThreshold" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Rules</summary>
+          <label>Time limit (s) <span data-value-for="timeLimitSeconds"></span><input id="timeLimitSeconds" type="range" min="30" max="1200" step="5" value="720" /></label>
+          <label>Fence bump penalty (s) <span data-value-for="fenceBumpTimePenalty"></span><input id="fenceBumpTimePenalty" type="range" min="0" max="30" step="1" value="5" /></label>
+          <label>Auto-finish at max stars <input id="autoFinishOnMaxStars" type="checkbox" /></label>
+        </details>
       </details>
-      <details class="settings-group">
-        <summary>Movement</summary>
-        <label>Player speed <span data-value-for="playerSpeed"></span><input id="playerSpeed" type="range" min="0.4" max="6" step="0.01" value="1.65" /></label>
-        <label>Boost multiplier <span data-value-for="playerBoost"></span><input id="playerBoost" type="range" min="1" max="4" step="0.01" value="1.45" /></label>
-        <label>Mower acceleration <span data-value-for="mowerAcceleration"></span><input id="mowerAcceleration" type="range" min="0.4" max="18" step="0.01" value="3.4" /></label>
-        <label>Torque fade <span data-value-for="mowerTorqueFade"></span><input id="mowerTorqueFade" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
-        <label>Minimum torque <span data-value-for="mowerMinTorque"></span><input id="mowerMinTorque" type="range" min="0.05" max="1" step="0.01" value="0.34" /></label>
-        <label>Turn speed <span data-value-for="turnMaxSpeed"></span><input id="turnMaxSpeed" type="range" min="0.8" max="4" step="0.01" value="2.25" /></label>
-        <label>Turn build-up <span data-value-for="turnBuild"></span><input id="turnBuild" type="range" min="0.05" max="3" step="0.01" value="0.77" /></label>
-        <label>Controller accel threshold <span data-value-for="controllerTurnAccelThreshold"></span><input id="controllerTurnAccelThreshold" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+      <details class="settings-group settings-category">
+        <summary>Grass &amp; Foliage</summary>
+        <details class="settings-subgroup">
+          <summary>Shape</summary>
+          <label>Min grass height <span data-value-for="minHeight"></span><input id="minHeight" type="range" min="0.1" max="1.4" step="0.01" value="0.38" /></label>
+          <label>Max grass height <span data-value-for="maxHeight"></span><input id="maxHeight" type="range" min="0.2" max="2.8" step="0.01" value="0.76" /></label>
+          <label>Clump strength <span data-value-for="clumpStrength"></span><input id="clumpStrength" type="range" min="0" max="3" step="0.01" value="0.55" /></label>
+          <label>Blade randomness <span data-value-for="heightRandomness"></span><input id="heightRandomness" type="range" min="0" max="3" step="0.01" value="0.2" /></label>
+          <label>Wind sway <span data-value-for="windStrength"></span><input id="windStrength" type="range" min="0" max="0.8" step="0.01" value="0.1" /></label>
+          <label>Mower bend <span data-value-for="bendStrength"></span><input id="bendStrength" type="range" min="0" max="1.5" step="0.01" value="0.18" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Color</summary>
+          <label>Grass base color <input id="grassBaseColor" type="color" value="#0d2c02" /></label>
+          <label>Hue variance <span data-value-for="hueVariance"></span><input id="hueVariance" type="range" min="0" max="0.25" step="0.005" value="0.035" /></label>
+          <label>Saturation variance <span data-value-for="satVariance"></span><input id="satVariance" type="range" min="0" max="0.8" step="0.01" value="0.18" /></label>
+          <label>Lightness variance <span data-value-for="lightVariance"></span><input id="lightVariance" type="range" min="0" max="0.8" step="0.01" value="0.16" /></label>
+          <label>Cut root <input id="cutGrassRootColor" type="color" value="#2d2e00" /></label>
+          <label>Cut top A <input id="cutGrassTopColorA" type="color" value="#869325" /></label>
+          <label>Cut top B <input id="cutGrassTopColorB" type="color" value="#42a60c" /></label>
+          <label>Ground color <input id="groundColor" type="color" value="#295c00" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Shine</summary>
+          <label>Grass roughness <span data-value-for="grassRoughness"></span><input id="grassRoughness" type="range" min="0.08" max="0.8" step="0.01" value="0.22" /></label>
+          <label>Grass metallic <span data-value-for="grassMetallic"></span><input id="grassMetallic" type="range" min="0" max="0.6" step="0.005" value="0" /></label>
+          <label>Grass clear coat <span data-value-for="grassClearCoat"></span><input id="grassClearCoat" type="range" min="0" max="1" step="0.001" value="0.009" /></label>
+          <label>Cut roughness <span data-value-for="cutGrassRoughness"></span><input id="cutGrassRoughness" type="range" min="0.08" max="0.8" step="0.01" value="0.36" /></label>
+          <label>Cut metallic <span data-value-for="cutGrassMetallic"></span><input id="cutGrassMetallic" type="range" min="0" max="0.6" step="0.005" value="0" /></label>
+          <label>Cut clear coat <span data-value-for="cutGrassClearCoat"></span><input id="cutGrassClearCoat" type="range" min="0" max="1" step="0.001" value="0.003" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>LOD</summary>
+          <label>Show LOD mesh <input id="lodShow" type="checkbox" /></label>
+          <label>LOD opacity <span data-value-for="lodOpacity"></span><input id="lodOpacity" type="range" min="0" max="1" step="0.02" value="1" /></label>
+          <label>Top color (tips) <input id="lodTopColor" type="color" value="#74c247" /></label>
+          <label>Bottom color (valleys) <input id="lodBottomColor" type="color" value="#16380a" /></label>
+          <label>Height total <span data-value-for="lodHeightTotal"></span><input id="lodHeightTotal" type="range" min="0" max="1.2" step="0.01" value="0.42" /></label>
+          <label>Height offset <span data-value-for="lodHeightOffset"></span><input id="lodHeightOffset" type="range" min="-0.2" max="0.3" step="0.01" value="-0.02" /></label>
+          <label>Lumpiness scale <span data-value-for="lodNoiseScale"></span><input id="lodNoiseScale" type="range" min="0.3" max="6" step="0.05" value="1.7" /></label>
+          <label>Normal strength <span data-value-for="lodNormalStrength"></span><input id="lodNormalStrength" type="range" min="0" max="2" step="0.02" value="0.5" /></label>
+          <label>Normal scale <span data-value-for="lodNormalScale"></span><input id="lodNormalScale" type="range" min="2" max="80" step="1" value="22" /></label>
+          <label>Specular <span data-value-for="lodSpecular"></span><input id="lodSpecular" type="range" min="0" max="1" step="0.02" value="0.25" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Textures</summary>
+          <label>Grass texture scale <span data-value-for="grassyTextureScale"></span><input id="grassyTextureScale" type="range" min="1" max="360" step="1" value="160" /></label>
+          <label>Dirt texture width <span data-value-for="dirtTextureUScale"></span><input id="dirtTextureUScale" type="range" min="1" max="520" step="1" value="240" /></label>
+          <label>Dirt texture length <span data-value-for="dirtTextureVScale"></span><input id="dirtTextureVScale" type="range" min="1" max="900" step="1" value="480" /></label>
+          <label>Dirt normal strength <span data-value-for="dirtNormalStrength"></span><input id="dirtNormalStrength" type="range" min="0" max="2" step="0.01" value="0.42" /></label>
+          <label>Road texture width <span data-value-for="roadTextureUScale"></span><input id="roadTextureUScale" type="range" min="0.1" max="12" step="0.1" value="1" /></label>
+          <label>Road texture length <span data-value-for="roadTextureVScale"></span><input id="roadTextureVScale" type="range" min="1" max="180" step="1" value="48" /></label>
+        </details>
+        <!-- Archived: ambient dandelion seed-pop was removed, so "seedPopRate" now controls nothing.
+             Uncomment (and re-wire seedPopRate in dandelions.ts) to bring it back.
+        <details class="settings-subgroup">
+          <summary>Dandelions</summary>
+          <label>Seed pop rate <span data-value-for="seedPopRate"></span><input id="seedPopRate" type="range" min="0" max="0.08" step="0.001" value="0.001" /></label>
+        </details>
+        -->
       </details>
-      <details class="settings-group">
-        <summary>Game</summary>
-        <label>Time limit (s) <span data-value-for="timeLimitSeconds"></span><input id="timeLimitSeconds" type="range" min="30" max="1200" step="5" value="720" /></label>
-        <label>Fence bump penalty (s) <span data-value-for="fenceBumpTimePenalty"></span><input id="fenceBumpTimePenalty" type="range" min="0" max="30" step="1" value="5" /></label>
-        <label>Auto-finish at max stars <input id="autoFinishOnMaxStars" type="checkbox" /></label>
+      <details class="settings-group settings-category">
+        <summary>Scene</summary>
+        <details class="settings-subgroup">
+          <summary>Lighting</summary>
+          <label>Sky ambient <span data-value-for="skyAmbientIntensity"></span><input id="skyAmbientIntensity" type="range" min="0" max="0.6" step="0.01" value="0.22" /></label>
+          <label>Sky ambient color <input id="skyAmbientColor" type="color" value="#94bfff" /></label>
+          <label>SSAO enabled <input id="ssaoEnabled" type="checkbox" checked /></label>
+          <label>SSAO strength <span data-value-for="ssaoStrength"></span><input id="ssaoStrength" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
+          <label>SSAO radius <span data-value-for="ssaoRadius"></span><input id="ssaoRadius" type="range" min="0.1" max="5" step="0.05" value="1.15" /></label>
+          <label>SSAO render scale <span data-value-for="ssaoScale"></span><input id="ssaoScale" type="range" min="0.25" max="1" step="0.05" value="0.55" /></label>
+          <label>SSAO blur scale <span data-value-for="ssaoBlurScale"></span><input id="ssaoBlurScale" type="range" min="0.25" max="1" step="0.05" value="0.85" /></label>
+          <label>SSAO samples <span data-value-for="ssaoSamples"></span><input id="ssaoSamples" type="range" min="4" max="24" step="1" value="10" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Camera (portrait)</summary>
+          <label>FOV <span data-value-for="portraitFov"></span><input id="portraitFov" type="range" min="0.4" max="1.2" step="0.01" value="0.78" /></label>
+          <label>Zoom distance <span data-value-for="portraitDistance"></span><input id="portraitDistance" type="range" min="3" max="9" step="0.1" value="5.2" /></label>
+          <label>Camera height <span data-value-for="portraitHeight"></span><input id="portraitHeight" type="range" min="2" max="9" step="0.1" value="5.2" /></label>
+          <label>Look ahead <span data-value-for="portraitLookAhead"></span><input id="portraitLookAhead" type="range" min="0" max="5" step="0.1" value="2.4" /></label>
+        </details>
+        <details class="settings-subgroup">
+          <summary>Performance</summary>
+          <label>Dynamic resolution <input id="dynamicResolution" type="checkbox" /></label>
+          <label>Target FPS <span data-value-for="targetFps"></span><input id="targetFps" type="range" min="30" max="60" step="1" value="58" /></label>
+        </details>
       </details>
-      <details class="settings-group">
-        <summary>Debug</summary>
-        <label>Show fence health <input id="showFenceHealth" type="checkbox" /></label>
-        <label>Disable fence collision <input id="disableFenceCollision" type="checkbox" /></label>
-        <label>Max fence health <span data-value-for="fenceMaxHealth"></span><input id="fenceMaxHealth" type="range" min="1" max="1000" step="1" value="100" /></label>
-        <label>Fence damage speed <span data-value-for="fenceDamageSpeed"></span><input id="fenceDamageSpeed" type="range" min="0.2" max="6" step="0.01" value="1.5" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Performance</summary>
-        <label>Dynamic resolution <input id="dynamicResolution" type="checkbox" /></label>
-        <label>Target FPS <span data-value-for="targetFps"></span><input id="targetFps" type="range" min="30" max="60" step="1" value="58" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Lighting</summary>
-        <label>Sky ambient <span data-value-for="skyAmbientIntensity"></span><input id="skyAmbientIntensity" type="range" min="0" max="0.6" step="0.01" value="0.22" /></label>
-        <label>Sky ambient color <input id="skyAmbientColor" type="color" value="#94bfff" /></label>
-        <label>SSAO enabled <input id="ssaoEnabled" type="checkbox" checked /></label>
-        <label>SSAO strength <span data-value-for="ssaoStrength"></span><input id="ssaoStrength" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
-        <label>SSAO radius <span data-value-for="ssaoRadius"></span><input id="ssaoRadius" type="range" min="0.1" max="5" step="0.05" value="1.15" /></label>
-        <label>SSAO render scale <span data-value-for="ssaoScale"></span><input id="ssaoScale" type="range" min="0.25" max="1" step="0.05" value="0.55" /></label>
-        <label>SSAO blur scale <span data-value-for="ssaoBlurScale"></span><input id="ssaoBlurScale" type="range" min="0.25" max="1" step="0.05" value="0.85" /></label>
-        <label>SSAO samples <span data-value-for="ssaoSamples"></span><input id="ssaoSamples" type="range" min="4" max="24" step="1" value="10" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Mobile Camera (portrait)</summary>
-        <label>FOV <span data-value-for="portraitFov"></span><input id="portraitFov" type="range" min="0.4" max="1.2" step="0.01" value="0.78" /></label>
-        <label>Zoom distance <span data-value-for="portraitDistance"></span><input id="portraitDistance" type="range" min="3" max="9" step="0.1" value="5.2" /></label>
-        <label>Camera height <span data-value-for="portraitHeight"></span><input id="portraitHeight" type="range" min="2" max="9" step="0.1" value="5.2" /></label>
-        <label>Look ahead <span data-value-for="portraitLookAhead"></span><input id="portraitLookAhead" type="range" min="0" max="5" step="0.1" value="2.4" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Grass Shape</summary>
-        <label>Min grass height <span data-value-for="minHeight"></span><input id="minHeight" type="range" min="0.1" max="1.4" step="0.01" value="0.38" /></label>
-        <label>Max grass height <span data-value-for="maxHeight"></span><input id="maxHeight" type="range" min="0.2" max="2.8" step="0.01" value="0.76" /></label>
-        <label>Clump strength <span data-value-for="clumpStrength"></span><input id="clumpStrength" type="range" min="0" max="3" step="0.01" value="0.55" /></label>
-        <label>Blade randomness <span data-value-for="heightRandomness"></span><input id="heightRandomness" type="range" min="0" max="3" step="0.01" value="0.2" /></label>
-        <label>Wind sway <span data-value-for="windStrength"></span><input id="windStrength" type="range" min="0" max="0.8" step="0.01" value="0.1" /></label>
-        <label>Mower bend <span data-value-for="bendStrength"></span><input id="bendStrength" type="range" min="0" max="1.5" step="0.01" value="0.18" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Grass Color</summary>
-        <label>Grass base color <input id="grassBaseColor" type="color" value="#0d2c02" /></label>
-        <label>Hue variance <span data-value-for="hueVariance"></span><input id="hueVariance" type="range" min="0" max="0.25" step="0.005" value="0.035" /></label>
-        <label>Saturation variance <span data-value-for="satVariance"></span><input id="satVariance" type="range" min="0" max="0.8" step="0.01" value="0.18" /></label>
-        <label>Lightness variance <span data-value-for="lightVariance"></span><input id="lightVariance" type="range" min="0" max="0.8" step="0.01" value="0.16" /></label>
-        <label>Cut root <input id="cutGrassRootColor" type="color" value="#2d2e00" /></label>
-        <label>Cut top A <input id="cutGrassTopColorA" type="color" value="#869325" /></label>
-        <label>Cut top B <input id="cutGrassTopColorB" type="color" value="#42a60c" /></label>
-        <label>Ground color <input id="groundColor" type="color" value="#295c00" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Grass LOD</summary>
-        <label>Show LOD mesh <input id="lodShow" type="checkbox" /></label>
-        <label>LOD opacity <span data-value-for="lodOpacity"></span><input id="lodOpacity" type="range" min="0" max="1" step="0.02" value="1" /></label>
-        <label>Top color (tips) <input id="lodTopColor" type="color" value="#74c247" /></label>
-        <label>Bottom color (valleys) <input id="lodBottomColor" type="color" value="#16380a" /></label>
-        <label>Height total <span data-value-for="lodHeightTotal"></span><input id="lodHeightTotal" type="range" min="0" max="1.2" step="0.01" value="0.42" /></label>
-        <label>Height offset <span data-value-for="lodHeightOffset"></span><input id="lodHeightOffset" type="range" min="-0.2" max="0.3" step="0.01" value="-0.02" /></label>
-        <label>Lumpiness scale <span data-value-for="lodNoiseScale"></span><input id="lodNoiseScale" type="range" min="0.3" max="6" step="0.05" value="1.7" /></label>
-        <label>Normal strength <span data-value-for="lodNormalStrength"></span><input id="lodNormalStrength" type="range" min="0" max="2" step="0.02" value="0.5" /></label>
-        <label>Normal scale <span data-value-for="lodNormalScale"></span><input id="lodNormalScale" type="range" min="2" max="80" step="1" value="22" /></label>
-        <label>Specular <span data-value-for="lodSpecular"></span><input id="lodSpecular" type="range" min="0" max="1" step="0.02" value="0.25" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Textures</summary>
-        <label>Grass texture scale <span data-value-for="grassyTextureScale"></span><input id="grassyTextureScale" type="range" min="1" max="360" step="1" value="160" /></label>
-        <label>Dirt texture width <span data-value-for="dirtTextureUScale"></span><input id="dirtTextureUScale" type="range" min="1" max="520" step="1" value="240" /></label>
-        <label>Dirt texture length <span data-value-for="dirtTextureVScale"></span><input id="dirtTextureVScale" type="range" min="1" max="900" step="1" value="480" /></label>
-        <label>Dirt normal strength <span data-value-for="dirtNormalStrength"></span><input id="dirtNormalStrength" type="range" min="0" max="2" step="0.01" value="0.42" /></label>
-        <label>Road texture width <span data-value-for="roadTextureUScale"></span><input id="roadTextureUScale" type="range" min="0.1" max="12" step="0.1" value="1" /></label>
-        <label>Road texture length <span data-value-for="roadTextureVScale"></span><input id="roadTextureVScale" type="range" min="1" max="180" step="1" value="48" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Grass Shine</summary>
-        <label>Grass roughness <span data-value-for="grassRoughness"></span><input id="grassRoughness" type="range" min="0.08" max="0.8" step="0.01" value="0.22" /></label>
-        <label>Grass metallic <span data-value-for="grassMetallic"></span><input id="grassMetallic" type="range" min="0" max="0.6" step="0.005" value="0" /></label>
-        <label>Grass clear coat <span data-value-for="grassClearCoat"></span><input id="grassClearCoat" type="range" min="0" max="1" step="0.001" value="0.009" /></label>
-        <label>Cut roughness <span data-value-for="cutGrassRoughness"></span><input id="cutGrassRoughness" type="range" min="0.08" max="0.8" step="0.01" value="0.36" /></label>
-        <label>Cut metallic <span data-value-for="cutGrassMetallic"></span><input id="cutGrassMetallic" type="range" min="0" max="0.6" step="0.005" value="0" /></label>
-        <label>Cut clear coat <span data-value-for="cutGrassClearCoat"></span><input id="cutGrassClearCoat" type="range" min="0" max="1" step="0.001" value="0.003" /></label>
-      </details>
-      <details class="settings-group">
-        <summary>Dandelions</summary>
-        <label>Seed pop rate <span data-value-for="seedPopRate"></span><input id="seedPopRate" type="range" min="0" max="0.08" step="0.001" value="0.001" /></label>
-      </details>
-      <details class="settings-group">
+      <details class="settings-group settings-category">
         <summary>Audio</summary>
         <label>Mower volume <span data-value-for="mowerVolume"></span><input id="mowerVolume" type="range" min="0" max="1" step="0.01" value="0.4" /></label>
         <label>Directional breeze <span data-value-for="breezeVolume"></span><input id="breezeVolume" type="range" min="0" max="1" step="0.01" value="0.6" /></label>
@@ -174,6 +179,13 @@
         <label>Completion fanfare <span data-value-for="completionFanfareVolume"></span><input id="completionFanfareVolume" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
         <label>Completion loop <span data-value-for="completionLoopVolume"></span><input id="completionLoopVolume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
         <label>Gun shot <span data-value-for="gunShotVolume"></span><input id="gunShotVolume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+      </details>
+      <details class="settings-group settings-category">
+        <summary>Debug</summary>
+        <label>Show fence health <input id="showFenceHealth" type="checkbox" /></label>
+        <label>Disable fence collision <input id="disableFenceCollision" type="checkbox" /></label>
+        <label>Max fence health <span data-value-for="fenceMaxHealth"></span><input id="fenceMaxHealth" type="range" min="1" max="1000" step="1" value="100" /></label>
+        <label>Fence damage speed <span data-value-for="fenceDamageSpeed"></span><input id="fenceDamageSpeed" type="range" min="0.2" max="6" step="0.01" value="1.5" /></label>
       </details>
     </details>
     <canvas id="renderCanvas"></canvas>

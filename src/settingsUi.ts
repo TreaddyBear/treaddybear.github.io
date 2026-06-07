@@ -147,7 +147,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "controllerTurnAccelThreshold",
       "fenceMaxHealth",
       "fenceDamageSpeed",
-      "seedPopRate",
       "mowerVolume",
       "breezeVolume",
       "ambientBreezeVolume",
