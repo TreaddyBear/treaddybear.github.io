@@ -17,6 +17,7 @@ import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
+import { createMowField } from "./mowField";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -37,6 +38,16 @@ export type GrassDeps = {
 // all the per-blade buffers. The shot logic in main calls cutAlongShot().
 export function createGrass(deps: GrassDeps) {
   const { scene, materials, player, getYaw, getThrottle, groundHeightAt, fence, wind, onMowProgress } = deps;
+
+  // Mow-state field (grass-LOD step 1): records where the mower has cut. Today
+  // it only records + can be shown as a debug overlay via the dev hook below.
+  const mowField = createMowField(scene);
+  if (!import.meta.env.PROD) {
+    (window as unknown as { mowField: unknown }).mowField = {
+      showDebug: (on = true) => mowField.showDebug(on),
+      coverage: () => mowField.coverage(),
+    };
+  }
 
   const grassGrid = new Map<string, number[]>();
   let longGrassMatrices = new Float32Array(0);
@@ -725,6 +736,7 @@ export function createGrass(deps: GrassDeps) {
       highlightHasShown = false;
       helpRequested = false;
       helpPulseUntilSeconds = 0;
+      mowField.reset();
       placeMediumGrass();
       placeWheatGrass();
       placeGrass();
@@ -739,6 +751,11 @@ export function createGrass(deps: GrassDeps) {
     mowUnderMower(deltaSeconds: number) {
       clippingBurstCooldown = Math.max(0, clippingBurstCooldown - deltaSeconds);
       grassCuttingAudioTimer = Math.max(0, grassCuttingAudioTimer - deltaSeconds);
+
+      // Paint the mower's footprint into the mow-state field (cheap: only when
+      // it moves to a new texel) and push to the GPU once if it changed.
+      mowField.mark(player.position.x, player.position.z);
+      mowField.flush();
 
       const mowRadiusSquared = mowerCutRadius * mowerCutRadius;
       const minCellX = Math.floor((player.position.x - mowerCutRadius) / cellSize);
