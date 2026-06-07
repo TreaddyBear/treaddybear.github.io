@@ -17,6 +17,8 @@ import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
+import { createMowField } from "./mowField";
+import { createGrassField } from "./grassField";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -37,6 +39,18 @@ export type GrassDeps = {
 // all the per-blade buffers. The shot logic in main calls cutAlongShot().
 export function createGrass(deps: GrassDeps) {
   const { scene, materials, player, getYaw, getThrottle, groundHeightAt, fence, wind, onMowProgress } = deps;
+
+  // Mow-state field (grass-LOD step 1) + the far-LOD grass mesh that samples it
+  // (step 2). Both are dev-gated and non-destructive for now (toggle from the
+  // console); nothing in normal play renders from them yet.
+  const mowField = createMowField(scene);
+  const grassField = createGrassField(scene, mowField.texture);
+  if (!import.meta.env.PROD) {
+    (window as unknown as { mowField: unknown }).mowField = {
+      showDebug: (on = true) => mowField.showDebug(on),
+      coverage: () => mowField.coverage(),
+    };
+  }
 
   const grassGrid = new Map<string, number[]>();
   let longGrassMatrices = new Float32Array(0);
@@ -350,6 +364,28 @@ export function createGrass(deps: GrassDeps) {
   // tree shadows actually land on something the player sees.
   for (const mesh of [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes]) {
     mesh.receiveShadows = true;
+  }
+
+  // Dev toggle for the far-LOD grass mesh. `solo(true)` hides the real blades and
+  // shows ONLY the LOD mesh, so it is unambiguous whether the mesh renders.
+  if (!import.meta.env.PROD) {
+    const bladeMeshes = [longGrass, mediumGrass, ...cutGrassMeshes, ...wheatGrassMeshes];
+    const solo = (on = true) => {
+      grassField.show(on);
+      for (const mesh of bladeMeshes) {
+        mesh.setEnabled(!on);
+      }
+    };
+    (window as unknown as { grassField: unknown }).grassField = {
+      show: (on = true) => grassField.show(on),
+      solo,
+    };
+    // TEMP DIAGNOSTIC: show ONLY the far-LOD mesh on load so it is obvious
+    // whether it renders at all. Real blades come back with grassField.solo(false)
+    // in the console. (This auto-solo gets removed once we confirm the look.)
+    // eslint-disable-next-line no-console
+    console.log("[grassField] DIAGNOSTIC: showing ONLY the LOD mesh. Run grassField.solo(false) to restore the real blades.");
+    solo(true);
   }
 
   const refreshCutBladeVertexColors = () => {
@@ -818,6 +854,7 @@ export function createGrass(deps: GrassDeps) {
       highlightHasShown = false;
       helpRequested = false;
       helpPulseUntilSeconds = 0;
+      mowField.reset();
       placeMediumGrass();
       placeWheatGrass();
       placeGrass();
@@ -838,6 +875,11 @@ export function createGrass(deps: GrassDeps) {
     mowUnderMower(deltaSeconds: number) {
       clippingBurstCooldown = Math.max(0, clippingBurstCooldown - deltaSeconds);
       grassCuttingAudioTimer = Math.max(0, grassCuttingAudioTimer - deltaSeconds);
+
+      // Paint the mower's footprint into the mow-state field (cheap: only when
+      // it moves to a new texel) and push to the GPU once if it changed.
+      mowField.mark(player.position.x, player.position.z);
+      mowField.flush();
 
       const mowRadiusSquared = mowerCutRadius * mowerCutRadius;
       const minCellX = Math.floor((player.position.x - mowerCutRadius) / cellSize);

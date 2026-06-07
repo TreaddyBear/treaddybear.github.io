@@ -218,7 +218,9 @@ export function createDandelions(
       piece.parent = null;
       piece.position.copyFrom(worldPosition);
       piece.billboardMode = Mesh.BILLBOARDMODE_ALL;
-      piece.material = piece.material?.clone(`${piece.name}-floating-material`) ?? null;
+      // Keep the shared fluff material — cloning it here cloned its texture too
+      // (~200 DynamicTexture clones at once = the destruction CPU spike). Per-seed
+      // fade is done with mesh.visibility in update() instead.
       dandelion.detachedPieces.push(piece);
       floatingSeeds.push({
         mesh: piece,
@@ -438,10 +440,10 @@ export function createDandelions(
         seed.mesh.position.z += Math.sin(t * Math.PI * 2) * seed.drift * deltaSeconds * 0.18;
         seed.mesh.scaling.scaleInPlace(1 - (deltaSeconds * 0.08));
 
-        const material = seed.mesh.material;
-        if (material instanceof StandardMaterial) {
-          material.alpha = Math.max(0, (1 - t) * 0.8);
-        }
+        // Fade per-seed via mesh.visibility (the material is shared now, so we
+        // must not touch material.alpha — and the fluff's alpha comes from its
+        // texture, which made material.alpha do nothing anyway).
+        seed.mesh.visibility = Math.max(0, (1 - t) * 0.9);
 
         if (t >= 1) {
           seed.mesh.dispose();
