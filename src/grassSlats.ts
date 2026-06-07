@@ -76,6 +76,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform sampler2D mowField;
       uniform vec4 bounds;
       uniform float slatHeight;
+      uniform float wiggleAmp;
+      uniform float wiggleFreq;
+      uniform float bendAmp;
       varying vec3 vNormal;
       varying vec3 vWorldPos;
       varying float vTop;
@@ -86,13 +89,33 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         return texture2D(mowField, uvm).r;
       }
       void main(void){
-        vec2 xz = vec2(position.x, position.z);
+        float top = position.y;       // 0 bottom, 1 top
+        float run = uv.x;             // distance along the strip
+        // Which way the strip runs vs faces (from the baked horizontal normal).
+        bool alongX = abs(normal.z) > 0.5;
+        vec2 runDir = alongX ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec2 perpDir = alongX ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // facing
+        float crossCoord = alongX ? position.z : position.x;     // per-strip id
+        float phase = crossCoord * 6.3;
+
+        // Meander the whole column side to side so neighbouring slats face
+        // different azimuths -> the shine varies blade-to-blade instead of being
+        // one flat sheen. The face normal tilts with the meander slope.
+        float w = wiggleAmp * (sin((run * wiggleFreq) + phase) + (0.5 * sin((run * wiggleFreq * 2.3) + (phase * 1.7))));
+        float slope = wiggleAmp * ((wiggleFreq * cos((run * wiggleFreq) + phase)) + (1.15 * wiggleFreq * cos((run * wiggleFreq * 2.3) + (phase * 1.7))));
+        vec2 xz = vec2(position.x, position.z) + (perpDir * w);
+
+        // Lean the tip a little (per-strip direction) for a more blade-like bend.
+        vec2 bendDir = normalize(perpDir + (runDir * 0.6));
+        xz += bendDir * (bendAmp * top * (0.6 + (0.4 * sin(phase * 1.3))));
+
+        vec2 facing = normalize(perpDir - (runDir * slope));
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
-        vec3 wp = vec3(position.x, position.y * h, position.z);
+        vec3 wp = vec3(xz.x, top * h, xz.y);
         vWorldPos = wp;
-        vNormal = normal;
-        vTop = uv.y;
-        vRun = uv.x;
+        vNormal = vec3(facing.x, 0.18 * bendAmp * top * 8.0, facing.y);
+        vTop = top;
+        vRun = run;
         gl_Position = worldViewProjection * vec4(wp, 1.0);
       }
     `;
@@ -154,6 +177,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight", "topColor", "bottomColor",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
+      "wiggleAmp", "wiggleFreq", "bendAmp",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -170,6 +194,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   const applySettings = () => {
     material.setFloat("slatHeight", settings.lodSlatHeight);
     material.setFloat("tileScale", settings.lodSlatTileScale);
+    material.setFloat("wiggleAmp", settings.lodSlatWiggle);
+    material.setFloat("wiggleFreq", settings.lodSlatWiggleFreq);
+    material.setFloat("bendAmp", settings.lodSlatBend);
     material.setFloat("normalStrength", settings.lodNormalStrength);
     material.setFloat("roughness", settings.lodRoughness);
     material.setFloat("specIntensity", settings.lodSpecular);

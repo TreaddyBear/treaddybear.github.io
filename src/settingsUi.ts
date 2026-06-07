@@ -202,6 +202,9 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatHeight",
       "lodSlatTileScale",
       "lodSlatCutoff",
+      "lodSlatWiggle",
+      "lodSlatWiggleFreq",
+      "lodSlatBend",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -302,6 +305,9 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatHeight",
           "lodSlatTileScale",
           "lodSlatCutoff",
+          "lodSlatWiggle",
+          "lodSlatWiggleFreq",
+          "lodSlatBend",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {
