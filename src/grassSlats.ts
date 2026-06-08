@@ -177,14 +177,14 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // Isotropic highlight, same character as the real PBR blades (which face
         // random ways). With the randomized section facings above, this spreads
         // into ONE broad grass highlight on the sun side rather than flanking lobes.
+        // Translucency is the PRIMARY grass shine: thin blades glow when the sun
+        // is behind them (camera looking toward the sun). Front specular peaks on
+        // the OPPOSITE side (sun behind you), so it is kept to a faint accent here —
+        // letting it dominate is what lit the slats on the wrong side all along.
+        float backlight = pow(clamp(dot(V, -L), 0.0, 1.0), 2.0);
+        vec3 trans = mix(base, vec3(0.9, 1.05, 0.45), 0.7) * backlight * sheen * 1.6;
         float power = max(8.0, 2.0 / max(0.0025, roughness * roughness));
-        float spec = pow(NoH, power) * specIntensity * NoL;
-        // Translucency / backlight: thin grass blades GLOW when the sun is behind
-        // them (camera looking toward the sun). This is the signature grass shine,
-        // NOT front specular — which is exactly why the slats lit on the wrong side
-        // no matter how the normals were tuned. Tinted toward a bright yellow-green.
-        float backlight = pow(clamp(dot(V, -L), 0.0, 1.0), 3.0);
-        vec3 trans = mix(base, vec3(0.85, 1.0, 0.45), 0.55) * backlight * sheen;
+        float spec = pow(NoH, power) * specIntensity * NoL * 0.2;
         float diffuse = 0.5 + (0.5 * NoL);
         vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + trans;
         gl_FragColor = vec4(col, 1.0);
