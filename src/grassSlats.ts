@@ -88,32 +88,44 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 uvm = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
         return texture2D(mowField, uvm).r;
       }
+      float vhash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+      float vnoise(vec2 p){
+        vec2 i = floor(p); vec2 f = fract(p);
+        float a = vhash(i); float b = vhash(i + vec2(1.0, 0.0));
+        float c = vhash(i + vec2(0.0, 1.0)); float d = vhash(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - (2.0 * f));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
       void main(void){
-        float top = position.y;       // 0 bottom, 1 top
-        float run = uv.x;             // distance along the strip
-        // Which way the strip runs vs faces (from the baked horizontal normal).
+        float top = position.y;
+        float run = uv.x;
         bool alongX = abs(normal.z) > 0.5;
-        vec2 runDir = alongX ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
         vec2 perpDir = alongX ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // facing
-        float crossCoord = alongX ? position.z : position.x;     // per-strip id
-        float phase = crossCoord * 6.3;
+        vec2 cell = vec2(position.x, position.z);
 
-        // Meander the whole column side to side so neighbouring slats face
-        // different azimuths -> the shine varies blade-to-blade instead of being
-        // one flat sheen. The face normal tilts with the meander slope.
-        float w = wiggleAmp * (sin((run * wiggleFreq) + phase) + (0.5 * sin((run * wiggleFreq * 2.3) + (phase * 1.7))));
-        float slope = wiggleAmp * ((wiggleFreq * cos((run * wiggleFreq) + phase)) + (1.15 * wiggleFreq * cos((run * wiggleFreq * 2.3) + (phase * 1.7))));
-        vec2 xz = vec2(position.x, position.z) + (perpDir * w);
+        // Per-SECTION bend from layered noise: every part of every slat leans a
+        // different direction, so there is no uniform comb pattern.
+        float n1 = vnoise(cell * 0.7) - 0.5;
+        float n2 = vnoise((cell * 2.1) + 9.3) - 0.5;
+        float n3 = vnoise((cell * 5.4) + 21.7) - 0.5;
+        float bendAngle = ((n1 * 2.2) + n2 + (0.5 * n3)) * 6.28318;
+        vec2 bdir = vec2(cos(bendAngle), sin(bendAngle));
+        float bamt = bendAmp * top * top * (0.45 + (0.9 * vnoise((cell * 1.3) + 3.0)));
 
-        // Lean the tip a little (per-strip direction) for a more blade-like bend.
-        vec2 bendDir = normalize(perpDir + (runDir * 0.6));
-        xz += bendDir * (bendAmp * top * (0.6 + (0.4 * sin(phase * 1.3))));
+        // Gentle base meander (keeps the wiggle controls live).
+        float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
+        vec2 xz = cell + (bdir * bamt) + (perpDir * w);
 
-        vec2 facing = normalize(perpDir - (runDir * slope));
+        // Twist the side-facing normal per section -> neighbours catch the light
+        // at different azimuths -> shimmer instead of one flat sheen.
+        float twist = (((vnoise((cell * 1.1) + 13.0) - 0.5) * 2.4) + (n2 * 1.2)) * (0.4 + (2.0 * bendAmp));
+        float cs = cos(twist); float sn = sin(twist);
+        vec2 facing = normalize(vec2((perpDir.x * cs) - (perpDir.y * sn), (perpDir.x * sn) + (perpDir.y * cs)));
+
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
         vec3 wp = vec3(xz.x, top * h, xz.y);
         vWorldPos = wp;
-        vNormal = vec3(facing.x, 0.18 * bendAmp * top * 8.0, facing.y);
+        vNormal = vec3(facing.x, 0.35 * top, facing.y);
         vTop = top;
         vRun = run;
         gl_Position = worldViewProjection * vec4(wp, 1.0);
@@ -161,12 +173,15 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float NoV = clamp(dot(N, V), 0.0, 1.0);
 
         vec3 base = mix(bottomColor, topColor, vTop) * (0.7 + (0.6 * alb.g));
-        float a = max(0.02, roughness * roughness);
+        // GGX broad lobe + a sharp glint lobe for punchy, grass-tip shine.
+        float a = max(0.03, roughness * roughness);
         float dnm = ((NoH * NoH) * ((a * a) - 1.0)) + 1.0;
-        float spec = ((a * a) / (3.14159 * dnm * dnm)) * specIntensity * NoL;
-        float rim = pow(1.0 - NoV, 3.0) * sheen * (0.3 + (0.7 * NoL));
-        float diffuse = 0.45 + (0.55 * NoL);
-        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim);
+        float ggx = (a * a) / (3.14159 * dnm * dnm);
+        float glint = pow(NoH, 90.0);
+        float spec = ((ggx * 0.5) + (glint * 0.85)) * specIntensity * NoL;
+        float rim = pow(1.0 - NoV, 2.5) * sheen * (0.25 + (0.75 * NoL));
+        float diffuse = 0.5 + (0.5 * NoL);
+        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim) + (LIGHT_COLOR * (rim * 0.4));
         gl_FragColor = vec4(col, 1.0);
       }
     `;
