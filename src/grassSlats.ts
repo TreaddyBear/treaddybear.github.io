@@ -103,30 +103,34 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 perpDir = alongX ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // facing
         vec2 cell = vec2(position.x, position.z);
 
-        // Per-SECTION bend from layered noise: every part of every slat leans a
-        // different direction, so there is no uniform comb pattern.
+        // Per-section LEAN direction (layered noise), varied across the field.
         float n1 = vnoise(cell * 0.7) - 0.5;
         float n2 = vnoise((cell * 2.1) + 9.3) - 0.5;
         float n3 = vnoise((cell * 5.4) + 21.7) - 0.5;
-        float bendAngle = ((n1 * 2.2) + n2 + (0.5 * n3)) * 6.28318;
-        vec2 bdir = vec2(cos(bendAngle), sin(bendAngle));
-        float bamt = bendAmp * top * top * (0.45 + (0.9 * vnoise((cell * 1.3) + 3.0)));
+        float leanAngle = ((n1 * 2.2) + n2 + (0.5 * n3)) * 6.28318;
+        vec2 leanDir = vec2(cos(leanAngle), sin(leanAngle));
 
-        // Gentle base meander (keeps the wiggle controls live).
+        // BEND the slat OVER toward leanDir, curving more toward the tip. Real
+        // blades bend, and a bent blade turns its broad face toward the sky/sun —
+        // THAT is what makes grass glow. A straight vertical slat is edge-on and
+        // catches almost nothing. (bendAmp = lean distance.)
+        float leanMag = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
+        float curve = top * top;
         float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
-        vec2 xz = cell + (bdir * bamt) + (perpDir * w);
+        vec2 xz = cell + (leanDir * (leanMag * curve)) + (perpDir * w);
 
-        // Point each section's lighting normal at a RANDOM azimuth (full circle),
-        // like real blades facing every which way. The cross-hatch alone only had
-        // +/-X and +/-Z facings, so the specular showed up as two flanking lobes
-        // instead of one broad grass highlight. perpDir is unused for lighting now.
-        float twist = (vnoise((cell * 1.1) + 13.0) * 6.28318) + (n2 * 3.0);
-        vec2 facing = vec2(cos(twist), sin(twist));
+        // Normal FOLLOWS the bend: a horizontal face (edge-on) when upright, tipping
+        // toward sky-facing (up, leaned) as it bends over, so the upturned faces
+        // catch the sun and light up in varied patches like a real lawn.
+        float bendFrac = clamp(leanMag * curve * 3.0, 0.0, 1.0);
+        vec3 uprightN = vec3(leanDir.x, 0.0, leanDir.y);
+        vec3 bentN = vec3(leanDir.x * 0.5, 1.0, leanDir.y * 0.5);
+        vec3 N3 = normalize(mix(uprightN, bentN, bendFrac));
 
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
         vec3 wp = vec3(xz.x, top * h, xz.y);
         vWorldPos = wp;
-        vNormal = vec3(facing.x, 0.35 * top, facing.y);
+        vNormal = N3;
         vTop = top;
         vRun = run;
         gl_Position = worldViewProjection * vec4(wp, 1.0);

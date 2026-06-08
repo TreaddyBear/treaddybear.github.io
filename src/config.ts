@@ -73,7 +73,7 @@ export const settings = {
   lodSlatCutoff: 0.3, // alpha-cutout threshold (lower = denser/leafier blades)
   lodSlatWiggle: 0.12, // how far each slat meanders side to side (varies the shine azimuth)
   lodSlatWiggleFreq: 1.6, // how often it meanders along its run
-  lodSlatBend: 0.12, // how far the tip leans (more blade-like, more normal variation)
+  lodSlatBend: 0.45, // how far each slat bends OVER (the broad face turns up to catch light)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
