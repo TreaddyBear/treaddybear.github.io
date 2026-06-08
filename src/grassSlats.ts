@@ -116,11 +116,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
         vec2 xz = cell + (bdir * bamt) + (perpDir * w);
 
-        // Twist the side-facing normal per section -> neighbours catch the light
-        // at different azimuths -> shimmer instead of one flat sheen.
-        float twist = (((vnoise((cell * 1.1) + 13.0) - 0.5) * 2.4) + (n2 * 1.2)) * (0.4 + (2.0 * bendAmp));
-        float cs = cos(twist); float sn = sin(twist);
-        vec2 facing = normalize(vec2((perpDir.x * cs) - (perpDir.y * sn), (perpDir.x * sn) + (perpDir.y * cs)));
+        // Point each section's lighting normal at a RANDOM azimuth (full circle),
+        // like real blades facing every which way. The cross-hatch alone only had
+        // +/-X and +/-Z facings, so the specular showed up as two flanking lobes
+        // instead of one broad grass highlight. perpDir is unused for lighting now.
+        float twist = (vnoise((cell * 1.1) + 13.0) * 6.28318) + (n2 * 3.0);
+        vec2 facing = vec2(cos(twist), sin(twist));
 
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
         vec3 wp = vec3(xz.x, top * h, xz.y);
@@ -173,16 +174,11 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float NoV = clamp(dot(N, V), 0.0, 1.0);
 
         vec3 base = mix(bottomColor, topColor, vTop) * (0.7 + (0.6 * alb.g));
-        // Anisotropic (Kajiya-Kay) grass-strand specular. Blades are vertical
-        // fibres, so the highlight is a BROAD sheen where the half-vector is
-        // perpendicular to the strand direction (up), not an isotropic mirror
-        // spot. An isotropic lobe lands the shine on the wrong side — this is the
-        // model real fur/grass uses.
-        vec3 strandT = normalize(vec3(N.x * 0.35, 1.0, N.z * 0.35));
-        float dotTH = dot(strandT, H);
-        float sinTH = sqrt(max(0.0001, 1.0 - (dotTH * dotTH)));
-        float power = max(4.0, 2.0 / max(0.0025, roughness * roughness));
-        float spec = pow(sinTH, power) * specIntensity * (0.4 + (0.6 * NoL));
+        // Isotropic highlight, same character as the real PBR blades (which face
+        // random ways). With the randomized section facings above, this spreads
+        // into ONE broad grass highlight on the sun side rather than flanking lobes.
+        float power = max(8.0, 2.0 / max(0.0025, roughness * roughness));
+        float spec = pow(NoH, power) * specIntensity * NoL;
         float rim = pow(1.0 - NoV, 2.5) * sheen * (0.25 + (0.75 * NoL));
         float diffuse = 0.5 + (0.5 * NoL);
         vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim) + (LIGHT_COLOR * (rim * 0.4));
