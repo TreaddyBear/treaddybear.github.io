@@ -173,12 +173,16 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float NoV = clamp(dot(N, V), 0.0, 1.0);
 
         vec3 base = mix(bottomColor, topColor, vTop) * (0.7 + (0.6 * alb.g));
-        // GGX broad lobe + a sharp glint lobe for punchy, grass-tip shine.
-        float a = max(0.03, roughness * roughness);
-        float dnm = ((NoH * NoH) * ((a * a) - 1.0)) + 1.0;
-        float ggx = (a * a) / (3.14159 * dnm * dnm);
-        float glint = pow(NoH, 90.0);
-        float spec = ((ggx * 0.5) + (glint * 0.85)) * specIntensity * NoL;
+        // Anisotropic (Kajiya-Kay) grass-strand specular. Blades are vertical
+        // fibres, so the highlight is a BROAD sheen where the half-vector is
+        // perpendicular to the strand direction (up), not an isotropic mirror
+        // spot. An isotropic lobe lands the shine on the wrong side — this is the
+        // model real fur/grass uses.
+        vec3 strandT = normalize(vec3(N.x * 0.35, 1.0, N.z * 0.35));
+        float dotTH = dot(strandT, H);
+        float sinTH = sqrt(max(0.0001, 1.0 - (dotTH * dotTH)));
+        float power = max(4.0, 2.0 / max(0.0025, roughness * roughness));
+        float spec = pow(sinTH, power) * specIntensity * (0.4 + (0.6 * NoL));
         float rim = pow(1.0 - NoV, 2.5) * sheen * (0.25 + (0.75 * NoL));
         float diffuse = 0.5 + (0.5 * NoL);
         vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim) + (LIGHT_COLOR * (rim * 0.4));
