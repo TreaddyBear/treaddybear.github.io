@@ -179,9 +179,14 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // into ONE broad grass highlight on the sun side rather than flanking lobes.
         float power = max(8.0, 2.0 / max(0.0025, roughness * roughness));
         float spec = pow(NoH, power) * specIntensity * NoL;
-        float rim = pow(1.0 - NoV, 2.5) * sheen * (0.25 + (0.75 * NoL));
+        // Translucency / backlight: thin grass blades GLOW when the sun is behind
+        // them (camera looking toward the sun). This is the signature grass shine,
+        // NOT front specular — which is exactly why the slats lit on the wrong side
+        // no matter how the normals were tuned. Tinted toward a bright yellow-green.
+        float backlight = pow(clamp(dot(V, -L), 0.0, 1.0), 3.0);
+        vec3 trans = mix(base, vec3(0.85, 1.0, 0.45), 0.55) * backlight * sheen;
         float diffuse = 0.5 + (0.5 * NoL);
-        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim) + (LIGHT_COLOR * (rim * 0.4));
+        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + trans;
         gl_FragColor = vec4(col, 1.0);
       }
     `;
