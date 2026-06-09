@@ -33,16 +33,21 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     const crossMax = alongX ? maxZ : maxX;
     const nx = alongX ? 0 : 1;
     const nz = alongX ? 1 : 0;
-    for (let c = crossMin + (SPACING * 0.5); c < crossMax; c += SPACING) {
+    for (let c0 = crossMin + (SPACING * 0.5); c0 < crossMax; c0 += SPACING) {
+      // Jitter the strip off the regular grid and vary its height, so the field
+      // does NOT read as a uniform woven cross-hatch.
+      const c = c0 + ((Math.random() - 0.5) * SPACING * 0.85);
+      const hFactor = 0.5 + (Math.random() * 0.9);
       let prevBot = -1;
       let prevTop = -1;
       let runDist = 0;
       for (let run = runMin; run <= runMax + 1e-3; run += SPACING) {
-        const x = alongX ? run : c;
-        const z = alongX ? c : run;
-        positions.push(x, 0, z, x, 1, z);
+        const jPerp = (Math.random() - 0.5) * SPACING * 0.5;
+        const x = (alongX ? run : c) + (alongX ? 0 : jPerp);
+        const z = (alongX ? c : run) + (alongX ? jPerp : 0);
+        positions.push(x, 0, z, x, hFactor, z);
         normals.push(nx, 0, nz, nx, 0, nz);
-        uvs.push(runDist, 0, runDist, 1);
+        uvs.push(runDist, 0, runDist, hFactor);
         const bot = vi;
         const top = vi + 1;
         vi += 2;
@@ -88,32 +93,49 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 uvm = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
         return texture2D(mowField, uvm).r;
       }
+      float vhash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+      float vnoise(vec2 p){
+        vec2 i = floor(p); vec2 f = fract(p);
+        float a = vhash(i); float b = vhash(i + vec2(1.0, 0.0));
+        float c = vhash(i + vec2(0.0, 1.0)); float d = vhash(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - (2.0 * f));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
       void main(void){
-        float top = position.y;       // 0 bottom, 1 top
-        float run = uv.x;             // distance along the strip
-        // Which way the strip runs vs faces (from the baked horizontal normal).
+        float top = position.y;
+        float run = uv.x;
         bool alongX = abs(normal.z) > 0.5;
-        vec2 runDir = alongX ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
         vec2 perpDir = alongX ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // facing
-        float crossCoord = alongX ? position.z : position.x;     // per-strip id
-        float phase = crossCoord * 6.3;
+        vec2 cell = vec2(position.x, position.z);
 
-        // Meander the whole column side to side so neighbouring slats face
-        // different azimuths -> the shine varies blade-to-blade instead of being
-        // one flat sheen. The face normal tilts with the meander slope.
-        float w = wiggleAmp * (sin((run * wiggleFreq) + phase) + (0.5 * sin((run * wiggleFreq * 2.3) + (phase * 1.7))));
-        float slope = wiggleAmp * ((wiggleFreq * cos((run * wiggleFreq) + phase)) + (1.15 * wiggleFreq * cos((run * wiggleFreq * 2.3) + (phase * 1.7))));
-        vec2 xz = vec2(position.x, position.z) + (perpDir * w);
+        // Per-section LEAN direction (layered noise), varied across the field.
+        float n1 = vnoise(cell * 0.7) - 0.5;
+        float n2 = vnoise((cell * 2.1) + 9.3) - 0.5;
+        float n3 = vnoise((cell * 5.4) + 21.7) - 0.5;
+        float leanAngle = ((n1 * 2.2) + n2 + (0.5 * n3)) * 6.28318;
+        vec2 leanDir = vec2(cos(leanAngle), sin(leanAngle));
 
-        // Lean the tip a little (per-strip direction) for a more blade-like bend.
-        vec2 bendDir = normalize(perpDir + (runDir * 0.6));
-        xz += bendDir * (bendAmp * top * (0.6 + (0.4 * sin(phase * 1.3))));
+        // BEND the slat OVER toward leanDir, curving more toward the tip. Real
+        // blades bend, and a bent blade turns its broad face toward the sky/sun —
+        // THAT is what makes grass glow. A straight vertical slat is edge-on and
+        // catches almost nothing. (bendAmp = lean distance.)
+        float leanMag = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
+        float curve = top * top;
+        float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
+        vec2 xz = cell + (leanDir * (leanMag * curve)) + (perpDir * w);
 
-        vec2 facing = normalize(perpDir - (runDir * slope));
+        // Normal FOLLOWS the bend: a horizontal face (edge-on) when upright, tipping
+        // toward sky-facing (up, leaned) as it bends over, so the upturned faces
+        // catch the sun and light up in varied patches like a real lawn.
+        float bendFrac = clamp(leanMag * curve * 3.0, 0.0, 1.0);
+        vec3 uprightN = vec3(leanDir.x, 0.0, leanDir.y);
+        vec3 bentN = vec3(leanDir.x * 0.5, 1.0, leanDir.y * 0.5);
+        vec3 N3 = normalize(mix(uprightN, bentN, bendFrac));
+
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
         vec3 wp = vec3(xz.x, top * h, xz.y);
         vWorldPos = wp;
-        vNormal = vec3(facing.x, 0.18 * bendAmp * top * 8.0, facing.y);
+        vNormal = N3;
         vTop = top;
         vRun = run;
         gl_Position = worldViewProjection * vec4(wp, 1.0);
@@ -144,7 +166,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 duv = vec2(vRun, vWorldPos.y) * tileScale;
         vec4 alb = texture2D(grassAlbedo, duv);
         // carve into blades: more cutout toward the tip so it thins like grass
-        float thresh = mix(cutoff, cutoff + 0.45, vTop);
+        float vt = clamp(vTop, 0.0, 1.0);
+        float thresh = mix(cutoff, cutoff + 0.45, vt);
         if (alb.a < thresh) discard;
 
         vec3 N0 = gl_FrontFacing ? normalize(vNormal) : -normalize(vNormal);
@@ -160,13 +183,20 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float NoH = clamp(dot(N, H), 0.0, 1.0);
         float NoV = clamp(dot(N, V), 0.0, 1.0);
 
-        vec3 base = mix(bottomColor, topColor, vTop) * (0.7 + (0.6 * alb.g));
-        float a = max(0.02, roughness * roughness);
-        float dnm = ((NoH * NoH) * ((a * a) - 1.0)) + 1.0;
-        float spec = ((a * a) / (3.14159 * dnm * dnm)) * specIntensity * NoL;
-        float rim = pow(1.0 - NoV, 3.0) * sheen * (0.3 + (0.7 * NoL));
-        float diffuse = 0.45 + (0.55 * NoL);
-        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + (base * rim);
+        vec3 base = mix(bottomColor, topColor, vt) * (0.7 + (0.6 * alb.g));
+        // Isotropic highlight, same character as the real PBR blades (which face
+        // random ways). With the randomized section facings above, this spreads
+        // into ONE broad grass highlight on the sun side rather than flanking lobes.
+        // Translucency is the PRIMARY grass shine: thin blades glow when the sun
+        // is behind them (camera looking toward the sun). Front specular peaks on
+        // the OPPOSITE side (sun behind you), so it is kept to a faint accent here —
+        // letting it dominate is what lit the slats on the wrong side all along.
+        float backlight = pow(clamp(dot(V, -L), 0.0, 1.0), 2.0);
+        vec3 trans = mix(base, vec3(0.9, 1.05, 0.45), 0.7) * backlight * sheen * 1.6;
+        float power = max(8.0, 2.0 / max(0.0025, roughness * roughness));
+        float spec = pow(NoH, power) * specIntensity * NoL * 0.2;
+        float diffuse = 0.5 + (0.5 * NoL);
+        vec3 col = (base * diffuse) + (LIGHT_COLOR * spec) + trans;
         gl_FragColor = vec4(col, 1.0);
       }
     `;
