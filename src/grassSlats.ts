@@ -33,16 +33,21 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     const crossMax = alongX ? maxZ : maxX;
     const nx = alongX ? 0 : 1;
     const nz = alongX ? 1 : 0;
-    for (let c = crossMin + (SPACING * 0.5); c < crossMax; c += SPACING) {
+    for (let c0 = crossMin + (SPACING * 0.5); c0 < crossMax; c0 += SPACING) {
+      // Jitter the strip off the regular grid and vary its height, so the field
+      // does NOT read as a uniform woven cross-hatch.
+      const c = c0 + ((Math.random() - 0.5) * SPACING * 0.85);
+      const hFactor = 0.5 + (Math.random() * 0.9);
       let prevBot = -1;
       let prevTop = -1;
       let runDist = 0;
       for (let run = runMin; run <= runMax + 1e-3; run += SPACING) {
-        const x = alongX ? run : c;
-        const z = alongX ? c : run;
-        positions.push(x, 0, z, x, 1, z);
+        const jPerp = (Math.random() - 0.5) * SPACING * 0.5;
+        const x = (alongX ? run : c) + (alongX ? 0 : jPerp);
+        const z = (alongX ? c : run) + (alongX ? jPerp : 0);
+        positions.push(x, 0, z, x, hFactor, z);
         normals.push(nx, 0, nz, nx, 0, nz);
-        uvs.push(runDist, 0, runDist, 1);
+        uvs.push(runDist, 0, runDist, hFactor);
         const bot = vi;
         const top = vi + 1;
         vi += 2;
@@ -161,7 +166,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 duv = vec2(vRun, vWorldPos.y) * tileScale;
         vec4 alb = texture2D(grassAlbedo, duv);
         // carve into blades: more cutout toward the tip so it thins like grass
-        float thresh = mix(cutoff, cutoff + 0.45, vTop);
+        float vt = clamp(vTop, 0.0, 1.0);
+        float thresh = mix(cutoff, cutoff + 0.45, vt);
         if (alb.a < thresh) discard;
 
         vec3 N0 = gl_FrontFacing ? normalize(vNormal) : -normalize(vNormal);
@@ -177,7 +183,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float NoH = clamp(dot(N, H), 0.0, 1.0);
         float NoV = clamp(dot(N, V), 0.0, 1.0);
 
-        vec3 base = mix(bottomColor, topColor, vTop) * (0.7 + (0.6 * alb.g));
+        vec3 base = mix(bottomColor, topColor, vt) * (0.7 + (0.6 * alb.g));
         // Isotropic highlight, same character as the real PBR blades (which face
         // random ways). With the randomized section facings above, this spreads
         // into ONE broad grass highlight on the sun side rather than flanking lobes.
