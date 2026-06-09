@@ -1,5 +1,5 @@
 import type { AnalogInput, InputMode } from "./input";
-import { settings } from "./config";
+import { lawnLevels, normalizeLevelCode, settings } from "./config";
 
 export type SettingsUi = ReturnType<typeof createSettingsUi>;
 
@@ -183,7 +183,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "ssaoBlurScale",
       "ssaoSamples",
       "targetFps",
-      "timeLimitSeconds",
       "fenceBumpTimePenalty",
       "portraitFov",
       "portraitDistance",
@@ -316,6 +315,30 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       });
     }
 
+    for (const input of deps.settingsRoot.querySelectorAll<HTMLInputElement>("[data-level-code][data-level-setting]")) {
+      const levelCode = normalizeLevelCode(input.dataset.levelCode ?? "");
+      const settingName = input.dataset.levelSetting;
+      const valueEl = deps.settingsRoot.querySelector<HTMLSpanElement>(`[data-value-for="${input.id}"]`);
+
+      if (settingName !== "parSeconds") {
+        continue;
+      }
+
+      input.value = String(lawnLevels.settings.parSeconds[levelCode]);
+
+      if (valueEl) {
+        valueEl.textContent = input.value;
+      }
+
+      input.addEventListener("input", () => {
+        lawnLevels.settings.parSeconds[levelCode] = Number(input.value);
+
+        if (valueEl) {
+          valueEl.textContent = input.value;
+        }
+      });
+    }
+
     for (const id of colorControls) {
       const input = deps.settingsRoot.querySelector<HTMLInputElement>(`#${id}`);
 
@@ -371,9 +394,10 @@ export function createSettingsUi(deps: SettingsUiDeps) {
     window.addEventListener("gamepaddisconnected", syncQuickInputModes);
 
     if (mapControl) {
+      settings.mapId = normalizeLevelCode(settings.mapId);
       mapControl.value = settings.mapId;
       mapControl.addEventListener("input", () => {
-        settings.mapId = mapControl.value;
+        settings.mapId = normalizeLevelCode(mapControl.value);
         deps.onRegenerate();
       });
     }

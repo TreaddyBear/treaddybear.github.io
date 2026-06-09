@@ -625,6 +625,30 @@ body {
   animation: celebration-fade 520ms ease forwards;
 }
 
+#celebration[data-stars="0"] {
+  color: #d2d4cf;
+  background:
+    linear-gradient(180deg, rgb(20 22 20 / 84%), rgb(6 7 6 / 92%)),
+    radial-gradient(circle at 50% 44%, rgb(118 124 116 / 16%), transparent 34%);
+  backdrop-filter: blur(7px) grayscale(0.9) saturate(0.3);
+}
+
+#celebration[data-stars="1"] {
+  background:
+    radial-gradient(circle at 48% 38%, rgb(255 215 89 / 16%), transparent 24%),
+    radial-gradient(circle at 72% 70%, rgb(129 201 111 / 10%), transparent 28%),
+    rgb(10 20 9 / 52%);
+  backdrop-filter: blur(3px) saturate(0.82);
+}
+
+#celebration[data-stars="3"] {
+  background:
+    radial-gradient(circle at 24% 24%, rgb(255 247 112 / 28%), transparent 28%),
+    radial-gradient(circle at 78% 34%, rgb(86 214 255 / 24%), transparent 26%),
+    radial-gradient(circle at 52% 76%, rgb(255 91 180 / 24%), transparent 30%),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 10%), transparent 45%);
+}
+
 #celebration[hidden] {
   display: none;
 }
@@ -669,12 +693,58 @@ body {
     0 3px 18px rgb(0 0 0 / 55%);
 }
 
+#celebration[data-stars="1"] .result-star-full {
+  color: #ffd859;
+  text-shadow:
+    0 0 10px rgb(255 216 89 / 62%),
+    0 3px 14px rgb(0 0 0 / 60%);
+}
+
+#celebration[data-stars="3"] .result-star-full {
+  color: #ffe26a;
+  text-shadow:
+    0 0 22px rgb(255 226 106 / 82%),
+    0 0 44px rgb(255 226 106 / 44%),
+    0 3px 18px rgb(0 0 0 / 55%);
+}
+
 .result-star-empty {
   color: #c7c9c2;
   font-weight: 700;
   text-shadow:
     0 2px 0 rgb(0 0 0 / 86%),
     0 3px 10px rgb(0 0 0 / 62%);
+}
+
+#celebration[data-stars="0"] #celebrationTitle {
+  color: #bbbfb8;
+  text-shadow: 0 2px 14px rgb(0 0 0 / 75%);
+}
+
+#celebration[data-stars="0"] #celebrationSubtitle {
+  color: #aeb2aa;
+}
+
+#celebration[data-stars="0"] .result-star-empty {
+  color: #747971;
+  text-shadow: 0 2px 7px rgb(0 0 0 / 78%);
+}
+
+#celebration[data-stars="0"] #resultStats div {
+  border-color: rgb(255 255 255 / 10%);
+  background: rgb(0 0 0 / 38%);
+  box-shadow: none;
+}
+
+#celebration[data-stars="0"] #resultStats span,
+#celebration[data-stars="0"] #resultStats strong {
+  color: #c1c5bd;
+}
+
+#celebration[data-stars="0"] #celebrationActions button {
+  color: #222620;
+  background: #c8ccc4;
+  box-shadow: none;
 }
 
 #resultStats {

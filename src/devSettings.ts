@@ -1,4 +1,4 @@
-import { settings } from "./config";
+import { lawnLevels, levelCodes, normalizeLevelCode, settings } from "./config";
 
 // Dev-only settings persistence + per-setting tuning UI. In dev:
 //   - snapshot the code defaults,
@@ -17,10 +17,36 @@ import { settings } from "./config";
 const OVERRIDE_KEY = "lawnDevSettings";
 const COMMIT_KEY = "lawnDevCommitted";
 type Bag = Record<string, unknown>;
+type TuneTarget = {
+  defaultValue: unknown;
+  get: () => unknown;
+  set: (value: unknown) => void;
+};
 
 if (!import.meta.env.PROD) {
   const bag = settings as unknown as Bag;
-  const defaults: Bag = { ...bag };
+  const tuneTargets = new Map<string, TuneTarget>();
+
+  for (const key of Object.keys(bag)) {
+    tuneTargets.set(key, {
+      defaultValue: bag[key],
+      get: () => bag[key],
+      set: (value) => {
+        bag[key] = value;
+      },
+    });
+  }
+
+  for (const code of levelCodes) {
+    const key = `lawnLevels.settings.parSeconds.${code}`;
+    tuneTargets.set(key, {
+      defaultValue: lawnLevels.settings.parSeconds[code],
+      get: () => lawnLevels.settings.parSeconds[code],
+      set: (value) => {
+        lawnLevels.settings.parSeconds[code] = Number(value);
+      },
+    });
+  }
 
   const loadBag = (key: string): Bag => {
     try {
@@ -32,8 +58,10 @@ if (!import.meta.env.PROD) {
 
   const overrides = loadBag(OVERRIDE_KEY);
   for (const k of Object.keys(overrides)) {
-    if (k in bag) {
-      bag[k] = overrides[k];
+    const target = tuneTargets.get(k);
+
+    if (target) {
+      target.set(overrides[k]);
     }
   }
 
@@ -41,20 +69,36 @@ if (!import.meta.env.PROD) {
   // settings) are dropped, so "pending" only shows what still needs baking.
   const committed = loadBag(COMMIT_KEY);
   for (const k of Object.keys(committed)) {
-    if (!(k in bag) || committed[k] === defaults[k]) {
+    const target = tuneTargets.get(k);
+
+    if (!target || committed[k] === target.defaultValue) {
       delete committed[k];
     }
   }
 
   const fmt = (v: unknown) => (typeof v === "string" ? JSON.stringify(v) : String(v));
-  const isOverridden = (k: string) => bag[k] !== defaults[k];
-  const isCommitted = (k: string) => k in committed && committed[k] === bag[k];
+  const getControlKey = (ctrl: HTMLElement) => {
+    if (ctrl.dataset.levelCode && ctrl.dataset.levelSetting) {
+      const levelCode = normalizeLevelCode(ctrl.dataset.levelCode);
+      return `lawnLevels.settings.${ctrl.dataset.levelSetting}.${levelCode}`;
+    }
+
+    return ctrl.id;
+  };
+  const isOverridden = (k: string) => {
+    const target = tuneTargets.get(k);
+    return Boolean(target && target.get() !== target.defaultValue);
+  };
+  const isCommitted = (k: string) => {
+    const target = tuneTargets.get(k);
+    return Boolean(target && k in committed && committed[k] === target.get());
+  };
 
   const saveOverrides = () => {
     const diff: Bag = {};
-    for (const k of Object.keys(bag)) {
+    for (const k of tuneTargets.keys()) {
       if (isOverridden(k)) {
-        diff[k] = bag[k];
+        diff[k] = tuneTargets.get(k)!.get();
       }
     }
     localStorage.setItem(OVERRIDE_KEY, JSON.stringify(diff));
@@ -68,15 +112,21 @@ if (!import.meta.env.PROD) {
   const applyLive = (ctrl: HTMLElement) => ctrl.dispatchEvent(new Event("input", { bubbles: true }));
 
   const revertOne = (key: string, ctrl: HTMLElement) => {
-    bag[key] = defaults[key];
+    const target = tuneTargets.get(key);
+
+    if (!target) {
+      return;
+    }
+
+    target.set(target.defaultValue);
     if (ctrl instanceof HTMLInputElement) {
       if (ctrl.type === "checkbox") {
-        ctrl.checked = Boolean(defaults[key]);
+        ctrl.checked = Boolean(target.defaultValue);
       } else {
-        ctrl.value = String(defaults[key]);
+        ctrl.value = String(target.defaultValue);
       }
     } else if (ctrl instanceof HTMLSelectElement) {
-      ctrl.value = String(defaults[key]);
+      ctrl.value = String(target.defaultValue);
     }
     applyLive(ctrl);
     saveOverrides();
@@ -84,7 +134,13 @@ if (!import.meta.env.PROD) {
   };
 
   const commitOne = (key: string) => {
-    committed[key] = bag[key];
+    const target = tuneTargets.get(key);
+
+    if (!target) {
+      return;
+    }
+
+    committed[key] = target.get();
     saveCommitted();
     refreshUI();
   };
@@ -134,8 +190,8 @@ if (!import.meta.env.PROD) {
     });
 
     for (const ctrl of panel.querySelectorAll<HTMLElement>("input[id], select[id]")) {
-      const key = ctrl.id;
-      if (!(key in bag)) {
+      const key = getControlKey(ctrl);
+      if (!tuneTargets.has(key)) {
         continue;
       }
       const label = ctrl.closest("label");
@@ -162,7 +218,7 @@ if (!import.meta.env.PROD) {
     }
 
     refreshUI = () => {
-      const overridden = Object.keys(bag).filter(isOverridden);
+      const overridden = Array.from(tuneTargets.keys()).filter(isOverridden);
       count.textContent = `Tuned: ${overridden.length}`;
       revertAll.disabled = overridden.length === 0;
       for (const [key, { revert, commit }] of dots) {

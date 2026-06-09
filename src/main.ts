@@ -152,7 +152,7 @@ let mouseSteeringActive = false;
 let mouseSteeringPointer = false;
 let hasSecretGun = false;
 let shootCooldown = 0;
-let timeRemaining = 0;
+let elapsedRunSeconds = 0;
 let fenceMistakeCount = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
@@ -378,10 +378,10 @@ function resetGame() {
   cameraRig.reset();
   hasSecretGun = false;
   shootCooldown = 0;
-  timeRemaining = settings.timeLimitSeconds;
+  elapsedRunSeconds = 0;
   fenceMistakeCount = 0;
   hud.hideTimeUp();
-  hud.setTime(timeRemaining);
+  hud.setTime(elapsedRunSeconds);
   secretGunRoot?.setEnabled(true);
   grass.generate();
   dandelions.place();
@@ -524,8 +524,8 @@ function movePlayer(deltaSeconds: number) {
         // stop the mower and play feedback, but leave plank health untouched.
         if (impact.mistake && bumpPenaltyCooldown <= 0) {
           fenceMistakeCount += 1;
-          timeRemaining = Math.max(0, timeRemaining - settings.fenceBumpTimePenalty);
-          hud.setTime(timeRemaining);
+          elapsedRunSeconds += settings.fenceBumpTimePenalty;
+          hud.setTime(elapsedRunSeconds);
           hud.update();
           bumpPenaltyCooldown = 1.5;
         }
@@ -773,7 +773,7 @@ const hud = createHud({
   getMistakes: () => tulips.mistakeCount + fenceMistakeCount,
   getFlowerMistakes: () => tulips.mistakeCount,
   getFenceMistakes: () => fenceMistakeCount,
-  getElapsedSeconds: () => settings.timeLimitSeconds - timeRemaining,
+  getElapsedSeconds: () => elapsedRunSeconds,
   isArmed: () => hasSecretGun,
   playFanfare: () => prototypeAudio.playCompletionFanfare(settings.completionFanfareVolume),
   setCompletionLoop: (active) => prototypeAudio.setCompletionLoopActive(active, settings),
@@ -1020,16 +1020,12 @@ engine.runRenderLoop(() => {
 
   updateSecretGunPickup();
 
-  // Count down only while actually playing: a finished or timed-out level freezes
-  // the clock until the player moves on.
+  // Count elapsed play time only while the level is active. There is no hard
+  // time-up fail state; time only affects the stars.
   if (!hud.isCelebrationVisible() && !hud.isTimeUpVisible()) {
-    timeRemaining = Math.max(0, timeRemaining - deltaSeconds);
-    hud.setTime(timeRemaining);
+    elapsedRunSeconds += deltaSeconds;
+    hud.setTime(elapsedRunSeconds);
     hud.update();
-
-    if (timeRemaining <= 0) {
-      hud.showTimeUp();
-    }
   }
 
   prototypeAudio.setCuttingActive(grass.isCutting());

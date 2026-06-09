@@ -1,8 +1,9 @@
-import { scoring } from "./config";
+import { getActiveLevelCode, lawnLevels, scoring } from "./config";
 
 // Pure star-scoring logic, ported from the design mockup. Internal points only:
 // the HUD meter and the end-of-level verdict are derived from these; the raw
-// numbers are never shown to the player. All constants live in config.scoring.
+// numbers are never shown to the player. Most constants live in config.scoring;
+// par is read from the active level's keyed settings.
 
 export type StarMode = 3 | 5;
 export type LimitingFactor = "grass" | "time" | "mistakes" | "none";
@@ -14,10 +15,11 @@ type NormalFacetRanks = {
 };
 
 const thresholdsFor = (mode: StarMode) => scoring.thresholds[mode];
+const parSeconds = () => lawnLevels.settings.parSeconds[getActiveLevelCode()];
 
 // Points for finishing under par (negative when over par).
 export const timePoints = (elapsedSeconds: number) =>
-  Math.round(scoring.timePerSecond * (scoring.parSeconds - elapsedSeconds));
+  Math.round(scoring.timePerSecond * (parSeconds() - elapsedSeconds));
 
 // Points for the lawn mowed so far (0..100% -> 0..10000 by default).
 export const grassPoints = (mowedPercent: number) =>
@@ -27,8 +29,8 @@ export const grassPoints = (mowedPercent: number) =>
 // previous (so a stack of bumps can't punish you forever).
 export const mistakePenalty = (count: number) => {
   let total = 0;
-  for (let i = 0; i < count; i += 1) {
-    total += scoring.mistakeBase * (scoring.mistakeFalloff ** i);
+  for (let index = 0; index < count; index += 1) {
+    total += scoring.mistakeBase * (scoring.mistakeFalloff ** index);
   }
   return Math.round(total);
 };
@@ -38,7 +40,7 @@ export const totalScore = (mowedPercent: number, elapsedSeconds: number, mistake
 
 // Score at t=0 with 0% mowed — the meter's baseline (its 0% point). Dawdling
 // lets the time bonus decay, so the meter barely moves until you start mowing.
-export const meterFloor = () => Math.round(scoring.timePerSecond * scoring.parSeconds);
+export const meterFloor = () => Math.round(scoring.timePerSecond * parSeconds());
 
 export const earnedStars = (score: number, mode: StarMode) =>
   thresholdsFor(mode).filter((threshold) => score >= threshold).length;
@@ -67,13 +69,15 @@ const normalCompletionCap = (mowedPercent: number) => {
 };
 
 const normalTimeRank = (elapsedSeconds: number) => {
-  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.threeStarTimeMultiplier) {
+  const par = parSeconds();
+
+  if (elapsedSeconds <= par * scoring.normal.threeStarTimeMultiplier) {
     return 3;
   }
-  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.twoStarTimeMultiplier) {
+  if (elapsedSeconds <= par * scoring.normal.twoStarTimeMultiplier) {
     return 2;
   }
-  if (elapsedSeconds <= scoring.parSeconds * scoring.normal.oneStarTimeMultiplier) {
+  if (elapsedSeconds <= par * scoring.normal.oneStarTimeMultiplier) {
     return 1;
   }
   return 0;
@@ -127,11 +131,16 @@ const masterStarsForRun = (mowedPercent: number, elapsedSeconds: number, mistake
     return 3;
   }
 
-  if (mowedPercent >= scoring.master.perfectPercent && elapsedSeconds <= scoring.parSeconds * scoring.master.fiveStarTimeMultiplier) {
+  const par = parSeconds();
+
+  if (
+    mowedPercent >= scoring.master.perfectPercent
+    && elapsedSeconds <= par * scoring.master.fiveStarTimeMultiplier
+  ) {
     return 5;
   }
 
-  if (elapsedSeconds <= scoring.parSeconds * scoring.master.fourStarTimeMultiplier) {
+  if (elapsedSeconds <= par * scoring.master.fourStarTimeMultiplier) {
     return 4;
   }
 

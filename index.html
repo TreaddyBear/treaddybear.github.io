@@ -16,7 +16,7 @@
         <div id="smRemaining" class="sm-cluster sm-remaining"></div>
       </div>
       <div id="score" hidden></div>
-      <div id="timer">Time 3:00</div>
+      <div id="timer">Time 0:00</div>
       <div id="mistakes">Mistakes: 0</div>
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
       <button id="finishRunButton" type="button" hidden>Finish Run</button>
@@ -55,7 +55,7 @@
         <summary>Gameplay</summary>
         <details class="settings-subgroup">
           <summary>Input</summary>
-          <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
+          <label>Level <select id="mapId"><option value="bgrnEll">Main</option><option value="bgrnBed">Flower Bed</option></select></label>
           <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
         </details>
         <details class="settings-subgroup">
@@ -71,7 +71,18 @@
         </details>
         <details class="settings-subgroup">
           <summary>Rules</summary>
-          <label>Time limit (s) <span data-value-for="timeLimitSeconds"></span><input id="timeLimitSeconds" type="range" min="30" max="1200" step="5" value="720" /></label>
+          <label>
+            Main par (s) <span data-value-for="par-bgrnEll"></span>
+            <input id="par-bgrnEll" data-level-code="bgrnEll"
+              data-level-setting="parSeconds" type="range" min="30" max="1200"
+              step="5" value="360" />
+          </label>
+          <label>
+            Flower Bed par (s) <span data-value-for="par-bgrnBed"></span>
+            <input id="par-bgrnBed" data-level-code="bgrnBed"
+              data-level-setting="parSeconds" type="range" min="30" max="1200"
+              step="5" value="360" />
+          </label>
           <label>Fence bump penalty (s) <span data-value-for="fenceBumpTimePenalty"></span><input id="fenceBumpTimePenalty" type="range" min="0" max="30" step="1" value="5" /></label>
           <label>Auto-finish at max stars <input id="autoFinishOnMaxStars" type="checkbox" /></label>
         </details>

@@ -100,19 +100,18 @@ export const settings = {
   dynamicResolution: false,
   autoFinishOnMaxStars: false,
   targetFps: 58,
-  timeLimitSeconds: 720,
   fenceBumpTimePenalty: 5,
   portraitFov: 0.78,
   portraitDistance: 5.2,
   portraitHeight: 5.2,
   portraitLookAhead: 2.4,
-  mapId: "main",
+  mapId: "bgrnEll",
 };
 
 // Star scoring. Internal points only (never shown raw to the player): the meter
-// and the end-of-level verdict are derived from these. Tunable here.
+// and the end-of-level verdict are derived from these. Per-level par lives in
+// `lawnLevels.settings.parSeconds` below and is driven by dev settings sliders.
 export const scoring = {
-  parSeconds: 360, // target time; finishing under par adds points, over subtracts
   timePerSecond: 5, // points per second under par (and lost per second over)
   grassPerPercent: 100, // points per % of the lawn mowed (max 10000 at 100%)
   mistakeBase: 1000, // first mistake's penalty
@@ -148,8 +147,18 @@ export type FlowerBed = RectLike & {
   count: number;
 };
 
+// Level codes are durable save/tuning keys. Display names can change freely.
+// `bgrn` is the temporary Beta Green prefix while the first green-level roster
+// is still being shaped.
+export const levelCodes = ["bgrnEll", "bgrnBed"] as const;
+export type LevelCode = (typeof levelCodes)[number];
+
+type LawnLevelSettings = {
+  parSeconds: Record<LevelCode, number>;
+};
+
 export type LawnMap = {
-  id: string;
+  code: LevelCode;
   name: string;
   spawn: Vector3;
   segments: Array<RectLike & { width: number; height: number; center: Vector3 }>;
@@ -158,17 +167,27 @@ export type LawnMap = {
   dandelionCount: number;
 };
 
-const mainSegments = [
+type LawnLevels = {
+  settings: LawnLevelSettings;
+} & Record<LevelCode, LawnMap>;
+
+const betaGreenEllSegments = [
   { xMin: -9, xMax: 9, zMin: -9, zMax: 2, width: 18, height: 11, center: new Vector3(0, 0, -3.5) },
   { xMin: -9, xMax: 0, zMin: 2, zMax: 9, width: 9, height: 7, center: new Vector3(-4.5, 0, 5.5) },
 ];
 
-export const lawnMaps: LawnMap[] = [
-  {
-    id: "main",
+export const lawnLevels: LawnLevels = {
+  settings: {
+    parSeconds: {
+      bgrnEll: 360,
+      bgrnBed: 360,
+    },
+  },
+  bgrnEll: {
+    code: "bgrnEll",
     name: "Main",
     spawn: new Vector3(0, 0.18, 0),
-    segments: mainSegments,
+    segments: betaGreenEllSegments,
     fenceSegments: [
       { start: new Vector3(-9.25, 0, -9.25), end: new Vector3(9.25, 0, -9.25) },
       { start: new Vector3(9.25, 0, -9.25), end: new Vector3(9.25, 0, 2.25) },
@@ -180,9 +199,9 @@ export const lawnMaps: LawnMap[] = [
     flowerBeds: [],
     dandelionCount: 18,
   },
-  {
-    id: "flower-court",
-    name: "Flower Court",
+  bgrnBed: {
+    code: "bgrnBed",
+    name: "Flower Bed",
     spawn: new Vector3(0, 0.18, -7),
     segments: [
       { xMin: -10, xMax: 10, zMin: -10, zMax: 10, width: 20, height: 20, center: new Vector3(0, 0, 0) },
@@ -208,13 +227,39 @@ export const lawnMaps: LawnMap[] = [
     ],
     dandelionCount: 12,
   },
-];
+};
 
-export function getActiveMap() {
-  return lawnMaps.find((map) => map.id === settings.mapId) ?? lawnMaps[0];
+export const lawnMaps = levelCodes.map((code) => lawnLevels[code]);
+
+const legacyLevelCodes: Record<string, LevelCode> = {
+  main: "bgrnEll",
+  "flower-court": "bgrnBed",
+};
+
+export function normalizeLevelCode(code: string): LevelCode {
+  if ((levelCodes as readonly string[]).includes(code)) {
+    return code as LevelCode;
+  }
+
+  return legacyLevelCodes[code] ?? "bgrnEll";
 }
 
-export const yardSegments = [...mainSegments];
+export function getActiveLevelCode() {
+  const levelCode = normalizeLevelCode(settings.mapId);
+  settings.mapId = levelCode;
+  return levelCode;
+}
+
+export function getNextLevelCode(levelCode = getActiveLevelCode()) {
+  const index = levelCodes.indexOf(levelCode);
+  return levelCodes[(index + 1) % levelCodes.length];
+}
+
+export function getActiveMap() {
+  return lawnLevels[getActiveLevelCode()];
+}
+
+export const yardSegments = [...betaGreenEllSegments];
 
 export function applyActiveMap() {
   const activeMap = getActiveMap();

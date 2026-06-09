@@ -1,4 +1,4 @@
-import { bladeCount, settings } from "./config";
+import { bladeCount, getNextLevelCode, settings } from "./config";
 import { createStarMeter } from "./starMeter";
 import { earnedStarsForRun, limitingFactor, nextStarOutOfReach } from "./scoring";
 import type { LimitingFactor, StarMode } from "./scoring";
@@ -66,6 +66,18 @@ const verdictFor = (
   flowerMistakes: number,
   fenceMistakes: number,
 ) => {
+  if(stars < 1) {
+    if(factor === "mistakes") {
+      return "Too many rough spots piled up this time.";
+    }
+
+    if(factor === "time") {
+      return "The route needs a cleaner rhythm.";
+    }
+
+    return "Too much grass was left standing.";
+  }
+
   if(stars >= starMode) {
     return "Immaculate. The neighbours are jealous.";
   }
@@ -179,7 +191,7 @@ const resultTitleFor = (
 
   if(reason === "out-of-reach") {
     if(stars < 1) {
-      return "Not Quite";
+      return "Not This Time";
     }
 
     if(factor === "mistakes") {
@@ -204,6 +216,18 @@ const offerSubtitleFor = (stars: number) => {
   }
 
   return "Give it another pass and clean up one thing at a time.";
+};
+
+const celebrationSeedCount = (reason: ResultReason, stars: number) => {
+  if(reason === "offer" || stars <= 1) {
+    return 0;
+  }
+
+  if(stars === 2) {
+    return 88;
+  }
+
+  return 150;
 };
 
 // The on-screen HUD: mow/mistake meters, the level-complete celebration card,
@@ -262,6 +286,7 @@ export function createHud(deps: HudDeps) {
     hudState.currentResultReason = null;
     deps.celebration.hidden = true;
     deps.celebration.dataset.result = "";
+    deps.celebration.dataset.stars = "";
     deps.celebrationSeeds.replaceChildren();
     deps.resultCoach.hidden = true;
     deps.reportCardButton.textContent = "Tips";
@@ -327,6 +352,7 @@ export function createHud(deps: HudDeps) {
 
     hudState.bestStars = stars;
     deps.celebration.dataset.result = reason;
+    deps.celebration.dataset.stars = String(stars);
     deps.celebration.querySelector("#celebrationTitle")!.textContent = resultTitleFor(
       reason,
       factor,
@@ -356,7 +382,7 @@ export function createHud(deps: HudDeps) {
     );
     deps.resultCoach.hidden = true;
 
-    if(reason !== "offer") {
+    if(reason !== "offer" && stars >= 2) {
       deps.playFanfare();
       deps.setCompletionLoop(true);
     }
@@ -370,21 +396,21 @@ export function createHud(deps: HudDeps) {
     deps.closeCelebrationButton.hidden = perfect;
     deps.closeCelebrationButton.textContent = reason === "offer" ? "Keep Going" : "Retry";
 
-    if(reason !== "offer") {
-      for(let index = 0; index < 96; index += 1) {
-        const seed = document.createElement("span");
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 110 + (Math.random() * 420);
-        const verticalLift = 40 + (Math.random() * 220);
+    const seedCount = celebrationSeedCount(reason, stars);
 
-        seed.className = "celebration-seed";
-        seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
-        seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
-        seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
-        seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
-        seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
-        deps.celebrationSeeds.append(seed);
-      }
+    for(let index = 0; index < seedCount; index += 1) {
+      const seed = document.createElement("span");
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 110 + (Math.random() * (stars >= 3 ? 520 : 420));
+      const verticalLift = 40 + (Math.random() * (stars >= 3 ? 280 : 220));
+
+      seed.className = "celebration-seed";
+      seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
+      seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
+      seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
+      seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
+      seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
+      deps.celebrationSeeds.append(seed);
     }
 
     deps.celebration.hidden = false;
@@ -400,13 +426,14 @@ export function createHud(deps: HudDeps) {
       return !deps.timeup.hidden;
     },
 
-    // Shows remaining time as M:SS, going amber in the final stretch.
-    setTime(remainingSeconds: number) {
-      const whole = Math.max(0, Math.ceil(remainingSeconds));
+    // Shows elapsed time as M:SS. Hidden in normal play, but kept current for
+    // debug/readout experiments.
+    setTime(elapsedSeconds: number) {
+      const whole = Math.max(0, Math.floor(elapsedSeconds));
       const minutes = Math.floor(whole / 60);
       const seconds = (whole % 60).toString().padStart(2, "0");
       deps.timer.textContent = `Time ${minutes}:${seconds}`;
-      deps.timer.classList.toggle("urgent", remainingSeconds <= 15);
+      deps.timer.classList.remove("urgent");
     },
 
     showTimeUp() {
@@ -489,6 +516,7 @@ export function createHud(deps: HudDeps) {
       hudState.lastMowProgressSeconds = performance.now() / 1000;
       deps.celebration.hidden = true;
       deps.celebration.dataset.result = "";
+      deps.celebration.dataset.stars = "";
       deps.celebrationSeeds.replaceChildren();
       deps.resultStars.textContent = "";
       deps.resultStats.replaceChildren();
@@ -505,6 +533,8 @@ export function createHud(deps: HudDeps) {
       hudState.bestStars = 0;
       hudState.currentResultReason = null;
       deps.celebration.hidden = true;
+      deps.celebration.dataset.result = "";
+      deps.celebration.dataset.stars = "";
       deps.finishRunButton.hidden = true;
       deps.setCompletionLoop(false);
       deps.onRequestReset();
@@ -552,7 +582,7 @@ export function createHud(deps: HudDeps) {
     },
 
     goToNextLevel() {
-      const nextMap = settings.mapId === "main" ? "flower-court" : "main";
+      const nextMap = getNextLevelCode();
       settings.mapId = nextMap;
       const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");
 

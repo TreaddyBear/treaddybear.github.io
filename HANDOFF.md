@@ -53,7 +53,9 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
 - TypeScript compile passed via bundled Node: `node node_modules/typescript/bin/tsc -p tsconfig.json`.
 - Vite production build passed via bundled Node: `node node_modules/vite/bin/vite.js build`. The first sandboxed Vite attempt may fail with `Cannot read directory "../.."`; rerun with approval because esbuild needs access to load the config/native helper.
-- A browser smoke test on `http://127.0.0.1:5175/` confirmed the canvas rendered, Flower Court could be selected, the raised flower bed/tulips loaded, and no browser console errors were reported.
+- A browser smoke test on `http://127.0.0.1:5175/` confirmed the canvas rendered,
+  Flower Bed could be selected, the raised flower bed/tulips loaded, and no
+  browser console errors were reported.
 - During the current dev pass, TypeScript compile and Vite build were re-run after the mobile render-profile, Help Me, and isolated-blade cleanup changes and both passed.
 - A LAN dev server was tested from the host at `http://10.0.0.223:5175/` and returned `200 OK`; use the current LAN IP and printed Vite port on the actual phone.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
@@ -63,9 +65,9 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 ## Current Features
 
 - Full-window Babylon canvas.
-- Selectable maps: `Main` and `Flower Court`.
-- `Main` is the original L-shaped playable lawn.
-- `Flower Court` has a central protected tulip bed.
+- Selectable Beta Green levels, keyed by permanent level codes.
+- `bgrnEll` is currently named `Main`; it is the original L-shaped playable lawn.
+- `bgrnBed` is currently named `Flower Bed`; it has a central protected tulip bed.
 - Flower beds are slightly raised dirt terrain with a subtle sloped edge and mostly no grass on the bed; tulips sit on the raised surface and the mower height/tilt follows that surface.
 - Low fence plank boundaries generated from each map config.
 - Chase camera following the mower.
@@ -78,7 +80,7 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Dandelions with yellow and white seed-head behavior.
 - Sparse large wind wisps and tiny wind particles.
 - Development settings panel with numeric value readouts.
-- Settings include a map selector.
+- Settings include a level selector.
 - Production builds hide the settings panel.
 - Fullscreen button that does not conflict with spacebar boost.
 - Touch-primary or narrow screens get a mobile render profile: dynamic resolution stays off by default, the target is 30 FPS if the player enables it, SSAO is disabled, and the shadow-map cap is lower than desktop.
@@ -92,7 +94,19 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Retry` buttons. Current completion audio files are placeholders unless replaced.
 - Completion-card decorative seeds should not intercept clicks, and the overlay should remain visible until the player chooses `Next Level` or `Close`.
 - The top HUD uses the compact star meter from `src/starMeter.ts` instead of the old "Mowed: %" text and green progress bar. The normal clock is hidden during play; `Mistakes` stays visible on every map and increments when protected tulips are destroyed.
-- The level ending now uses a star results card in the existing celebration overlay. It shows earned stars, a short verdict from `limitingFactor`, grass/time/mistake stats, and contextual actions. Perfect 100% runs show `Next Level` + `Report Card`; non-perfect runs show `Retry` + `Report Card`, with `Next Level` also shown once at least one star is earned. Hard endings happen on 100%, the hard time limit, no-star failure, or the player choosing `Finish Run` after maxing stars. For one-star-or-better near-end runs where the next star is out of reach and the player has stalled, the game shows a soft "Fine Work" prompt with `Keep Going`, `Help Me`, and `Next Level` instead of immediately ending the run. `Help Me` clears isolated single blades with no unmowed neighbor within 0.3m; if those singles were all that remained, the game finishes as `Good Enough`.
+- The level ending now uses a star results card in the existing celebration
+  overlay. It shows earned stars, a short verdict from `limitingFactor`,
+  grass/time/mistake stats, and contextual actions. There is no hard time-limit
+  failure in normal play; time only affects the star result. Perfect 100% runs
+  show `Next Level` + `Report Card`; non-perfect runs show `Retry` + `Report
+  Card`, with `Next Level` also shown once at least one star is earned. Hard
+  endings happen on 100%, no-star failure, or the player choosing `Finish Run`
+  after maxing stars. For one-star-or-better near-end runs where the next star
+  is out of reach and the player has stalled, the game shows a soft "Fine Work"
+  prompt with `Keep Going`, `Help Me`, and `Next Level` instead of immediately
+  ending the run. `Help Me` clears isolated single blades with no unmowed
+  neighbor within 0.3m; if those singles were all that remained, the game
+  finishes as `Good Enough`.
 
 ## Current Tuning Defaults
 
@@ -110,7 +124,11 @@ Important defaults in `src/config.ts`:
 - `bladeCount = 30000`
 - `mediumGrassCount = 36000`
 - `wheatGrassCount = 2200`
-- `mapId = "main"`
+- `mapId = "bgrnEll"`
+- `lawnLevels.settings.parSeconds.bgrnEll = 360`
+- `lawnLevels.settings.parSeconds.bgrnBed = 360`
+- Beta Green level codes use the `bgrn` prefix. Level codes are permanent
+  tuning/save keys; display names can change.
 - `grassyTextureScale = 160`
 - `dirtTextureUScale = 240`
 - `dirtTextureVScale = 480`
@@ -135,8 +153,10 @@ Important defaults in `src/config.ts`:
 - `completionLoopVolume = 0.35`
 - `gunShotVolume = 0.35`
 - Normal-mode scoring: `completePercent = 99.5`, `nearCompletePercent = 95`, `partialPercent = 80`
-- Normal-mode timing: 3-star time is `1.2x par`, 2-star time is `1.55x par`,
-  1-star time is `2.25x par`
+- Par is stored in `lawnLevels.settings.parSeconds`, keyed by permanent level
+  code, and exposed through the per-level par dev sliders. Normal-mode timing:
+  3-star time is `1.2x par`, 2-star time is `1.55x par`, 1-star time is
+  `2.25x par`
 - Normal-mode mistakes: `0` mistakes is the 3-star facet, `1` or fewer is the
   2-star facet, `4` or fewer is the 1-star facet
 - Master mode has 5 stars, but stars 1-3 use the same quality bar as normal.
