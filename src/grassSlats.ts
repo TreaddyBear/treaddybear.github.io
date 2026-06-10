@@ -84,6 +84,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float wiggleAmp;
       uniform float wiggleFreq;
       uniform float bendAmp;
+      uniform float time;
+      uniform float windAmp;
       varying vec3 vNormal;
       varying vec3 vWorldPos;
       varying float vTop;
@@ -114,22 +116,32 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float n3 = vnoise((cell * 5.4) + 21.7) - 0.5;
         float leanAngle = ((n1 * 2.2) + n2 + (0.5 * n3)) * 6.28318;
         vec2 leanDir = vec2(cos(leanAngle), sin(leanAngle));
-
-        // BEND the slat OVER toward leanDir, curving more toward the tip. Real
-        // blades bend, and a bent blade turns its broad face toward the sky/sun —
-        // THAT is what makes grass glow. A straight vertical slat is edge-on and
-        // catches almost nothing. (bendAmp = lean distance.)
+        // Real blades bend over so their broad face turns toward the sky/sun — that
+        // is what makes grass glow. (bendAmp = static lean distance.)
         float leanMag = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
+
+        // WIND: an oscillating gust pushing toward +x that travels across the
+        // field. It is folded into the LEAN, so it moves both the geometry AND the
+        // lighting normal — that is what makes the shine shimmer and the grass feel
+        // alive instead of dead.
+        float gust = sin((time * 1.3) + (cell.x * 0.55) + (cell.y * 0.4))
+                   + (0.5 * sin((time * 2.6) + (cell.y * 0.9) - (cell.x * 0.3)));
+        vec2 windLean = vec2(1.0, 0.18) * (windAmp * (0.55 + (0.45 * gust)));
+
+        // Combined lean (static + wind) drives the bend-over and the normal.
+        vec2 lean = (leanDir * leanMag) + windLean;
+        float leanLen = length(lean);
+        vec2 leanN = leanLen > 0.0001 ? (lean / leanLen) : leanDir;
         float curve = top * top;
         float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
-        vec2 xz = cell + (leanDir * (leanMag * curve)) + (perpDir * w);
+        vec2 xz = cell + (lean * curve) + (perpDir * w);
 
-        // Normal FOLLOWS the bend: a horizontal face (edge-on) when upright, tipping
-        // toward sky-facing (up, leaned) as it bends over, so the upturned faces
-        // catch the sun and light up in varied patches like a real lawn.
-        float bendFrac = clamp(leanMag * curve * 3.0, 0.0, 1.0);
-        vec3 uprightN = vec3(leanDir.x, 0.0, leanDir.y);
-        vec3 bentN = vec3(leanDir.x * 0.5, 1.0, leanDir.y * 0.5);
+        // Normal FOLLOWS the (animated) lean: edge-on when upright, tipping toward
+        // sky-facing as it bends, so the upturned faces catch the sun in shifting
+        // patches as the wind moves.
+        float bendFrac = clamp(leanLen * curve * 3.0, 0.0, 1.0);
+        vec3 uprightN = vec3(leanN.x, 0.0, leanN.y);
+        vec3 bentN = vec3(leanN.x * 0.5, 1.0, leanN.y * 0.5);
         vec3 N3 = normalize(mix(uprightN, bentN, bendFrac));
 
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
@@ -210,7 +222,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight", "topColor", "bottomColor",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
-      "wiggleAmp", "wiggleFreq", "bendAmp",
+      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -230,6 +242,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setFloat("wiggleAmp", settings.lodSlatWiggle);
     material.setFloat("wiggleFreq", settings.lodSlatWiggleFreq);
     material.setFloat("bendAmp", settings.lodSlatBend);
+    material.setFloat("windAmp", settings.lodSlatWind);
     material.setFloat("normalStrength", settings.lodNormalStrength);
     material.setFloat("roughness", settings.lodRoughness);
     material.setFloat("specIntensity", settings.lodSpecular);
@@ -243,6 +256,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
 
   return {
     applySettings,
+    setTime(t: number) {
+      material.setFloat("time", t);
+    },
     show(on: boolean) {
       settings.lodSlatsShow = on;
       mesh.setEnabled(on);
