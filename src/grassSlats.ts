@@ -134,23 +134,27 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
                    + (0.4 * sin((time * 2.6) + (along * 0.8) + (across * 0.3)));
         vec2 windLean = windDir * (windAmp * (0.5 + (0.7 * gust)));
 
-        // Combined lean (static + wind) drives the bend-over and the normal.
+        // Combined lean (static + wind) drives the bend-over AND the normal.
         vec2 lean = (leanDir * leanMag) + windLean;
-        float leanLen = length(lean);
-        vec2 leanN = leanLen > 0.0001 ? (lean / leanLen) : leanDir;
         float curve = top * top;
         float w = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
         vec2 xz = cell + (lean * curve) + (perpDir * w);
-
-        // Normal FOLLOWS the (animated) lean: edge-on when upright, tipping toward
-        // sky-facing as it bends, so the upturned faces catch the sun in shifting
-        // patches as the wind moves.
-        float bendFrac = clamp(leanLen * curve * 3.0, 0.0, 1.0);
-        vec3 uprightN = vec3(leanN.x, 0.0, leanN.y);
-        vec3 bentN = vec3(leanN.x * 0.5, 1.0, leanN.y * 0.5);
-        vec3 N3 = normalize(mix(uprightN, bentN, bendFrac));
-
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
+
+        // GEOMETRIC normal of the bent ribbon, not a fabricated one. A slat is a
+        // vertical wall running along runDir; bending displaces its top by
+        // lean*curve (curve = top*top, so d/dtop = 2*top) and its height tangent
+        // is h. The true surface normal is cross(runDir, dPos/dtop). Lighting the
+        // REAL surface ties the shine to the visible geometry: upright slats face
+        // horizontally (grazing the overhead sun like the PBR blades), bent slats
+        // tilt PROPORTIONALLY instead of snapping fully sky-facing (that was the
+        // "brighter when it bends down" bug), and wind shimmers the highlight
+        // because it physically moved the surface. The double-sided face sign is
+        // resolved per-pixel by gl_FrontFacing in the fragment.
+        vec3 runDir = alongX ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
+        vec3 tTop = vec3(lean.x * 2.0 * top, h, lean.y * 2.0 * top);
+        vec3 N3 = normalize(cross(runDir, tTop));
+
         vec3 wp = vec3(xz.x, top * h, xz.y);
         vWorldPos = wp;
         vNormal = N3;
@@ -189,10 +193,14 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         if (alb.a < thresh) discard;
 
         vec3 N0 = gl_FrontFacing ? normalize(vNormal) : -normalize(vNormal);
-        vec3 up = vec3(0.0, 1.0, 0.0);
-        vec3 T = normalize(cross(up, N0));
+        // Build a stable tangent frame ON the surface. Guard against N0 ~ up (a
+        // strongly bent slat's normal can approach vertical), which would make
+        // cross(up, N0) collapse to NaN; fall back to the x-axis as the reference.
+        vec3 ref = abs(N0.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+        vec3 T = normalize(cross(ref, N0));
+        vec3 B = normalize(cross(N0, T));
         vec3 nm = (texture2D(grassNormal, duv).xyz * 2.0) - 1.0;
-        vec3 N = normalize((nm.x * T * normalStrength) + (nm.y * up * normalStrength) + N0);
+        vec3 N = normalize(N0 + (nm.x * T * normalStrength) + (nm.y * B * normalStrength));
 
         vec3 L = -normalize(lightDir);
         vec3 V = normalize(cameraPosition - vWorldPos);
