@@ -1,4 +1,4 @@
-import { Effect, Mesh, ShaderMaterial, Vector3, Vector4, VertexData } from "@babylonjs/core";
+import { Effect, Mesh, ShaderMaterial, Vector2, Vector3, Vector4, VertexData } from "@babylonjs/core";
 import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
@@ -86,6 +86,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float bendAmp;
       uniform float time;
       uniform float windAmp;
+      uniform vec2 windDir;
       varying vec3 vNormal;
       varying vec3 vWorldPos;
       varying float vTop;
@@ -120,16 +121,18 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // is what makes grass glow. (bendAmp = static lean distance.)
         float leanMag = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
 
-        // WIND: a gust wave that travels straight along +x, matching the real
-        // blades (sin(t*1.7 + grassX*0.45)) so the LOD leans downwind the same
-        // way — not diagonally. Folded into the LEAN, so it moves both the
-        // geometry AND the lighting normal; that is what makes the shine shimmer
-        // and the grass feel alive instead of dead. Biased toward +x and strongly
-        // oscillating so the motion (and the glint riding the swaying normal) is
-        // actually visible.
-        float gust = sin((time * 1.7) + (cell.x * 0.45) + (cell.y * 0.12))
-                   + (0.4 * sin((time * 2.6) + (cell.x * 0.8) + (cell.y * 0.3)));
-        vec2 windLean = vec2(1.0, 0.1) * (windAmp * (0.5 + (0.7 * gust)));
+        // WIND: a gust wave that travels along the wind-direction VECTOR (windDir,
+        // a real 2D direction set from JS — not an axis). The wave propagates
+        // along windDir and oscillates across it for life, at roughly the spatial
+        // frequency the real blades use (~0.45/unit). Folded into the LEAN, so it
+        // sways both the geometry AND the lighting normal — that is what makes the
+        // shine shimmer and the grass feel alive instead of dead. The whole field
+        // leans downwind along windDir.
+        float along = dot(cell, windDir);
+        float across = dot(cell, vec2(-windDir.y, windDir.x));
+        float gust = sin((time * 1.7) + (along * 0.45) + (across * 0.12))
+                   + (0.4 * sin((time * 2.6) + (along * 0.8) + (across * 0.3)));
+        vec2 windLean = windDir * (windAmp * (0.5 + (0.7 * gust)));
 
         // Combined lean (static + wind) drives the bend-over and the normal.
         vec2 lean = (leanDir * leanMag) + windLean;
@@ -225,7 +228,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight", "topColor", "bottomColor",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
-      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp",
+      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -235,6 +238,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   material.setTexture("grassAlbedo", bake.albedoTex);
   material.setVector4("bounds", new Vector4(minX, minZ, width, depth));
   material.setVector3("lightDir", new Vector3(-0.45, -1, 0.24).normalize());
+  // Wind as a real direction vector (XZ plane), not an axis. The build's ambient
+  // wind (motes/dust in wind.ts, blade-sway wave in grass.ts) drifts roughly +x,
+  // so this stays broadly downwind but is a genuine diagonal — change this one
+  // line to blow any direction. Kept local to this file (no shared config key) to
+  // keep the slat layer easy to merge.
+  material.setVector2("windDir", new Vector2(1, 0.35).normalize());
   material.backFaceCulling = false; // slats are double-sided
   mesh.material = material;
   mesh.isPickable = false;
