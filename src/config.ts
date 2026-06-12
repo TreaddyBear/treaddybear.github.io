@@ -63,9 +63,9 @@ export const settings = {
   lodNoiseScale: 1.7, // big-lump (geometry) frequency
   lodNormalStrength: 0.85, // how hard the baked grass normal map tilts the surface
   lodNormalScale: 0.3, // baked-detail tiling (texture repeats per world unit)
-  lodSpecular: 0.15, // faint front accent (translucency is the main shine)
+  lodSpecular: 0.55, // blade-like PBR specular strength for the LOD shaders
   lodRoughness: 0.22, // highlight breadth — match the blade material to match shine
-  lodSheen: 1.2, // back-glow (translucency) strength — the main grass shine
+  lodSheen: 0.18, // soft grazing glow; specular does the main sun glint
   // Grass LOD — vertical SLAT layer (separate from the flat mesh above).
   lodSlatsShow: true, // show the cross-hatched vertical slats (on by default for tuning)
   lodSlatHeight: 0.5, // slat height where uncut
@@ -73,7 +73,7 @@ export const settings = {
   lodSlatCutoff: 0.3, // alpha-cutout threshold (lower = denser/leafier blades)
   lodSlatWiggle: 0.12, // how far each slat meanders side to side (varies the shine azimuth)
   lodSlatWiggleFreq: 1.6, // how often it meanders along its run
-  lodSlatBend: 0.45, // how far each slat bends OVER (the broad face turns up to catch light)
+  lodSlatBend: 0.16, // modest tip lean; big values read as shiny sheets
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

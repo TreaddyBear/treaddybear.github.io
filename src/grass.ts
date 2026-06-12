@@ -1003,6 +1003,8 @@ export function createGrass(deps: GrassDeps) {
     },
 
     updateMotion(timeSeconds: number) {
+      grassSlats.update(timeSeconds);
+
       const yaw = getYaw();
       const throttle = getThrottle();
       const forwardX = Math.sin(yaw);

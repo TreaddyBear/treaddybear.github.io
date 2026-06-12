@@ -272,6 +272,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "cutGrassClearCoat",
         ].includes(id)) {
           deps.refreshGrassMaterial();
+          deps.refreshLod();
         } else if ([
           "grassyTextureScale",
           "dirtTextureUScale",
