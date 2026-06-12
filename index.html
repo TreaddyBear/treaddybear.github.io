@@ -16,7 +16,7 @@
         <div id="smRemaining" class="sm-cluster sm-remaining"></div>
       </div>
       <div id="score" hidden></div>
-      <div id="timer">Time 0:00</div>
+      <div id="timer">Time 3:00</div>
       <div id="mistakes">Mistakes: 0</div>
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
       <button id="finishRunButton" type="button" hidden>Finish Run</button>
@@ -55,7 +55,7 @@
         <summary>Gameplay</summary>
         <details class="settings-subgroup">
           <summary>Input</summary>
-          <label>Level <select id="mapId"><option value="bgrnEll">Main</option><option value="bgrnBed">Flower Bed</option></select></label>
+          <label>Map <select id="mapId"><option value="main">Main</option><option value="flower-court">Flower Court</option></select></label>
           <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
         </details>
         <details class="settings-subgroup">
@@ -71,18 +71,7 @@
         </details>
         <details class="settings-subgroup">
           <summary>Rules</summary>
-          <label>
-            Main par (s) <span data-value-for="par-bgrnEll"></span>
-            <input id="par-bgrnEll" data-level-code="bgrnEll"
-              data-level-setting="parSeconds" type="range" min="30" max="1200"
-              step="5" value="360" />
-          </label>
-          <label>
-            Flower Bed par (s) <span data-value-for="par-bgrnBed"></span>
-            <input id="par-bgrnBed" data-level-code="bgrnBed"
-              data-level-setting="parSeconds" type="range" min="30" max="1200"
-              step="5" value="360" />
-          </label>
+          <label>Time limit (s) <span data-value-for="timeLimitSeconds"></span><input id="timeLimitSeconds" type="range" min="30" max="1200" step="5" value="720" /></label>
           <label>Fence bump penalty (s) <span data-value-for="fenceBumpTimePenalty"></span><input id="fenceBumpTimePenalty" type="range" min="0" max="30" step="1" value="5" /></label>
           <label>Auto-finish at max stars <input id="autoFinishOnMaxStars" type="checkbox" /></label>
         </details>
@@ -130,17 +119,9 @@
           <label>Bump scale <span data-value-for="lodNoiseScale"></span><input id="lodNoiseScale" type="range" min="0.3" max="6" step="0.05" value="1.7" /></label>
           <label>Normal strength <span data-value-for="lodNormalStrength"></span><input id="lodNormalStrength" type="range" min="0" max="2.5" step="0.02" value="0.85" /></label>
           <label>Detail tiling <span data-value-for="lodNormalScale"></span><input id="lodNormalScale" type="range" min="0.05" max="2" step="0.01" value="0.3" /></label>
-          <label>
-            Specular strength <span data-value-for="lodSpecular"></span>
-            <input id="lodSpecular" type="range" min="0" max="3"
-              step="0.01" value="0.55" />
-          </label>
+          <label>Specular strength <span data-value-for="lodSpecular"></span><input id="lodSpecular" type="range" min="0" max="3" step="0.01" value="0.7" /></label>
           <label>Roughness (match blades) <span data-value-for="lodRoughness"></span><input id="lodRoughness" type="range" min="0.04" max="1" step="0.01" value="0.22" /></label>
-          <label>
-            Back-glow (translucency) <span data-value-for="lodSheen"></span>
-            <input id="lodSheen" type="range" min="0" max="2.5"
-              step="0.02" value="0.18" />
-          </label>
+          <label>Clearcoat glint <span data-value-for="lodSheen"></span><input id="lodSheen" type="range" min="0" max="2" step="0.01" value="0.6" /></label>
           <hr />
           <label>Show vertical slats <input id="lodSlatsShow" type="checkbox" /></label>
           <label>Slat height <span data-value-for="lodSlatHeight"></span><input id="lodSlatHeight" type="range" min="0.1" max="1.2" step="0.01" value="0.5" /></label>
@@ -148,11 +129,8 @@
           <label>Slat blade density <span data-value-for="lodSlatCutoff"></span><input id="lodSlatCutoff" type="range" min="0.02" max="0.7" step="0.01" value="0.3" /></label>
           <label>Slat meander <span data-value-for="lodSlatWiggle"></span><input id="lodSlatWiggle" type="range" min="0" max="0.4" step="0.005" value="0.12" /></label>
           <label>Slat meander freq <span data-value-for="lodSlatWiggleFreq"></span><input id="lodSlatWiggleFreq" type="range" min="0.2" max="6" step="0.05" value="1.6" /></label>
-          <label>
-            Slat tip bend <span data-value-for="lodSlatBend"></span>
-            <input id="lodSlatBend" type="range" min="0" max="1.2"
-              step="0.01" value="0.16" />
-          </label>
+          <label>Slat tip bend <span data-value-for="lodSlatBend"></span><input id="lodSlatBend" type="range" min="0" max="1.2" step="0.01" value="0.45" /></label>
+          <label>Slat wind <span data-value-for="lodSlatWind"></span><input id="lodSlatWind" type="range" min="0" max="1.2" step="0.005" value="0.4" /></label>
         </details>
         <details class="settings-subgroup">
           <summary>Textures</summary>

@@ -6,11 +6,11 @@ import { hexToColor3 } from "./utils/color";
 import type { GrassBake } from "./grassBake";
 
 // Far-LOD grass as vertical slats. The geometry supplies density and silhouette;
-// the shader gives each patch blade-like normals, so sun glints read closer to
-// the real PBR blade instances instead of like a shiny woven grid.
+// the shader computes normals from the bent ribbon surface so light responds to
+// the visible motion instead of to a fabricated sky-facing normal.
 
 const SPACING = 0.5; // strip spacing + segment length in world units
-const SLAT_DOWNWIND_DIRECTION = new Vector2(1, 0.18).normalize();
+const SLAT_DOWNWIND_DIRECTION = new Vector2(1, 0.35).normalize();
 
 export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake: GrassBake) {
   const { minX, maxX, minZ, maxZ } = MOW_FIELD;
@@ -18,7 +18,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   const depth = maxZ - minZ;
 
   const positions: number[] = []; // x, topFlag/heightFactor, z
-  const normals: number[] = []; // horizontal slat facing
+  const normals: number[] = []; // horizontal slat face normal
   const uvs: number[] = []; // runDistance, topFlag/heightFactor
   const indices: number[] = [];
   let vertexIndex = 0;
@@ -83,12 +83,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform sampler2D mowField;
       uniform vec4 bounds;
       uniform float slatHeight;
-      uniform float time;
-      uniform float windAmp;
-      uniform vec2 windDir;
       uniform float wiggleAmp;
       uniform float wiggleFreq;
       uniform float bendAmp;
+      uniform float time;
+      uniform float windAmp;
+      uniform vec2 windDir;
       varying vec3 vNormal;
       varying vec3 vWorldPos;
       varying float vTop;
@@ -120,39 +120,48 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float run = uv.x;
         bool alongX = abs(normal.z) > 0.5;
         vec2 stripFace = normalize(normal.xz);
-        vec2 perpendicular = alongX ? vec2(0.0, 1.0) : vec2(1.0, 0.0);
+        vec2 runDir = alongX ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
         vec2 cell = vec2(position.x, position.z);
 
         float noiseA = vnoise(cell * 0.7) - 0.5;
         float noiseB = vnoise((cell * 2.1) + 9.3) - 0.5;
         float noiseC = vnoise((cell * 5.4) + 21.7) - 0.5;
-        float bladeAngle = ((noiseA * 2.2) + noiseB + (0.5 * noiseC)) * 6.28318;
-        vec2 randomFace = vec2(cos(bladeAngle), sin(bladeAngle));
-        vec2 bladeDir = normalize(mix(stripFace, randomFace, 0.82));
+        float leanAngle = ((noiseA * 2.2) + noiseB + (0.5 * noiseC)) * 6.28318;
+        vec2 staticLeanDir = vec2(cos(leanAngle), sin(leanAngle));
+        float staticLean = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
 
-        float windPhase = (time * 1.75) + (cell.x * 0.55) + (cell.y * 0.18) + (noiseA * 6.28318);
-        float gust = 0.62 + (0.38 * sin((time * 0.38) + (cell.x * 0.08) - (cell.y * 0.05)));
-        float windWave = 0.5 + (0.5 * sin(windPhase));
-        float windBend = windAmp * gust * (0.32 + (0.68 * windWave));
-        float crossFlutter = sin((time * 2.45) + (cell.x * 0.31) - (cell.y * 0.49)) * windAmp * 0.16;
-        float leanNoise = vnoise((cell * 1.3) + 3.0);
-        float leanDistance = bendAmp * (0.55 + (0.9 * leanNoise));
-        float wiggle = wiggleAmp * sin((run * wiggleFreq) + ((cell.x + cell.y) * 3.0));
-        vec2 xz = cell
-          + (bladeDir * leanDistance * top)
-          + (windDir * windBend * top)
-          + (perpendicular * (wiggle + (crossFlutter * top)));
+        vec2 windAcross = vec2(-windDir.y, windDir.x);
+        float along = dot(cell, windDir);
+        float across = dot(cell, windAcross);
+        float gustA = 0.5 + (0.5 * sin((time * 1.7) + (along * 0.45) + (across * 0.12)));
+        float gustB = 0.5 + (0.5 * sin((time * 2.6) + (along * 0.8) + (across * 0.3)));
+        float gust = 0.35 + (0.45 * gustA) + (0.2 * gustB);
+        vec2 windLean = windDir * windAmp * gust;
 
-        float windNormal = clamp(windBend * 5.5, 0.0, 0.82);
-        vec2 normalDir = normalize(mix(bladeDir, windDir, windNormal));
-        float upAmount = clamp(mix(0.68, 0.82, top) - (windBend * 0.62), 0.32, 0.88);
-        float sideAmount = sqrt(max(0.0, 1.0 - (upAmount * upAmount)));
-        vec3 bladeNormal = normalize(vec3(normalDir.x * sideAmount, upAmount, normalDir.y * sideAmount));
+        vec2 lean = (staticLeanDir * staticLean) + windLean;
+        float curve = top * top;
+        float wigglePhase = (run * wiggleFreq) + ((cell.x + cell.y) * 3.0);
+        float wiggle = wiggleAmp * sin(wigglePhase);
+        float wiggleDerivative = wiggleAmp * (wiggleFreq + 3.0) * cos(wigglePhase);
+        vec2 xz = cell + (lean * curve) + (stripFace * wiggle);
 
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
         vec3 worldPosition = vec3(xz.x, top * h * heightFactor, xz.y);
+
+        vec3 runTangent = normalize(vec3(
+          runDir.x + (stripFace.x * wiggleDerivative),
+          0.0,
+          runDir.y + (stripFace.y * wiggleDerivative)
+        ));
+        vec3 heightTangent = vec3(2.0 * lean.x * top, max(0.02, h * heightFactor), 2.0 * lean.y * top);
+        vec3 geometricNormal = normalize(cross(runTangent, heightTangent));
+
+        if (dot(geometricNormal.xz, stripFace) < 0.0) {
+          geometricNormal = -geometricNormal;
+        }
+
         vWorldPos = worldPosition;
-        vNormal = bladeNormal;
+        vNormal = geometricNormal;
         vTop = top;
         vRun = run;
         gl_Position = worldViewProjection * vec4(worldPosition, 1.0);
@@ -176,8 +185,6 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float roughness;
       uniform float specIntensity;
       uniform float sheen;
-      uniform float clearCoatIntensity;
-      uniform float clearCoatRoughness;
       uniform float cutoff;
 
       const vec3 LIGHT_COLOR = vec3(1.0, 0.95, 0.74);
@@ -193,13 +200,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
           discard;
         }
 
-        vec3 viewDir = normalize(cameraPosition - vWorldPos);
-        vec3 baseNormal = normalize(vNormal);
-
-        if (dot(baseNormal, viewDir) < 0.0) {
-          baseNormal = -baseNormal;
-        }
-
+        vec3 baseNormal = gl_FrontFacing ? normalize(vNormal) : -normalize(vNormal);
         vec3 tangent = abs(baseNormal.y) > 0.96
           ? vec3(1.0, 0.0, 0.0)
           : normalize(cross(vec3(0.0, 1.0, 0.0), baseNormal));
@@ -208,10 +209,11 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec3 normal = normalize(
           baseNormal
           + (tangent * normalDetail.x * normalStrength)
-          + (bitangent * normalDetail.y * normalStrength * 0.45)
+          + (bitangent * normalDetail.y * normalStrength * 0.35)
         );
 
         vec3 light = -normalize(lightDir);
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
         vec3 halfDir = normalize(light + viewDir);
         float normalDotLight = clamp(dot(normal, light), 0.0, 1.0);
         float normalDotView = clamp(dot(normal, viewDir), 0.0, 1.0);
@@ -220,8 +222,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
 
         vec3 rootColor = mix(bottomColor, topColor, 0.32);
         vec3 base = mix(rootColor, topColor, tipAmount) * (0.78 + (0.42 * albedoDetail.g));
-        float wrapLight = clamp((dot(normal, light) + 0.28) / 1.28, 0.0, 1.0);
-        float diffuse = 0.48 + (0.52 * wrapLight);
+        float diffuse = 0.42 + (0.58 * clamp((dot(normal, light) + 0.18) / 1.18, 0.0, 1.0));
 
         float rough = clamp(roughness, 0.04, 1.0);
         float alpha = max(0.025, rough * rough);
@@ -233,19 +234,18 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float geometryLight = normalDotLight / max(0.0001, (normalDotLight * (1.0 - geometryK)) + geometryK);
         float fresnel = 0.04 + (0.96 * pow(1.0 - viewDotHalf, 5.0));
         float specular = distribution * geometryView * geometryLight * fresnel * specIntensity * normalDotLight;
-        specular = min(specular, 1.25);
+        specular = min(specular, 0.85);
 
-        float coatRough = clamp(clearCoatRoughness, 0.015, 0.18);
+        float coatRough = 0.06;
         float coatAlpha = max(0.01, coatRough * coatRough);
         float coatAlphaSquared = coatAlpha * coatAlpha;
         float coatDenom = ((normalDotHalf * normalDotHalf) * (coatAlphaSquared - 1.0)) + 1.0;
         float coatDistribution = coatAlphaSquared / max(0.0001, PI * coatDenom * coatDenom);
         float coatFresnel = 0.04 + (0.96 * pow(1.0 - viewDotHalf, 5.0));
-        float clearCoat = coatDistribution * coatFresnel * clearCoatIntensity * 5.0 * normalDotLight;
-        clearCoat = min(clearCoat, 0.75);
+        float clearCoat = coatDistribution * coatFresnel * sheen * normalDotLight * 0.18;
+        clearCoat = min(clearCoat, 0.55);
 
-        float edgeGlow = pow(1.0 - normalDotView, 2.4) * sheen * (0.18 + (0.82 * normalDotLight));
-        vec3 color = (base * diffuse) + (LIGHT_COLOR * (specular + clearCoat)) + (base * edgeGlow);
+        vec3 color = (base * diffuse) + (LIGHT_COLOR * (specular + clearCoat));
         gl_FragColor = vec4(color, 1.0);
       }
     `;
@@ -255,8 +255,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     attributes: ["position", "normal", "uv"],
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight", "topColor", "bottomColor",
-      "lightDir", "time", "windAmp", "windDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen",
-      "clearCoatIntensity", "clearCoatRoughness", "cutoff", "wiggleAmp", "wiggleFreq", "bendAmp",
+      "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
+      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -267,24 +267,21 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   material.setVector4("bounds", new Vector4(minX, minZ, width, depth));
   material.setVector3("lightDir", new Vector3(-0.45, -1, 0.24).normalize());
   material.setVector2("windDir", SLAT_DOWNWIND_DIRECTION);
-  material.setFloat("time", 0);
   material.backFaceCulling = false;
   mesh.material = material;
   mesh.isPickable = false;
 
   const applySettings = () => {
     material.setFloat("slatHeight", settings.lodSlatHeight);
-    material.setFloat("windAmp", settings.windStrength * 0.9);
     material.setFloat("tileScale", settings.lodSlatTileScale);
     material.setFloat("wiggleAmp", settings.lodSlatWiggle);
     material.setFloat("wiggleFreq", settings.lodSlatWiggleFreq);
     material.setFloat("bendAmp", settings.lodSlatBend);
+    material.setFloat("windAmp", settings.lodSlatWind);
     material.setFloat("normalStrength", settings.lodNormalStrength);
     material.setFloat("roughness", settings.lodRoughness);
     material.setFloat("specIntensity", settings.lodSpecular);
     material.setFloat("sheen", settings.lodSheen);
-    material.setFloat("clearCoatIntensity", settings.grassClearCoat);
-    material.setFloat("clearCoatRoughness", Math.max(0.018, settings.grassRoughness * 0.12));
     material.setFloat("cutoff", settings.lodSlatCutoff);
     material.setColor3("topColor", hexToColor3(settings.lodTopColor));
     material.setColor3("bottomColor", hexToColor3(settings.lodBottomColor));
@@ -294,9 +291,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
 
   return {
     applySettings,
-    update(timeSeconds: number) {
+    setTime(timeSeconds: number) {
       material.setFloat("time", timeSeconds);
-      material.setFloat("windAmp", settings.windStrength * 0.9);
     },
     show(on: boolean) {
       settings.lodSlatsShow = on;

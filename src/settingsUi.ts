@@ -204,6 +204,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatWiggle",
       "lodSlatWiggleFreq",
       "lodSlatBend",
+      "lodSlatWind",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -308,6 +309,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatWiggle",
           "lodSlatWiggleFreq",
           "lodSlatBend",
+          "lodSlatWind",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {
