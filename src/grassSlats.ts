@@ -120,13 +120,16 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // is what makes grass glow. (bendAmp = static lean distance.)
         float leanMag = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
 
-        // WIND: an oscillating gust pushing toward +x that travels across the
-        // field. It is folded into the LEAN, so it moves both the geometry AND the
-        // lighting normal — that is what makes the shine shimmer and the grass feel
-        // alive instead of dead.
-        float gust = sin((time * 1.3) + (cell.x * 0.55) + (cell.y * 0.4))
-                   + (0.5 * sin((time * 2.6) + (cell.y * 0.9) - (cell.x * 0.3)));
-        vec2 windLean = vec2(1.0, 0.18) * (windAmp * (0.55 + (0.45 * gust)));
+        // WIND: a gust wave that travels straight along +x, matching the real
+        // blades (sin(t*1.7 + grassX*0.45)) so the LOD leans downwind the same
+        // way — not diagonally. Folded into the LEAN, so it moves both the
+        // geometry AND the lighting normal; that is what makes the shine shimmer
+        // and the grass feel alive instead of dead. Biased toward +x and strongly
+        // oscillating so the motion (and the glint riding the swaying normal) is
+        // actually visible.
+        float gust = sin((time * 1.7) + (cell.x * 0.45) + (cell.y * 0.12))
+                   + (0.4 * sin((time * 2.6) + (cell.x * 0.8) + (cell.y * 0.3)));
+        vec2 windLean = vec2(1.0, 0.1) * (windAmp * (0.5 + (0.7 * gust)));
 
         // Combined lean (static + wind) drives the bend-over and the normal.
         vec2 lean = (leanDir * leanMag) + windLean;

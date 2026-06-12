@@ -74,7 +74,7 @@ export const settings = {
   lodSlatWiggle: 0.12, // how far each slat meanders side to side (varies the shine azimuth)
   lodSlatWiggleFreq: 1.6, // how often it meanders along its run
   lodSlatBend: 0.45, // how far each slat bends OVER (the broad face turns up to catch light)
-  lodSlatWind: 0.18, // wind sway amplitude — animates the slats so the shine shimmers
+  lodSlatWind: 0.4, // wind sway amplitude — animates the slats so the shine shimmers
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
