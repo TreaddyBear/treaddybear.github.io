@@ -55,26 +55,35 @@ export const settings = {
   // Grass LOD (far-field mesh) — tunable live from the "Grass LOD" settings group.
   lodShow: false, // off by default; check to preview the LOD mesh
   lodOpacity: 1, // 0 = fully see the real blades, 1 = fully the LOD mesh
-  lodTopColor: "#74c247", // light, for the raised tips
-  lodBottomColor: "#16380a", // dark, for the valleys (reads as self-shadow)
+  lodTopColor: "#397217", // light, for the raised tips
+  lodBottomColor: "#1a3111", // dark, for the valleys (reads as self-shadow)
   lodHeightTotal: 0.3, // base grass height
   lodBumpAmplitude: 0.06, // +/- surface deviation around the base (tune separately now)
   lodHeightOffset: -0.02, // base offset; negative dips valleys into the terrain
   lodNoiseScale: 1.7, // big-lump (geometry) frequency
   lodNormalStrength: 0.85, // how hard the baked grass normal map tilts the surface
   lodNormalScale: 0.3, // baked-detail tiling (texture repeats per world unit)
-  lodSpecular: 0.4, // base GGX gloss strength
-  lodRoughness: 0.22, // highlight breadth — match the blade material to match shine
-  lodSheen: 0.6, // clearcoat glint strength for the slat shader
+  lodSpecular: 2.62, // base GGX gloss strength
+  lodRoughness: 0.62, // highlight breadth — match the blade material to match shine
+  lodSheen: 2, // clearcoat glint strength for the slat shader
   // Grass LOD — vertical SLAT layer (separate from the flat mesh above).
   lodSlatsShow: true, // show the cross-hatched vertical slats (on by default for tuning)
-  lodSlatHeight: 0.5, // slat height where uncut
-  lodSlatTileScale: 0.6, // baked-detail tiling on the slats
-  lodSlatCutoff: 0.3, // alpha-cutout threshold (lower = denser/leafier blades)
-  lodSlatWiggle: 0.12, // how far each slat meanders side to side (varies the shine azimuth)
+  lodSlatHeight: 0.58, // slat height where uncut
+  lodSlatTileScale: 0.48, // baked-detail tiling on the slats
+  lodSlatCutoff: 0.02, // alpha-cutout threshold (lower = denser/leafier blades)
+  lodSlatWiggle: 0.25, // how far each slat meanders side to side (varies the shine azimuth)
   lodSlatWiggleFreq: 1.6, // how often it meanders along its run
-  lodSlatBend: 0.45, // how far each slat bends over
-  lodSlatWind: 0.4, // wind sway amplitude for the slat layer
+  lodSlatBend: 0.06, // how far each slat bends over
+  lodSlatWind: 0.06, // wind sway amplitude for the slat layer
+  // Slat color "Y" graph: each blade picks one of two TOP colors (A/B) for
+  // blade-to-blade variation, then blends top -> mid -> bottom along its length
+  // through a knee at lodSlatColorMid. Slat-specific (the flat LOD mesh keeps
+  // lodTopColor/lodBottomColor).
+  lodSlatTopColorA: "#74c247", // tip color A (the brighter green tip)
+  lodSlatTopColorB: "#a6c24e", // tip color B (yellower, sun-bleached blades)
+  lodSlatMidColor: "#3c7a1f", // mid-blade green
+  lodSlatBottomColor: "#16380a", // shaded base
+  lodSlatColorMid: 0.4, // where the mid color sits along the blade (0 base, 1 tip)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

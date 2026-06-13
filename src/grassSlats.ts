@@ -93,6 +93,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying vec3 vWorldPos;
       varying float vTop;
       varying float vRun;
+      varying float vColorPick;
 
       float mowedAt(vec2 xz) {
         vec2 uvm = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
@@ -160,6 +161,11 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
           geometricNormal = -geometricNormal;
         }
 
+        // Per-slat top pick: low-freq noise gives yellower/greener PATCHES across
+        // the field, the higher-freq term jitters it blade-to-blade. Drives which
+        // of the two top colors this blade leans toward in the fragment.
+        vColorPick = clamp((vnoise((cell * 0.9) + 17.0) * 0.65) + (vnoise((cell * 3.7) + 5.0) * 0.35), 0.0, 1.0);
+
         vWorldPos = worldPosition;
         vNormal = geometricNormal;
         vTop = top;
@@ -174,8 +180,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying vec3 vWorldPos;
       varying float vTop;
       varying float vRun;
-      uniform vec3 topColor;
+      varying float vColorPick;
+      uniform vec3 topColorA;
+      uniform vec3 topColorB;
+      uniform vec3 midColor;
       uniform vec3 bottomColor;
+      uniform float slatMidPoint;
       uniform vec3 lightDir;
       uniform vec3 cameraPosition;
       uniform sampler2D grassNormal;
@@ -220,8 +230,16 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float normalDotHalf = clamp(dot(normal, halfDir), 0.0, 1.0);
         float viewDotHalf = clamp(dot(viewDir, halfDir), 0.0, 1.0);
 
-        vec3 rootColor = mix(bottomColor, topColor, 0.32);
-        vec3 base = mix(rootColor, topColor, tipAmount) * (0.78 + (0.42 * albedoDetail.g));
+        // "Y"-shaped color graph: each blade picks one of two TOP colors
+        // (blade-to-blade variation), then the length blends top -> mid -> bottom
+        // through a shared knee at slatMidPoint. Two tops converging to one mid
+        // and one bottom.
+        vec3 topMix = mix(topColorA, topColorB, vColorPick);
+        float knee = clamp(slatMidPoint, 0.05, 0.95);
+        vec3 vert = tipAmount < knee
+          ? mix(bottomColor, midColor, tipAmount / knee)
+          : mix(midColor, topMix, (tipAmount - knee) / (1.0 - knee));
+        vec3 base = vert * (0.78 + (0.42 * albedoDetail.g));
         float diffuse = 0.42 + (0.58 * clamp((dot(normal, light) + 0.18) / 1.18, 0.0, 1.0));
 
         float rough = clamp(roughness, 0.04, 1.0);
@@ -254,7 +272,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   const material = new ShaderMaterial("grassSlatsMat", scene, "grassSlats", {
     attributes: ["position", "normal", "uv"],
     uniforms: [
-      "worldViewProjection", "cameraPosition", "bounds", "slatHeight", "topColor", "bottomColor",
+      "worldViewProjection", "cameraPosition", "bounds", "slatHeight",
+      "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
       "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
     ],
@@ -283,8 +302,11 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setFloat("specIntensity", settings.lodSpecular);
     material.setFloat("sheen", settings.lodSheen);
     material.setFloat("cutoff", settings.lodSlatCutoff);
-    material.setColor3("topColor", hexToColor3(settings.lodTopColor));
-    material.setColor3("bottomColor", hexToColor3(settings.lodBottomColor));
+    material.setColor3("topColorA", hexToColor3(settings.lodSlatTopColorA));
+    material.setColor3("topColorB", hexToColor3(settings.lodSlatTopColorB));
+    material.setColor3("midColor", hexToColor3(settings.lodSlatMidColor));
+    material.setColor3("bottomColor", hexToColor3(settings.lodSlatBottomColor));
+    material.setFloat("slatMidPoint", settings.lodSlatColorMid);
     mesh.setEnabled(settings.lodSlatsShow);
   };
   applySettings();

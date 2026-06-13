@@ -205,6 +205,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatWiggleFreq",
       "lodSlatBend",
       "lodSlatWind",
+      "lodSlatColorMid",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -215,6 +216,10 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "skyAmbientColor",
       "lodTopColor",
       "lodBottomColor",
+      "lodSlatTopColorA",
+      "lodSlatTopColorB",
+      "lodSlatMidColor",
+      "lodSlatBottomColor",
     ] as const;
     const checkboxControls = [
       "showFenceHealth",
@@ -310,6 +315,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatWiggleFreq",
           "lodSlatBend",
           "lodSlatWind",
+          "lodSlatColorMid",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {
@@ -356,7 +362,14 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           deps.refreshGroundColor();
         } else if (id === "skyAmbientColor") {
           deps.refreshLighting();
-        } else if (id === "lodTopColor" || id === "lodBottomColor") {
+        } else if (
+          id === "lodTopColor"
+          || id === "lodBottomColor"
+          || id === "lodSlatTopColorA"
+          || id === "lodSlatTopColorB"
+          || id === "lodSlatMidColor"
+          || id === "lodSlatBottomColor"
+        ) {
           deps.refreshLod();
         } else {
           deps.refreshGrassColors();
