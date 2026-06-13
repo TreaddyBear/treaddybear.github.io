@@ -159,6 +159,10 @@ if (!import.meta.env.PROD) {
       .dev-ov button:disabled{opacity:.4;cursor:default}
       .dev-pending{display:none;margin:4px 0 8px}
       .dev-pending textarea{width:100%;height:92px;background:#0f150b;color:#cfe8b0;border:1px solid #38491f;border-radius:6px;font:11px/1.4 monospace;padding:6px;box-sizing:border-box}
+      .dev-pending-acts{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+      .dev-pending-acts button{border:1px solid #4a7a2a;background:#234016;color:#bff09a;border-radius:7px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer}
+      .dev-pending-acts button:disabled{opacity:.4;cursor:default}
+      .dev-pending-msg{font-size:11px;color:#9fb98a}
       #settings label.dev-changed{outline:1px solid rgba(255,207,51,.45);outline-offset:2px;border-radius:4px}
       .dev-acts{grid-column:1/-1;display:flex;gap:4px;margin-top:3px}
       .dev-acts button{border-radius:5px;font-size:11px;line-height:1.2;padding:2px 7px;cursor:pointer;font-weight:700}
@@ -176,9 +180,63 @@ if (!import.meta.env.PROD) {
 
     const pendingWrap = document.createElement("div");
     pendingWrap.className = "dev-pending";
+    const pendingActs = document.createElement("div");
+    pendingActs.className = "dev-pending-acts";
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.textContent = "💾 Save to config.ts";
+    saveBtn.title = "Write committed values into src/config.ts defaults (dev server only; produces a reviewable git diff)";
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "📋 Copy";
+    copyBtn.title = "Manually copy committed values to your clipboard";
+    const pendingMsg = document.createElement("span");
+    pendingMsg.className = "dev-pending-msg";
+    pendingActs.append(saveBtn, copyBtn, pendingMsg);
     const ta = document.createElement("textarea");
     ta.readOnly = true;
-    pendingWrap.append(ta);
+    pendingWrap.append(pendingActs, ta);
+
+    // Opt-in clipboard copy. We deliberately do NOT auto-write the clipboard
+    // (that silently clobbered whatever the user had copied) — only on click.
+    copyBtn.addEventListener("click", () => {
+      const lines = pendingLines();
+      if (!lines) {
+        return;
+      }
+      navigator.clipboard?.writeText(lines).then(
+        () => { pendingMsg.textContent = "copied to clipboard"; },
+        () => { pendingMsg.textContent = "clipboard blocked — select the text manually"; },
+      );
+    });
+
+    // Bake committed values into src/config.ts via the dev-only Vite endpoint.
+    // No-ops gracefully if the endpoint isn't there (production build / gh-pages).
+    // Never touches localStorage: after Vite hot-reloads config.ts, committed
+    // keys whose default now matches simply drop out of "pending" on their own.
+    saveBtn.addEventListener("click", () => {
+      const keys = Object.keys(committed);
+      if (keys.length === 0) {
+        pendingMsg.textContent = "nothing committed to save";
+        return;
+      }
+      pendingMsg.textContent = "saving…";
+      saveBtn.disabled = true;
+      fetch("/__tune/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(committed),
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+        .then((out: { written: string[]; skipped: string[] }) => {
+          const skip = out.skipped.length ? ` · skipped ${out.skipped.length}: ${out.skipped.join(", ")}` : "";
+          pendingMsg.textContent = `wrote ${out.written.length} to config.ts${skip}`;
+        })
+        .catch(() => {
+          pendingMsg.textContent = "no dev endpoint (production build?) — use Copy instead";
+        })
+        .finally(() => { saveBtn.disabled = false; });
+    });
 
     const summary = panel.querySelector(":scope > summary");
     summary?.after(pendingWrap);
@@ -230,9 +288,7 @@ if (!import.meta.env.PROD) {
       const lines = pendingLines();
       ta.value = lines;
       pendingWrap.style.display = lines ? "block" : "none";
-      if (lines) {
-        navigator.clipboard?.writeText(lines).catch(() => {});
-      }
+      // NOTE: no auto clipboard write here on purpose — use the 📋 Copy button.
     };
 
     let saveTimer = 0;
