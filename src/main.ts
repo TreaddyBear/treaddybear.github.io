@@ -42,7 +42,7 @@ import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
 import { createMowerControl } from "./mowerControl";
 import { isInsideSegments } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createWorldTerrain, flowerBedHeightAt, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
+import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createRoadDirtOverlay, createWorldTerrain, flowerBedHeightAt, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -727,6 +727,7 @@ createSimpleTrees(scene, materials, shadowGenerator);
 rockColliders.push(...createSceneryRocks(scene, materials, shadowGenerator));
 
 createRoad(scene, roadMaterial, stripeMaterial);
+createRoadDirtOverlay(scene);
 secretGunRoot = createHiddenGunProp();
 
 player = MeshBuilder.CreateBox("player", { size: 1 }, scene);

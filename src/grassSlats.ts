@@ -3,7 +3,7 @@ import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
 import { hexToColor3 } from "./utils/color";
-import { ROAD_CENTER_X, biomeHomeAmount, terrainHeightAt } from "./world";
+import { biomeHomeAmount, roadGrassAmount, terrainHeightAt } from "./world";
 import type { GrassBake } from "./grassBake";
 
 // Far-LOD grass as vertical slats. The geometry supplies density and silhouette;
@@ -17,7 +17,6 @@ const SLAT_DOWNWIND_DIRECTION = new Vector2(1, 0.35).normalize();
 // well past the fence into the visible distance. Mow state (cutting) only exists
 // inside MOW_FIELD; outside it, slats read as uncut tall grass.
 const SLAT_AREA = { minX: -75, maxX: 75, minZ: -70, maxZ: 64 };
-const ROAD_HALF = 4.3; // grass/slats excluded within this of the road (world.ts uses ~4.1)
 
 export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake: GrassBake) {
   const { minX, maxX, minZ, maxZ } = SLAT_AREA;
@@ -60,7 +59,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // signals the real ground uses) so slats follow the terrain and only grow
         // where there's grass — never on the road or far dirt.
         const groundY = terrainHeightAt(x, z);
-        const cover = Math.abs(x - ROAD_CENTER_X) < ROAD_HALF ? 0 : biomeHomeAmount(x, z);
+        // Grass only past the road's dirt verge AND inside the grass biome, so the
+        // slats stop at the same irregular dirt->grass edge the ground draws.
+        const cover = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
         groundYs.push(groundY, groundY);
         covers.push(cover, cover);
 

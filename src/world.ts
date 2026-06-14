@@ -639,6 +639,111 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
   return overlay;
 }
 
+// Road verge: a strip of dirt either side of the road, with TWO noise-wobbled
+// edges so it reads natural. The inner edge (road -> dirt) wobbles with small,
+// high-frequency waves hugging the kerb; the outer edge (dirt -> grass) wobbles
+// with larger, lower-frequency waves. Both the ground dirt overlay below and the
+// slat coverage (grassSlats.ts) read from these, so the grass starts exactly
+// where the dirt ends.
+const ROAD_HALF = ROAD_WIDTH / 2; // road edge from its centerline
+const ROAD_VERGE_WIDTH = 0.3; // dirt band width past the road edge (~30 cm)
+const ROAD_VERGE_Y = 0.024; // just above the road so the dirt edge hides the kerb
+
+function roadInnerEdge(x: number, z: number) {
+  // Tiny, high-frequency wobble. Kept strictly INSIDE the road edge (max < ROAD_HALF)
+  // so dirt always reaches the kerb — no grass can slip between road and dirt — and
+  // the road->dirt line reads as a small ragged edge.
+  const wobble = ((valueNoise((x * 2.4) + 7, (z * 2.4) - 3) - 0.5) * 0.085)
+    + ((valueNoise((x * 4.8) - 4, (z * 4.8) + 9) - 0.5) * 0.045);
+  // Base sits ~0.16 inside the kerb (wobble max ~0.065), so the band is fully
+  // opaque from the road edge outward — the eaten-in part just hides under the road.
+  return (ROAD_HALF - 0.16) + wobble;
+}
+
+function roadOuterEdge(x: number, z: number) {
+  // Small wobble too (the whole band is ~30 cm), a touch lower frequency than the
+  // inner edge so the dirt->grass side has its own slightly wider character.
+  const wobble = ((valueNoise((x * 1.7) - 11, (z * 1.7) + 5) - 0.5) * 0.13)
+    + ((valueNoise((x * 3.3) + 2, (z * 3.3) - 8) - 0.5) * 0.06);
+  return (ROAD_HALF + ROAD_VERGE_WIDTH) + wobble;
+}
+
+// 1 inside the dirt band (between the two edges), 0 on the road and on grass.
+function roadVergeDirt(x: number, z: number) {
+  const d = Math.abs(x - ROAD_CENTER_X);
+  const up = smoothstep01((d - roadInnerEdge(x, z)) / 0.045);
+  const down = 1 - smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
+  return Math.max(0, up * down);
+}
+
+// 1 where there is grass (past the verge), 0 on the road and dirt band. The slat
+// coverage multiplies this in so slats stop at the irregular dirt->grass edge.
+export function roadGrassAmount(x: number, z: number) {
+  const d = Math.abs(x - ROAD_CENTER_X);
+  return smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
+}
+
+// Dirt overlay along the road, same technique as the fence-dirt overlay but
+// driven by the two road edges. Spans only the near/visible road length (the far
+// road keeps its plain edge). Rendered just above the road so its ragged inner
+// edge blends the straight kerb into dirt.
+export function createRoadDirtOverlay(scene: Scene) {
+  const xMin = ROAD_CENTER_X - 7;
+  const xMax = ROAD_CENTER_X + 7;
+  const zMin = -75;
+  const zMax = 70;
+  const width = xMax - xMin;
+  const depth = zMax - zMin;
+
+  const texelsPerUnit = 28;
+  // The verge is thin (~30 cm), so keep a high texel density even over the long
+  // road; the strip is narrow in X, so a tall texture stays cheap.
+  const maskWidth = Math.min(1024, Math.round(width * texelsPerUnit));
+  const maskHeight = Math.min(4096, Math.round(depth * texelsPerUnit));
+  const mask = new DynamicTexture("roadDirtMask", { width: maskWidth, height: maskHeight }, scene, false, Texture.BILINEAR_SAMPLINGMODE);
+  mask.hasAlpha = true;
+  const context = mask.getContext() as CanvasRenderingContext2D;
+  const image = context.createImageData(maskWidth, maskHeight);
+
+  for (let j = 0; j < maskHeight; j += 1) {
+    // CreateGround flips V, so row 0 maps to zMax (match it, as the fence does).
+    const worldZ = zMax - ((j / (maskHeight - 1)) * depth);
+
+    for (let i = 0; i < maskWidth; i += 1) {
+      const worldX = xMin + ((i / (maskWidth - 1)) * width);
+      const dirtAmount = roadVergeDirt(worldX, worldZ);
+      const index = ((j * maskWidth) + i) * 4;
+      image.data[index] = 255;
+      image.data[index + 1] = 255;
+      image.data[index + 2] = 255;
+      image.data[index + 3] = Math.round(dirtAmount * 255);
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  mask.update();
+  mask.wrapU = Texture.CLAMP_ADDRESSMODE;
+  mask.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  const dirtTexture = new Texture(dirtGroundTextureUrl, scene);
+  dirtTexture.uScale = width * 0.5;
+  dirtTexture.vScale = depth * 0.5;
+
+  const material = new StandardMaterial("roadDirtMaterial", scene);
+  material.diffuseTexture = dirtTexture;
+  material.opacityTexture = mask;
+  material.specularColor = Color3.Black();
+  material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  material.backFaceCulling = false;
+
+  const overlay = MeshBuilder.CreateGround("road-dirt-overlay", { width, height: depth }, scene);
+  overlay.position = new Vector3((xMin + xMax) / 2, ROAD_VERGE_Y, (zMin + zMax) / 2);
+  overlay.material = material;
+  overlay.isPickable = false;
+  overlay.receiveShadows = true;
+  return overlay;
+}
+
 export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {
   const root = new TransformNode("fence-root", scene);
 
