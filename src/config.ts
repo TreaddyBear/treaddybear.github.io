@@ -90,12 +90,13 @@ export const settings = {
   lodFade: true, // master toggle for the distance fade (blades cull + slats fade)
   // BLADE cull (per-blade dither) — distance from the mower where real blades
   // start dropping, and the band over which they fully cull out.
-  lodFadeDistance: 15.25,
+  lodFadeDistance: 11.73,
   lodFadeBand: 14,
   // SLAT alpha fade-in — its OWN distance/band (the slats are the far grass and
   // come in by alpha, not the blade dither). Measured from the mower.
-  lodSlatFadeDistance: 12, // radius where slats begin appearing
-  lodSlatFadeBand: 14, // width of the alpha fade-in
+  lodSlatFadeDistance: 5.5, // radius where slats begin appearing
+  lodSlatFadeBand: 9.5, // width of the alpha fade-in
+  lodSlatRenderDistance: 70, // far limit — slats fade back out by here (from the mower)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

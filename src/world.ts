@@ -41,7 +41,7 @@ const TERRAIN_WIDTH = 300;
 const TERRAIN_DEPTH = 600;
 const TERRAIN_SUBDIV_X = 80;
 const TERRAIN_SUBDIV_Z = 132;
-const ROAD_CENTER_X = 14.5;
+export const ROAD_CENTER_X = 14.5;
 const ROAD_WIDTH = 6.65;
 const ROAD_LENGTH = 540;
 const ROAD_STRIPE_HALF_WIDTH = 0.105;
@@ -176,7 +176,7 @@ function biomeMaskNoise(x: number, z: number) {
   return Math.max(0, Math.min(1, base - nestedLakes + nestedIslands));
 }
 
-function biomeHomeAmount(x: number, z: number) {
+export function biomeHomeAmount(x: number, z: number) {
   const distance = distanceToAnyLawn(x, z);
   const safeDistance = 24;
   const awayDistance = 145;

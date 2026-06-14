@@ -3,6 +3,7 @@ import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
 import { hexToColor3 } from "./utils/color";
+import { ROAD_CENTER_X, biomeHomeAmount, terrainHeightAt } from "./world";
 import type { GrassBake } from "./grassBake";
 
 // Far-LOD grass as vertical slats. The geometry supplies density and silhouette;
@@ -12,14 +13,23 @@ import type { GrassBake } from "./grassBake";
 const SPACING = 0.5; // strip spacing + segment length in world units
 const SLAT_DOWNWIND_DIRECTION = new Vector2(1, 0.35).normalize();
 
+// The slat MESH spans far more than the playable mow field: the far grass runs
+// well past the fence into the visible distance. Mow state (cutting) only exists
+// inside MOW_FIELD; outside it, slats read as uncut tall grass.
+const SLAT_AREA = { minX: -75, maxX: 75, minZ: -70, maxZ: 64 };
+const ROAD_HALF = 4.3; // grass/slats excluded within this of the road (world.ts uses ~4.1)
+
 export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake: GrassBake) {
-  const { minX, maxX, minZ, maxZ } = MOW_FIELD;
-  const width = maxX - minX;
-  const depth = maxZ - minZ;
+  const { minX, maxX, minZ, maxZ } = SLAT_AREA;
+  // Mow-field bounds drive the `bounds` uniform (where cutting is sampled).
+  const mowWidth = MOW_FIELD.maxX - MOW_FIELD.minX;
+  const mowDepth = MOW_FIELD.maxZ - MOW_FIELD.minZ;
 
   const positions: number[] = []; // x, topFlag/heightFactor, z
   const normals: number[] = []; // horizontal slat face normal
   const uvs: number[] = []; // runDistance, topFlag/heightFactor
+  const groundYs: number[] = []; // baked terrain height — slats sit on the rolling ground
+  const covers: number[] = []; // baked grass/dirt/road coverage (1 = grass, 0 = dirt/road)
   const indices: number[] = [];
   let vertexIndex = 0;
 
@@ -46,6 +56,13 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         positions.push(x, 0, z, x, heightFactor, z);
         normals.push(normalX, 0, normalZ, normalX, 0, normalZ);
         uvs.push(runDistance, 0, runDistance, heightFactor);
+        // Bake the ground height and grass/dirt coverage here (world-space, same
+        // signals the real ground uses) so slats follow the terrain and only grow
+        // where there's grass — never on the road or far dirt.
+        const groundY = terrainHeightAt(x, z);
+        const cover = Math.abs(x - ROAD_CENTER_X) < ROAD_HALF ? 0 : biomeHomeAmount(x, z);
+        groundYs.push(groundY, groundY);
+        covers.push(cover, cover);
 
         const bottom = vertexIndex;
         const top = vertexIndex + 1;
@@ -72,6 +89,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   data.uvs = uvs;
   data.indices = indices;
   data.applyToMesh(mesh);
+  mesh.setVerticesData("groundY", groundYs, false, 1);
+  mesh.setVerticesData("cover", covers, false, 1);
 
   if (!Effect.ShadersStore.grassSlatsVertexShader) {
     Effect.ShadersStore.grassSlatsVertexShader = `
@@ -79,6 +98,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       attribute vec3 position;
       attribute vec3 normal;
       attribute vec2 uv;
+      attribute float groundY;
+      attribute float cover;
       uniform mat4 worldViewProjection;
       uniform sampler2D mowField;
       uniform vec4 bounds;
@@ -94,9 +115,15 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying float vTop;
       varying float vRun;
       varying float vColorPick;
+      varying float vCover;
 
       float mowedAt(vec2 xz) {
         vec2 uvm = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
+        // Mow state only exists inside the field; outside, treat as uncut (0) so
+        // the yard's mowed edge doesn't bleed into the extended far grass.
+        if (uvm.x < 0.0 || uvm.x > 1.0 || uvm.y < 0.0 || uvm.y > 1.0) {
+          return 0.0;
+        }
         return texture2D(mowField, uvm).r;
       }
 
@@ -147,7 +174,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 xz = cell + (lean * curve) + (stripFace * wiggle);
 
         float h = slatHeight * (1.0 - (mowedAt(xz) * 0.92));
-        vec3 worldPosition = vec3(xz.x, top * h * heightFactor, xz.y);
+        // Sit on the rolling terrain (baked groundY), so far slats follow the
+        // ground like the real blades/props instead of floating on the y=0 plane.
+        vec3 worldPosition = vec3(xz.x, groundY + (top * h * heightFactor), xz.y);
 
         vec3 runTangent = normalize(vec3(
           runDir.x + (stripFace.x * wiggleDerivative),
@@ -170,6 +199,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vNormal = geometricNormal;
         vTop = top;
         vRun = run;
+        vCover = cover;
         gl_Position = worldViewProjection * vec4(worldPosition, 1.0);
       }
     `;
@@ -181,6 +211,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying float vTop;
       varying float vRun;
       varying float vColorPick;
+      varying float vCover;
       uniform vec3 topColorA;
       uniform vec3 topColorB;
       uniform vec3 midColor;
@@ -200,11 +231,17 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform vec2 lodCenter;         // LOD reference point (the mower, not the camera)
       uniform float slatFadeDistance; // radius where slats begin appearing
       uniform float slatFadeBand;     // width of the alpha fade-in
+      uniform float slatMaxDistance;  // far render limit — slats fade back out by here
 
       const vec3 LIGHT_COLOR = vec3(1.0, 0.95, 0.74);
       const float PI = 3.14159265;
 
       void main(void) {
+        // Only where there's grass — baked coverage is 0 on the road and on far
+        // dirt (same signal the ground uses), 1 on grass.
+        if (vCover < 0.5) {
+          discard;
+        }
         vec2 detailUv = vec2(vRun, vWorldPos.y) * tileScale;
         vec4 albedoDetail = texture2D(grassAlbedo, detailUv);
         float tipAmount = clamp(vTop, 0.0, 1.0);
@@ -222,9 +259,13 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         float slatAlpha = 1.0;
         if (lodFade > 0.5) {
           float lodDist = distance(lodCenter, vWorldPos.xz);
-          slatAlpha = clamp((lodDist - slatFadeDistance) / max(0.001, slatFadeBand), 0.0, 1.0);
+          float fadeIn = clamp((lodDist - slatFadeDistance) / max(0.001, slatFadeBand), 0.0, 1.0);
+          // Fade back OUT approaching the render limit, so the far edge isn't a hard
+          // ring and "render distance" is a smooth, tunable cutoff.
+          float fadeOut = clamp((slatMaxDistance - lodDist) / max(0.001, slatFadeBand), 0.0, 1.0);
+          slatAlpha = fadeIn * fadeOut;
           if (slatAlpha <= 0.0) {
-            discard; // fully faded near the mower — don't draw or write depth
+            discard; // faded out near the mower or past the render limit — skip it
           }
         }
 
@@ -288,13 +329,13 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   }
 
   const material = new ShaderMaterial("grassSlatsMat", scene, "grassSlats", {
-    attributes: ["position", "normal", "uv"],
+    attributes: ["position", "normal", "uv", "groundY", "cover"],
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight",
       "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
       "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
-      "lodFade", "lodCenter", "slatFadeDistance", "slatFadeBand",
+      "lodFade", "lodCenter", "slatFadeDistance", "slatFadeBand", "slatMaxDistance",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -302,7 +343,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   material.setTexture("mowField", mowTexture);
   material.setTexture("grassNormal", bake.normalTex);
   material.setTexture("grassAlbedo", bake.albedoTex);
-  material.setVector4("bounds", new Vector4(minX, minZ, width, depth));
+  material.setVector4("bounds", new Vector4(MOW_FIELD.minX, MOW_FIELD.minZ, mowWidth, mowDepth));
   material.setVector3("lightDir", new Vector3(-0.45, -1, 0.24).normalize());
   material.setVector2("windDir", SLAT_DOWNWIND_DIRECTION);
   material.setVector2("lodCenter", new Vector2(0, 0));
@@ -336,6 +377,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setFloat("lodFade", settings.lodFade ? 1 : 0);
     material.setFloat("slatFadeDistance", settings.lodSlatFadeDistance);
     material.setFloat("slatFadeBand", settings.lodSlatFadeBand);
+    material.setFloat("slatMaxDistance", settings.lodSlatRenderDistance);
     mesh.setEnabled(settings.lodSlatsShow);
   };
   applySettings();
