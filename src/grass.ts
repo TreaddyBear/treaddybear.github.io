@@ -22,6 +22,7 @@ import { createMowField } from "./mowField";
 import { createGrassBake } from "./grassBake";
 import { createGrassField } from "./grassField";
 import { createGrassSlats } from "./grassSlats";
+import { attachLodDither } from "./lodDither";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -50,6 +51,11 @@ export function createGrass(deps: GrassDeps) {
   const lodBake = createGrassBake(scene);
   const grassField = createGrassField(scene, mowField.texture, lodBake);
   const grassSlats = createGrassSlats(scene, mowField.texture, lodBake);
+  // Dithered far-cull on the real PBR blades, the OTHER half of the LOD handoff
+  // (slats fade in as these fade out over the same distance band).
+  const lodDither = attachLodDither([materials.bladeMaterial, materials.cutBladeMaterial]);
+  const applyLodDither = () => lodDither.update(settings.lodFade, settings.lodFadeDistance, settings.lodFadeBand);
+  applyLodDither();
   if (!import.meta.env.PROD) {
     (window as unknown as { mowField: unknown }).mowField = {
       showDebug: (on = true) => mowField.showDebug(on),
@@ -837,6 +843,7 @@ export function createGrass(deps: GrassDeps) {
     refreshLod() {
       grassField.applySettings();
       grassSlats.applySettings();
+      applyLodDither();
     },
 
     refreshMaterial() {
