@@ -15,7 +15,7 @@ import {
   Vector2,
   Vector3,
 } from "@babylonjs/core";
-import { lawnMaps } from "./config";
+import { lawnMaps, settings } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { valueNoise } from "./utils/noise";
 import { distanceToSegment } from "./utils/geometry";
@@ -646,7 +646,6 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
 // slat coverage (grassSlats.ts) read from these, so the grass starts exactly
 // where the dirt ends.
 const ROAD_HALF = ROAD_WIDTH / 2; // road edge from its centerline
-const ROAD_VERGE_WIDTH = 0.3; // dirt band width past the road edge (~30 cm)
 const ROAD_VERGE_Y = 0.024; // just above the road so the dirt edge hides the kerb
 
 function roadInnerEdge(x: number, z: number) {
@@ -665,7 +664,7 @@ function roadOuterEdge(x: number, z: number) {
   // inner edge so the dirt->grass side has its own slightly wider character.
   const wobble = ((valueNoise((x * 1.7) - 11, (z * 1.7) + 5) - 0.5) * 0.13)
     + ((valueNoise((x * 3.3) + 2, (z * 3.3) - 8) - 0.5) * 0.06);
-  return (ROAD_HALF + ROAD_VERGE_WIDTH) + wobble;
+  return (ROAD_HALF + settings.lodRoadVergeWidth) + wobble;
 }
 
 // 1 inside the dirt band (between the two edges), 0 on the road and on grass.
@@ -705,23 +704,29 @@ export function createRoadDirtOverlay(scene: Scene) {
   const context = mask.getContext() as CanvasRenderingContext2D;
   const image = context.createImageData(maskWidth, maskHeight);
 
-  for (let j = 0; j < maskHeight; j += 1) {
-    // CreateGround flips V, so row 0 maps to zMax (match it, as the fence does).
-    const worldZ = zMax - ((j / (maskHeight - 1)) * depth);
+  // Repaint the dirt-band alpha from the current verge edges. Re-runnable so the
+  // dev "Road verge width" slider can rebuild it live.
+  const paintMask = () => {
+    for (let j = 0; j < maskHeight; j += 1) {
+      // CreateGround flips V, so row 0 maps to zMax (match it, as the fence does).
+      const worldZ = zMax - ((j / (maskHeight - 1)) * depth);
 
-    for (let i = 0; i < maskWidth; i += 1) {
-      const worldX = xMin + ((i / (maskWidth - 1)) * width);
-      const dirtAmount = roadVergeDirt(worldX, worldZ);
-      const index = ((j * maskWidth) + i) * 4;
-      image.data[index] = 255;
-      image.data[index + 1] = 255;
-      image.data[index + 2] = 255;
-      image.data[index + 3] = Math.round(dirtAmount * 255);
+      for (let i = 0; i < maskWidth; i += 1) {
+        const worldX = xMin + ((i / (maskWidth - 1)) * width);
+        const dirtAmount = roadVergeDirt(worldX, worldZ);
+        const index = ((j * maskWidth) + i) * 4;
+        image.data[index] = 255;
+        image.data[index + 1] = 255;
+        image.data[index + 2] = 255;
+        image.data[index + 3] = Math.round(dirtAmount * 255);
+      }
     }
-  }
 
-  context.putImageData(image, 0, 0);
-  mask.update();
+    context.putImageData(image, 0, 0);
+    mask.update();
+  };
+
+  paintMask();
   mask.wrapU = Texture.CLAMP_ADDRESSMODE;
   mask.wrapV = Texture.CLAMP_ADDRESSMODE;
 
@@ -741,7 +746,7 @@ export function createRoadDirtOverlay(scene: Scene) {
   overlay.material = material;
   overlay.isPickable = false;
   overlay.receiveShadows = true;
-  return overlay;
+  return { overlay, rebuild: paintMask };
 }
 
 export function createFence(scene: Scene, fenceMaterial: StandardMaterial, segments: FenceSegment[]) {

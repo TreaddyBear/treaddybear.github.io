@@ -395,6 +395,21 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       center.set(x, z);
       material.setVector2("lodCenter", center);
     },
+    // Recompute the grass/dirt coverage from the existing vertex positions (no
+    // re-jitter) when the road verge width changes, so slats follow the new edge.
+    rebuildCover() {
+      const pos = mesh.getVerticesData("position");
+      if (!pos) {
+        return;
+      }
+      const next = new Array(pos.length / 3);
+      for (let i = 0; i < next.length; i += 1) {
+        const x = pos[i * 3];
+        const z = pos[(i * 3) + 2];
+        next[i] = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
+      }
+      mesh.updateVerticesData("cover", next);
+    },
     show(on: boolean) {
       settings.lodSlatsShow = on;
       mesh.setEnabled(on);

@@ -846,6 +846,10 @@ export function createGrass(deps: GrassDeps) {
       applyLodDither();
     },
 
+    rebuildSlatCover() {
+      grassSlats.rebuildCover();
+    },
+
     refreshMaterial() {
       materials.bladeMaterial.roughness = settings.grassRoughness;
       materials.bladeMaterial.metallic = settings.grassMetallic;

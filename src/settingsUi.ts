@@ -14,6 +14,7 @@ export type SettingsUiDeps = {
   refreshGroundColor: () => void;
   refreshLighting: () => void;
   refreshLod: () => void;
+  refreshRoadVerge: () => void;
   updateCameraProjection: () => void;
   syncFenceHealth: () => void;
 };
@@ -211,6 +212,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatFadeDistance",
       "lodSlatFadeBand",
       "lodSlatRenderDistance",
+      "lodRoadVergeWidth",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -329,6 +331,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatRenderDistance",
         ].includes(id)) {
           deps.refreshLod();
+        } else if (id === "lodRoadVergeWidth") {
+          deps.refreshRoadVerge();
         } else if (id === "portraitFov") {
           deps.updateCameraProjection();
         }

@@ -95,8 +95,9 @@ export const settings = {
   // SLAT alpha fade-in — its OWN distance/band (the slats are the far grass and
   // come in by alpha, not the blade dither). Measured from the mower.
   lodSlatFadeDistance: 5.5, // radius where slats begin appearing
-  lodSlatFadeBand: 9.5, // width of the alpha fade-in
-  lodSlatRenderDistance: 70, // far limit — slats fade back out by here (from the mower)
+  lodSlatFadeBand: 30, // width of the alpha fade-in
+  lodSlatRenderDistance: 51, // far limit — slats fade back out by here (from the mower)
+  lodRoadVergeWidth: 0.3, // dirt band width past the road edge, in world units (~m)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

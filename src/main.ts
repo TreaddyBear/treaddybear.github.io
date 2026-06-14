@@ -727,7 +727,7 @@ createSimpleTrees(scene, materials, shadowGenerator);
 rockColliders.push(...createSceneryRocks(scene, materials, shadowGenerator));
 
 createRoad(scene, roadMaterial, stripeMaterial);
-createRoadDirtOverlay(scene);
+const roadDirt = createRoadDirtOverlay(scene);
 secretGunRoot = createHiddenGunProp();
 
 player = MeshBuilder.CreateBox("player", { size: 1 }, scene);
@@ -794,6 +794,10 @@ const settingsUi = createSettingsUi({
   refreshGroundColor,
   refreshLighting,
   refreshLod: () => grass.refreshLod(),
+  refreshRoadVerge: () => {
+    roadDirt.rebuild();
+    grass.rebuildSlatCover();
+  },
   updateCameraProjection: cameraRig.updateProjection,
   syncFenceHealth: () => fence.syncHealthLabels(),
 });
