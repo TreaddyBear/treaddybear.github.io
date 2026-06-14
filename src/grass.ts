@@ -54,7 +54,7 @@ export function createGrass(deps: GrassDeps) {
   // Dithered far-cull on the real PBR blades, the OTHER half of the LOD handoff
   // (slats fade in as these fade out over the same distance band).
   const lodDither = attachLodDither([materials.bladeMaterial, materials.cutBladeMaterial]);
-  const applyLodDither = () => lodDither.update(settings.lodFade, settings.lodFadeDistance, settings.lodFadeBand, settings.lodDitherGrain);
+  const applyLodDither = () => lodDither.update(settings.lodFade, settings.lodFadeDistance, settings.lodFadeBand);
   applyLodDither();
   if (!import.meta.env.PROD) {
     (window as unknown as { mowField: unknown }).mowField = {
@@ -1011,6 +1011,9 @@ export function createGrass(deps: GrassDeps) {
 
     updateMotion(timeSeconds: number) {
       grassSlats.setTime(timeSeconds);
+      // LOD is centered on the mower (so orbiting the camera doesn't move it).
+      grassSlats.setCenter(player.position.x, player.position.z);
+      lodDither.setCenter(player.position.x, player.position.z);
       const yaw = getYaw();
       const throttle = getThrottle();
       const forwardX = Math.sin(yaw);

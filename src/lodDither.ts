@@ -1,27 +1,28 @@
 import { MaterialPluginBase } from "@babylonjs/core";
 import type { Material, UniformBuffer } from "@babylonjs/core";
 
-// Dithered LOD cull for the real (PBR) grass blades. The slats fade IN with
-// camera distance (grassSlats.ts); this fades the blades OUT over the SAME band
-// so the two hand off. Per-patch hashed discard (quantized world XZ) keeps the
-// blades in the opaque/alpha-test path — no blending, no sorting — and the
-// stochastic drop means individual blades wink out at slightly different
-// distances, so there is no hard ring or pop as the LOD radius moves.
+// Per-blade dithered LOD cull for the real (PBR) grass blades. The decision is
+// made ONCE PER BLADE in the vertex stage: each blade is a thin instance, so we
+// hash its instance position (finalWorld translation), compare to a
+// distance-driven threshold, and if it loses we collapse the whole blade off
+// screen. That means a blade is either fully there or fully gone — never a
+// per-pixel stipple — and culled blades skip rasterization entirely (a real
+// saving, not just a discard). The slats fade IN over the same band so the two
+// hand off.
 //
-// The hash/quantize/vis math mirrors the slat shader exactly, with the keep
-// condition inverted (blade shown where the slat is hidden), so blades and slats
-// tile to full coverage with no gap. PBRMaterial can't be hand-edited, so we
-// splice a few GLSL lines in via Babylon's material-plugin injection points.
+// PBRMaterial can't be hand-edited, so we splice the cull into its vertex shader
+// via Babylon's material-plugin injection points.
 
 class LodDitherPlugin extends MaterialPluginBase {
   lodFade = 0; // 0 = blades everywhere, 1 = distance cull on
   lodDistance = 8; // ground radius where blades start dropping
-  lodBand = 6; // width of the dither band over which they cull out
-  lodGrain = 16; // dither cells per world unit (higher = finer; must match slats)
+  lodBand = 6; // width of the band over which blades cull out
+  centerX = 0; // LOD center (the mower), updated per frame
+  centerZ = 0;
 
   constructor(material: Material) {
     // priority 200; enabled immediately so the code is always injected and we
-    // gate at runtime with the lodFade uniform (no shader recompile to toggle).
+    // gate at runtime with the lodFade uniform (no recompile to toggle).
     super(material, "LodDither", 200, { LOD_DITHER: false }, true, true);
   }
 
@@ -39,13 +40,13 @@ class LodDitherPlugin extends MaterialPluginBase {
         { name: "lodFade", size: 1, type: "float" },
         { name: "lodDistance", size: 1, type: "float" },
         { name: "lodBand", size: 1, type: "float" },
-        { name: "lodGrain", size: 1, type: "float" },
+        { name: "lodCenter", size: 2, type: "vec2" },
       ],
-      fragment: `#ifdef LOD_DITHER
+      vertex: `#ifdef LOD_DITHER
         uniform float lodFade;
         uniform float lodDistance;
         uniform float lodBand;
-        uniform float lodGrain;
+        uniform vec2 lodCenter;
       #endif`,
     };
   }
@@ -54,29 +55,33 @@ class LodDitherPlugin extends MaterialPluginBase {
     uniformBuffer.updateFloat("lodFade", this.lodFade);
     uniformBuffer.updateFloat("lodDistance", this.lodDistance);
     uniformBuffer.updateFloat("lodBand", this.lodBand);
-    uniformBuffer.updateFloat("lodGrain", this.lodGrain);
+    uniformBuffer.updateFloat2("lodCenter", this.centerX, this.centerZ);
   }
 
   getCustomCode(shaderType: string) {
-    if (shaderType !== "fragment") {
+    if (shaderType !== "vertex") {
       return null;
     }
 
     return {
-      CUSTOM_FRAGMENT_DEFINITIONS: `
+      CUSTOM_VERTEX_DEFINITIONS: `
         float lodHash21(vec2 p) {
           return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
         }
       `,
-      CUSTOM_FRAGMENT_MAIN_BEGIN: `
+      // After gl_Position is computed: one decision for the whole blade, keyed on
+      // its instance position. finalWorld[3].xz is the blade's base, identical for
+      // every vertex of the instance, so the entire blade culls or stays as a unit.
+      // Blade kept where the slat is hidden (keep if hash >= vis): near = all
+      // blades, far = none.
+      CUSTOM_VERTEX_MAIN_END: `
         #ifdef LOD_DITHER
         if (lodFade > 0.5) {
-          float lodCamDist = distance(vEyePosition.xz, vPositionW.xz);
-          float lodVis = clamp((lodCamDist - lodDistance) / max(0.001, lodBand), 0.0, 1.0);
-          // Blade shown where the slat is hidden (keep if hash >= vis): near = all
-          // blades, far = none, matching the slat fade-in's complement exactly.
-          if (lodHash21(floor(vPositionW.xz * lodGrain)) < lodVis) {
-            discard;
+          vec2 lodBase = finalWorld[3].xz;
+          float lodDist = distance(lodCenter, lodBase);
+          float lodVis = clamp((lodDist - lodDistance) / max(0.001, lodBand), 0.0, 1.0);
+          if (lodHash21(lodBase) < lodVis) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // off-screen: whole blade culled
           }
         }
         #endif
@@ -93,12 +98,19 @@ export function attachLodDither(materials: Material[]) {
   });
 
   return {
-    update(fade: boolean, distance: number, band: number, grain: number) {
+    update(fade: boolean, distance: number, band: number) {
       for (const plugin of plugins) {
         plugin.lodFade = fade ? 1 : 0;
         plugin.lodDistance = distance;
         plugin.lodBand = band;
-        plugin.lodGrain = grain;
+      }
+    },
+    // The LOD center is the mower, pushed every frame (camera orbit must not move
+    // the cull). Other camera modes could later feed a different point.
+    setCenter(x: number, z: number) {
+      for (const plugin of plugins) {
+        plugin.centerX = x;
+        plugin.centerZ = z;
       }
     },
   };

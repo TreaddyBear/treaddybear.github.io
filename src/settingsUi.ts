@@ -208,7 +208,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatColorMid",
       "lodFadeDistance",
       "lodFadeBand",
-      "lodDitherGrain",
+      "lodSlatFadeDistance",
+      "lodSlatFadeBand",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -322,7 +323,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatColorMid",
           "lodFadeDistance",
           "lodFadeBand",
-          "lodDitherGrain",
+          "lodSlatFadeDistance",
+          "lodSlatFadeBand",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "portraitFov") {

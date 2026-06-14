@@ -55,8 +55,8 @@ export const settings = {
   // Grass LOD (far-field mesh) — tunable live from the "Grass LOD" settings group.
   lodShow: false, // off by default; check to preview the LOD mesh
   lodOpacity: 1, // 0 = fully see the real blades, 1 = fully the LOD mesh
-  lodTopColor: "#397217", // light, for the raised tips
-  lodBottomColor: "#1a3111", // dark, for the valleys (reads as self-shadow)
+  lodTopColor: "#c0ff38", // light, for the raised tips
+  lodBottomColor: "#46ba08", // dark, for the valleys (reads as self-shadow)
   lodHeightTotal: 0.3, // base grass height
   lodBumpAmplitude: 0.06, // +/- surface deviation around the base (tune separately now)
   lodHeightOffset: -0.02, // base offset; negative dips valleys into the terrain
@@ -68,29 +68,34 @@ export const settings = {
   lodSheen: 2, // clearcoat glint strength for the slat shader
   // Grass LOD — vertical SLAT layer (separate from the flat mesh above).
   lodSlatsShow: true, // show the cross-hatched vertical slats (on by default for tuning)
-  lodSlatHeight: 0.58, // slat height where uncut
+  lodSlatHeight: 0.27, // slat height where uncut
   lodSlatTileScale: 0.48, // baked-detail tiling on the slats
   lodSlatCutoff: 0.02, // alpha-cutout threshold (lower = denser/leafier blades)
   lodSlatWiggle: 0.25, // how far each slat meanders side to side (varies the shine azimuth)
   lodSlatWiggleFreq: 1.6, // how often it meanders along its run
   lodSlatBend: 0.06, // how far each slat bends over
-  lodSlatWind: 0.06, // wind sway amplitude for the slat layer
+  lodSlatWind: 0.2, // wind sway amplitude for the slat layer
   // Slat color "Y" graph: each blade picks one of two TOP colors (A/B) for
   // blade-to-blade variation, then blends top -> mid -> bottom along its length
   // through a knee at lodSlatColorMid. Slat-specific (the flat LOD mesh keeps
   // lodTopColor/lodBottomColor).
-  lodSlatTopColorA: "#74c247", // tip color A (the brighter green tip)
-  lodSlatTopColorB: "#a6c24e", // tip color B (yellower, sun-bleached blades)
-  lodSlatMidColor: "#3c7a1f", // mid-blade green
-  lodSlatBottomColor: "#16380a", // shaded base
+  lodSlatTopColorA: "#74b83d", // tip color A (the brighter green tip)
+  lodSlatTopColorB: "#5eb738", // tip color B (yellower, sun-bleached blades)
+  lodSlatMidColor: "#649b36", // mid-blade green
+  lodSlatBottomColor: "#799726", // shaded base
   lodSlatColorMid: 0.4, // where the mid color sits along the blade (0 base, 1 tip)
   // Distance LOD handoff. With lodFade on, the slats dither IN with camera
   // distance (near = real blades, far = slats). lodFadeDistance is the ground
   // radius where slats start; lodFadeBand is how wide the dither fade-in is.
-  lodFade: true, // master toggle for the distance fade
-  lodFadeDistance: 8, // radius (world units) where slats begin appearing
-  lodFadeBand: 6, // width of the dither band over which they fade fully in
-  lodDitherGrain: 16, // dither cells per world unit (higher = finer, less clumpy)
+  lodFade: true, // master toggle for the distance fade (blades cull + slats fade)
+  // BLADE cull (per-blade dither) — distance from the mower where real blades
+  // start dropping, and the band over which they fully cull out.
+  lodFadeDistance: 15.25,
+  lodFadeBand: 14,
+  // SLAT alpha fade-in — its OWN distance/band (the slats are the far grass and
+  // come in by alpha, not the blade dither). Measured from the mower.
+  lodSlatFadeDistance: 12, // radius where slats begin appearing
+  lodSlatFadeBand: 14, // width of the alpha fade-in
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

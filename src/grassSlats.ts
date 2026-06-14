@@ -196,17 +196,13 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float specIntensity;
       uniform float sheen;
       uniform float cutoff;
-      uniform float lodFade;      // 0 = slats everywhere, 1 = distance dither on
-      uniform float lodDistance;  // ground radius where slats start appearing
-      uniform float lodBand;      // width of the dither fade-in band
-      uniform float lodGrain;     // dither cells per world unit (higher = finer)
+      uniform float lodFade;          // 0 = slats everywhere, 1 = distance fade on
+      uniform vec2 lodCenter;         // LOD reference point (the mower, not the camera)
+      uniform float slatFadeDistance; // radius where slats begin appearing
+      uniform float slatFadeBand;     // width of the alpha fade-in
 
       const vec3 LIGHT_COLOR = vec3(1.0, 0.95, 0.74);
       const float PI = 3.14159265;
-
-      float hash21(vec2 p) {
-        return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-      }
 
       void main(void) {
         vec2 detailUv = vec2(vRun, vWorldPos.y) * tileScale;
@@ -218,16 +214,17 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
           discard;
         }
 
-        // Distance LOD: slats fade IN with distance so the near field stays the
-        // real blades. Per-patch hashed dither (quantized world XZ) keeps this in
-        // the cheap alpha-test path — no blending, no sort — and the stochastic
-        // drop means no hard ring/pop as the distance slider moves. vis goes 0
-        // (near, hidden) -> 1 (far, full) across the band.
+        // Distance LOD: slats are the FAR grass, so they fade IN (alpha) the
+        // further you are from the mower. Measured from the mower (lodCenter), not
+        // the camera, so orbiting the camera doesn't move the LOD ring. Own
+        // distance/band, tuned separately from the blade cull. lodFade off => slats
+        // fully on everywhere (tuning mode).
+        float slatAlpha = 1.0;
         if (lodFade > 0.5) {
-          float camDist = distance(cameraPosition.xz, vWorldPos.xz);
-          float vis = clamp((camDist - lodDistance) / max(0.001, lodBand), 0.0, 1.0);
-          if (hash21(floor(vWorldPos.xz * lodGrain)) > vis) {
-            discard;
+          float lodDist = distance(lodCenter, vWorldPos.xz);
+          slatAlpha = clamp((lodDist - slatFadeDistance) / max(0.001, slatFadeBand), 0.0, 1.0);
+          if (slatAlpha <= 0.0) {
+            discard; // fully faded near the mower — don't draw or write depth
           }
         }
 
@@ -285,7 +282,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         clearCoat = min(clearCoat, 0.55);
 
         vec3 color = (base * diffuse) + (LIGHT_COLOR * (specular + clearCoat));
-        gl_FragColor = vec4(color, 1.0);
+        gl_FragColor = vec4(color, slatAlpha);
       }
     `;
   }
@@ -297,7 +294,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
       "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
-      "lodFade", "lodDistance", "lodBand", "lodGrain",
+      "lodFade", "lodCenter", "slatFadeDistance", "slatFadeBand",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -308,7 +305,14 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   material.setVector4("bounds", new Vector4(minX, minZ, width, depth));
   material.setVector3("lightDir", new Vector3(-0.45, -1, 0.24).normalize());
   material.setVector2("windDir", SLAT_DOWNWIND_DIRECTION);
+  material.setVector2("lodCenter", new Vector2(0, 0));
   material.backFaceCulling = false;
+  // The slats fade in by ALPHA, so they need blending. alpha < 1 flips Babylon's
+  // needAlphaBlending() on for this ShaderMaterial (the shader writes the real
+  // per-pixel alpha; this value isn't multiplied in). forceDepthWrite keeps the
+  // far grass writing depth so it occludes correctly instead of haloing.
+  material.alpha = 0.999;
+  material.forceDepthWrite = true;
   mesh.material = material;
   mesh.isPickable = false;
 
@@ -330,17 +334,23 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setColor3("bottomColor", hexToColor3(settings.lodSlatBottomColor));
     material.setFloat("slatMidPoint", settings.lodSlatColorMid);
     material.setFloat("lodFade", settings.lodFade ? 1 : 0);
-    material.setFloat("lodDistance", settings.lodFadeDistance);
-    material.setFloat("lodBand", settings.lodFadeBand);
-    material.setFloat("lodGrain", settings.lodDitherGrain);
+    material.setFloat("slatFadeDistance", settings.lodSlatFadeDistance);
+    material.setFloat("slatFadeBand", settings.lodSlatFadeBand);
     mesh.setEnabled(settings.lodSlatsShow);
   };
   applySettings();
+
+  const center = new Vector2(0, 0);
 
   return {
     applySettings,
     setTime(timeSeconds: number) {
       material.setFloat("time", timeSeconds);
+    },
+    // The LOD reference point (the mower), pushed every frame.
+    setCenter(x: number, z: number) {
+      center.set(x, z);
+      material.setVector2("lodCenter", center);
     },
     show(on: boolean) {
       settings.lodSlatsShow = on;
