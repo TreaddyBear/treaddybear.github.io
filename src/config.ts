@@ -90,6 +90,7 @@ export const settings = {
   lodFade: true, // master toggle for the distance fade
   lodFadeDistance: 8, // radius (world units) where slats begin appearing
   lodFadeBand: 6, // width of the dither band over which they fade fully in
+  lodDitherGrain: 16, // dither cells per world unit (higher = finer, less clumpy)
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,

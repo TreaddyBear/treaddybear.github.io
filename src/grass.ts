@@ -54,7 +54,7 @@ export function createGrass(deps: GrassDeps) {
   // Dithered far-cull on the real PBR blades, the OTHER half of the LOD handoff
   // (slats fade in as these fade out over the same distance band).
   const lodDither = attachLodDither([materials.bladeMaterial, materials.cutBladeMaterial]);
-  const applyLodDither = () => lodDither.update(settings.lodFade, settings.lodFadeDistance, settings.lodFadeBand);
+  const applyLodDither = () => lodDither.update(settings.lodFade, settings.lodFadeDistance, settings.lodFadeBand, settings.lodDitherGrain);
   applyLodDither();
   if (!import.meta.env.PROD) {
     (window as unknown as { mowField: unknown }).mowField = {

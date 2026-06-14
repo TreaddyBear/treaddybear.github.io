@@ -17,6 +17,7 @@ class LodDitherPlugin extends MaterialPluginBase {
   lodFade = 0; // 0 = blades everywhere, 1 = distance cull on
   lodDistance = 8; // ground radius where blades start dropping
   lodBand = 6; // width of the dither band over which they cull out
+  lodGrain = 16; // dither cells per world unit (higher = finer; must match slats)
 
   constructor(material: Material) {
     // priority 200; enabled immediately so the code is always injected and we
@@ -38,11 +39,13 @@ class LodDitherPlugin extends MaterialPluginBase {
         { name: "lodFade", size: 1, type: "float" },
         { name: "lodDistance", size: 1, type: "float" },
         { name: "lodBand", size: 1, type: "float" },
+        { name: "lodGrain", size: 1, type: "float" },
       ],
       fragment: `#ifdef LOD_DITHER
         uniform float lodFade;
         uniform float lodDistance;
         uniform float lodBand;
+        uniform float lodGrain;
       #endif`,
     };
   }
@@ -51,6 +54,7 @@ class LodDitherPlugin extends MaterialPluginBase {
     uniformBuffer.updateFloat("lodFade", this.lodFade);
     uniformBuffer.updateFloat("lodDistance", this.lodDistance);
     uniformBuffer.updateFloat("lodBand", this.lodBand);
+    uniformBuffer.updateFloat("lodGrain", this.lodGrain);
   }
 
   getCustomCode(shaderType: string) {
@@ -71,7 +75,7 @@ class LodDitherPlugin extends MaterialPluginBase {
           float lodVis = clamp((lodCamDist - lodDistance) / max(0.001, lodBand), 0.0, 1.0);
           // Blade shown where the slat is hidden (keep if hash >= vis): near = all
           // blades, far = none, matching the slat fade-in's complement exactly.
-          if (lodHash21(floor(vPositionW.xz * 5.0)) < lodVis) {
+          if (lodHash21(floor(vPositionW.xz * lodGrain)) < lodVis) {
             discard;
           }
         }
@@ -89,11 +93,12 @@ export function attachLodDither(materials: Material[]) {
   });
 
   return {
-    update(fade: boolean, distance: number, band: number) {
+    update(fade: boolean, distance: number, band: number, grain: number) {
       for (const plugin of plugins) {
         plugin.lodFade = fade ? 1 : 0;
         plugin.lodDistance = distance;
         plugin.lodBand = band;
+        plugin.lodGrain = grain;
       }
     },
   };

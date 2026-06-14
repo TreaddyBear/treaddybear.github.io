@@ -199,6 +199,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float lodFade;      // 0 = slats everywhere, 1 = distance dither on
       uniform float lodDistance;  // ground radius where slats start appearing
       uniform float lodBand;      // width of the dither fade-in band
+      uniform float lodGrain;     // dither cells per world unit (higher = finer)
 
       const vec3 LIGHT_COLOR = vec3(1.0, 0.95, 0.74);
       const float PI = 3.14159265;
@@ -225,7 +226,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         if (lodFade > 0.5) {
           float camDist = distance(cameraPosition.xz, vWorldPos.xz);
           float vis = clamp((camDist - lodDistance) / max(0.001, lodBand), 0.0, 1.0);
-          if (hash21(floor(vWorldPos.xz * 5.0)) > vis) {
+          if (hash21(floor(vWorldPos.xz * lodGrain)) > vis) {
             discard;
           }
         }
@@ -296,7 +297,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
       "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
-      "lodFade", "lodDistance", "lodBand",
+      "lodFade", "lodDistance", "lodBand", "lodGrain",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
     needAlphaTesting: true,
@@ -331,6 +332,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setFloat("lodFade", settings.lodFade ? 1 : 0);
     material.setFloat("lodDistance", settings.lodFadeDistance);
     material.setFloat("lodBand", settings.lodFadeBand);
+    material.setFloat("lodGrain", settings.lodDitherGrain);
     mesh.setEnabled(settings.lodSlatsShow);
   };
   applySettings();
