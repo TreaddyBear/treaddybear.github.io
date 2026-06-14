@@ -84,6 +84,12 @@ export const settings = {
   lodSlatMidColor: "#3c7a1f", // mid-blade green
   lodSlatBottomColor: "#16380a", // shaded base
   lodSlatColorMid: 0.4, // where the mid color sits along the blade (0 base, 1 tip)
+  // Distance LOD handoff. With lodFade on, the slats dither IN with camera
+  // distance (near = real blades, far = slats). lodFadeDistance is the ground
+  // radius where slats start; lodFadeBand is how wide the dither fade-in is.
+  lodFade: true, // master toggle for the distance fade
+  lodFadeDistance: 8, // radius (world units) where slats begin appearing
+  lodFadeBand: 6, // width of the dither band over which they fade fully in
   inputMode: "keyboard",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
