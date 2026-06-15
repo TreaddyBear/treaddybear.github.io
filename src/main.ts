@@ -40,6 +40,7 @@ import { createGrass } from "./grass";
 import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
+import { createMenu } from "./menu";
 import { createMowerControl } from "./mowerControl";
 import { renderingGroups } from "./renderOrder";
 import { isInsideSegments } from "./utils/yard";
@@ -1078,6 +1079,16 @@ document.addEventListener("fullscreenchange", () => {
   cameraRig.updateProjection();
 });
 
+// Pause/start menu. Esc toggles it on desktop; on touch a hamburger button
+// (shown by createMenu) opens it. Opening pauses the sim (render loop checks
+// menu.isOpen) and clears held keys so the mower doesn't drift on resume.
+const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+const menu = createMenu({
+  toggleFullscreen: () => fullscreenButtonEl.click(),
+  isTouch: isTouchPrimary,
+  onOpen: () => keys.clear(),
+});
+
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
@@ -1101,6 +1112,17 @@ window.addEventListener("keydown", (event) => {
       hud.closeResultAction();
     }
 
+    return;
+  }
+
+  if (key === "escape") {
+    event.preventDefault();
+    menu.toggle();
+    return;
+  }
+
+  // While the menu is open it owns the keyboard; don't drive the mower.
+  if (menu.isOpen()) {
     return;
   }
 
@@ -1184,6 +1206,13 @@ engine.runRenderLoop(() => {
     shootSecretGun();
   }
   lastControllerShoot = controllerShoot;
+
+  // Paused: render the frozen frame behind the menu, run no simulation.
+  if (menu.isOpen()) {
+    scene.render();
+    return;
+  }
+
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
   fence.resolveOverlap();

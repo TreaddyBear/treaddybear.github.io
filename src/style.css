@@ -912,3 +912,122 @@ body {
     opacity: 1;
   }
 }
+
+/* Accidents counter: impact-mark icon + count (replaces the "Mistakes" text). */
+#mistakes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mistake-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: #ff8a8a;
+}
+
+.mistake-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hamburger menu button — shown only on touch (createMenu un-hides it). */
+#menuButton {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: #eafbd2;
+  background: rgb(20 34 14 / 78%);
+  cursor: pointer;
+}
+
+#menuButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+#menuButton[hidden] {
+  display: none;
+}
+
+/* Pause / start menu overlay. */
+#menu {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(6 12 4 / 55%);
+  backdrop-filter: blur(3px);
+}
+
+#menu[hidden] {
+  display: none;
+}
+
+#menuPanel {
+  width: min(320px, calc(100vw - 40px));
+  padding: 18px;
+  border: 1px solid rgb(216 245 176 / 30%);
+  border-radius: 12px;
+  background: rgb(18 30 12 / 96%);
+  box-shadow: 0 12px 48px rgb(0 0 0 / 45%);
+}
+
+#menuTitle {
+  margin-bottom: 14px;
+  color: #eafbd2;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+
+#menuOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid rgb(216 245 176 / 18%);
+  border-radius: 9px;
+  color: #eafbd2;
+  background: rgb(40 55 28 / 70%);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: rgb(58 78 38 / 80%);
+}
+
+.menu-item svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.menu-label {
+  flex: 1 1 auto;
+}
+
+.menu-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #9ed35a;
+}
