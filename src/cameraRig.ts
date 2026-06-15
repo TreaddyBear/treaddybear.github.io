@@ -195,13 +195,11 @@ export function createCameraRig(deps: CameraRigDeps) {
       } else {
         cameraState.adjustmentCooldown = Math.max(0, cameraState.adjustmentCooldown - deltaSeconds);
 
-        const hasManualCameraOffset = (
-          Math.abs(cameraState.orbitYaw) > 0.001
-          || Math.abs(cameraState.orbitHeight) > 0.001
-          || Math.abs(cameraState.distanceOffset) > 0.001
-        );
+        // Only the azimuth (orbitYaw) auto-returns to "behind the mower". Pitch
+        // and zoom are sticky — they stay wherever the player set them.
+        const hasManualYawOffset = Math.abs(cameraState.orbitYaw) > 0.001;
 
-        if(cameraState.adjustmentCount < 7 && hasManualCameraOffset) {
+        if(cameraState.adjustmentCount < 7 && hasManualYawOffset) {
           cameraState.returnDelay -= deltaSeconds;
 
           if(cameraState.returnDelay <= 0) {
@@ -212,20 +210,11 @@ export function createCameraRig(deps: CameraRigDeps) {
 
       if(cameraState.returning) {
         const returnAmount = Math.min(1, deltaSeconds / 7);
+        // Azimuth only — leave orbitHeight (pitch) and distanceOffset (zoom) alone.
         cameraState.orbitYaw += (0 - cameraState.orbitYaw) * returnAmount;
-        cameraState.orbitHeight += (0 - cameraState.orbitHeight) * returnAmount;
-        cameraState.distanceOffset += (0 - cameraState.distanceOffset) * returnAmount;
 
-        const hasReturnedToFollow = (
-          Math.abs(cameraState.orbitYaw) < 0.004
-          && Math.abs(cameraState.orbitHeight) < 0.004
-          && Math.abs(cameraState.distanceOffset) < 0.004
-        );
-
-        if(hasReturnedToFollow) {
+        if(Math.abs(cameraState.orbitYaw) < 0.004) {
           cameraState.orbitYaw = 0;
-          cameraState.orbitHeight = 0;
-          cameraState.distanceOffset = 0;
           cameraState.returning = false;
           cameraState.adjustmentCount = 0;
         }

@@ -593,7 +593,12 @@ function movePlayer(deltaSeconds: number) {
     const keyboardScale = keyboardTurn === 0 ? 0 : 0.14 + (build * build * 0.86);
     const analogScale = shouldAccelerateTurn ? 1 + (build * build * 0.72) : 1;
     const scaledTurn = Math.max(-1, Math.min(1, (keyboardTurn * keyboardScale) + (analogTurn * analogScale)));
-    playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds;
+    // Mirror steering when backing up so it behaves like a real steering wheel
+    // (hold left while reversing -> the mower's rear tracks left), instead of the
+    // turn feeling inverted in reverse. Based on actual travel, so a turn-in-place
+    // at a standstill stays normal.
+    const reverseSteer = driveSpeed < -0.02 ? -1 : 1;
+    playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds * reverseSteer;
   } else {
     turnHoldSeconds = 0;
     lastTurnDirection = 0;
