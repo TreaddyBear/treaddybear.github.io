@@ -674,11 +674,15 @@ function roadInnerEdge(x: number, z: number) {
 }
 
 function roadOuterEdge(x: number, z: number) {
-  // Small wobble too (the whole band is ~30 cm), a touch lower frequency than the
-  // inner edge so the dirt->grass side has its own slightly wider character.
-  const wobble = ((valueNoise((x * 1.7) - 11, (z * 1.7) + 5) - 0.5) * 0.13)
-    + ((valueNoise((x * 3.3) + 2, (z * 3.3) - 8) - 0.5) * 0.06);
-  return (ROAD_HALF + settings.lodRoadVergeWidth) + wobble;
+  // STRONG multi-octave wobble so the dirt->grass edge is highly irregular (the
+  // average band stays ~lodRoadVergeWidth wide, but the edge swings a lot). Big
+  // low-frequency lobes + finer detail. Clamped to stay just outside the kerb so
+  // grass never reaches the road.
+  const big = (valueNoise((x * 0.55) - 11, (z * 0.55) + 5) - 0.5) * 0.62;
+  const mid = (valueNoise((x * 1.5) + 2, (z * 1.5) - 8) - 0.5) * 0.34;
+  const fine = (valueNoise((x * 3.6) - 6, (z * 3.6) + 14) - 0.5) * 0.15;
+  const edge = (ROAD_HALF + settings.lodRoadVergeWidth) + big + mid + fine;
+  return Math.max(ROAD_HALF + 0.05, edge);
 }
 
 // 1 inside the dirt band (between the two edges), 0 on the road and on grass.
