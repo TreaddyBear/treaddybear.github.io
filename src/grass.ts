@@ -23,6 +23,7 @@ import { createGrassBake } from "./grassBake";
 import { createGrassField } from "./grassField";
 import { createGrassSlats } from "./grassSlats";
 import { attachLodDither } from "./lodDither";
+import { roadGrassAmount } from "./world";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -112,9 +113,10 @@ export function createGrass(deps: GrassDeps) {
   const highlightRepeatDelay = 5;
 
   const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
-  // Match the road influence zone world.ts uses (|x-14.5| < 4.1) plus a hair of
-  // margin, so blades never spawn on the road — even after the road was widened.
-  const isOnRoad = (x: number) => Math.abs(x - 14.5) < 4.3;
+  // Grass blades stop at the SAME irregular dirt->grass edge the slats and the
+  // ground dirt overlay use (roadGrassAmount), so all three line up exactly
+  // instead of the blades leaving a wider gap by the road.
+  const isGrassHere = (x: number, z: number) => roadGrassAmount(x, z) > 0.5;
   const randomYardPoint = () => randomPointInSegments(yardSegments);
 
   // Four cut-blade silhouettes. backFaceCulling is off on the cut material, so
@@ -609,7 +611,7 @@ export function createGrass(deps: GrassDeps) {
         const clump = Math.max(0, ((broadPatch * 0.78) + (tightPatch * 0.22) - 0.34) / 0.66);
         density = Math.min(0.98, Math.max(0, (nearFade * 0.5) + (farFade * clump * 0.62) + (nearFade * clump * 0.28)));
 
-        if (!isInsideYard(x, z) && !isOnRoad(x) && fence.distanceTo(x, z) > fence.dirtClearRadius && Math.random() < density) {
+        if (!isInsideYard(x, z) && isGrassHere(x, z) && fence.distanceTo(x, z) > fence.dirtClearRadius && Math.random() < density) {
           placed = true;
           break;
         }
@@ -665,7 +667,7 @@ export function createGrass(deps: GrassDeps) {
       z: -70 + (Math.random() * 140),
       radius: 2.8 + (Math.random() * 9.5),
       strength: 0.35 + (Math.random() * 0.8),
-    })).filter((clump) => !isInsideYard(clump.x, clump.z) && !isOnRoad(clump.x) && distanceToMainYard(clump.x, clump.z) > 14);
+    })).filter((clump) => !isInsideYard(clump.x, clump.z) && isGrassHere(clump.x, clump.z) && distanceToMainYard(clump.x, clump.z) > 14);
 
     for (let i = 0; i < wheatGrassCount; i += 1) {
       let x = 0;
@@ -691,7 +693,7 @@ export function createGrass(deps: GrassDeps) {
         const edgePatch = Math.max(0, 1 - Math.abs(distance - 17) / 8) * 0.22;
         const density = Math.min(1, (patchNoise * 0.26) + (clumpWeight * 0.9) + (brokenPatch * 0.2) + edgePatch);
 
-        if (!isInsideYard(x, z) && !isOnRoad(x) && distance > 12 && Math.random() < density * (0.22 + (transition * 0.78))) {
+        if (!isInsideYard(x, z) && isGrassHere(x, z) && distance > 12 && Math.random() < density * (0.22 + (transition * 0.78))) {
           break;
         }
       }

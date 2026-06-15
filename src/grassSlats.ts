@@ -62,7 +62,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         const groundY = terrainHeightAt(x, z);
         // Grass only past the road's dirt verge AND inside the grass biome, so the
         // slats stop at the same irregular dirt->grass edge the ground draws.
-        const cover = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
+        const cover = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);
         groundYs.push(groundY, groundY);
         covers.push(cover, cover);
 
@@ -407,7 +407,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       for (let index = 0; index < next.length; index += 1) {
         const x = pos[index * 3];
         const z = pos[(index * 3) + 2];
-        next[index] = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
+        next[index] = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);
       }
       mesh.updateVerticesData("cover", next);
     },

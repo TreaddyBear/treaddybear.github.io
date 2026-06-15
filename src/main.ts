@@ -40,6 +40,7 @@ import { createGrass } from "./grass";
 import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
+import { createMenu } from "./menu";
 import { createMowerControl } from "./mowerControl";
 import { renderingGroups } from "./renderOrder";
 import { isInsideSegments } from "./utils/yard";
@@ -52,6 +53,7 @@ import {
   createRoadDirtOverlay,
   createWorldTerrain,
   fenceDirtAmountAt,
+  roadVergeDirt,
   flowerBedHeightAt,
   sampledTerrainHeightAt,
   terrainHeightAt,
@@ -304,7 +306,8 @@ function dirtAmountAt(x: number, z: number) {
   const biomeDirt = 1 - biomeHomeAmount(x, z);
   const fenceDirt = fenceDirtAmountAt(x, z, getActiveMap().fenceSegments);
   const flowerBedDirt = flowerBedDirtAmountAt(x, z);
-  return Math.max(biomeDirt, fenceDirt, flowerBedDirt);
+  const roadDirt = roadVergeDirt(x, z); // the ~30 cm dirt band beside the road
+  return Math.max(biomeDirt, fenceDirt, flowerBedDirt, roadDirt);
 }
 
 type DirtDustSensor = {
@@ -591,7 +594,12 @@ function movePlayer(deltaSeconds: number) {
     const keyboardScale = keyboardTurn === 0 ? 0 : 0.14 + (build * build * 0.86);
     const analogScale = shouldAccelerateTurn ? 1 + (build * build * 0.72) : 1;
     const scaledTurn = Math.max(-1, Math.min(1, (keyboardTurn * keyboardScale) + (analogTurn * analogScale)));
-    playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds;
+    // Mirror steering when backing up so it behaves like a real steering wheel
+    // (hold left while reversing -> the mower's rear tracks left), instead of the
+    // turn feeling inverted in reverse. Based on actual travel, so a turn-in-place
+    // at a standstill stays normal.
+    const reverseSteer = driveSpeed < -0.02 ? -1 : 1;
+    playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds * reverseSteer;
   } else {
     turnHoldSeconds = 0;
     lastTurnDirection = 0;
@@ -1071,6 +1079,16 @@ document.addEventListener("fullscreenchange", () => {
   cameraRig.updateProjection();
 });
 
+// Pause/start menu. Esc toggles it on desktop; on touch a hamburger button
+// (shown by createMenu) opens it. Opening pauses the sim (render loop checks
+// menu.isOpen) and clears held keys so the mower doesn't drift on resume.
+const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+const menu = createMenu({
+  toggleFullscreen: () => fullscreenButtonEl.click(),
+  isTouch: isTouchPrimary,
+  onOpen: () => keys.clear(),
+});
+
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
@@ -1094,6 +1112,17 @@ window.addEventListener("keydown", (event) => {
       hud.closeResultAction();
     }
 
+    return;
+  }
+
+  if (key === "escape") {
+    event.preventDefault();
+    menu.toggle();
+    return;
+  }
+
+  // While the menu is open it owns the keyboard; don't drive the mower.
+  if (menu.isOpen()) {
     return;
   }
 
@@ -1177,6 +1206,13 @@ engine.runRenderLoop(() => {
     shootSecretGun();
   }
   lastControllerShoot = controllerShoot;
+
+  // Paused: render the frozen frame behind the menu, run no simulation.
+  if (menu.isOpen()) {
+    scene.render();
+    return;
+  }
+
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);
   fence.resolveOverlap();

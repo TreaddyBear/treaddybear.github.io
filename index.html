@@ -17,12 +17,39 @@
       </div>
       <div id="score" hidden></div>
       <div id="timer">Time 3:00</div>
-      <div id="mistakes">Mistakes: 0</div>
+      <div id="mistakes" aria-label="Accidents">
+        <!-- Placeholder impact-mark icon; swap for final art. -->
+        <svg class="mistake-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1l2.3 6.1L20 5l-2.4 5.7L23 12l-5.4 1.3L20 19l-5.7-2.3L12 23l-2.3-6.3L6 19l2.4-5.7L1 12l5.6-1.3L4 5l5.7 2.1z" fill="currentColor"/></svg>
+        <span class="mistake-count">0</span>
+      </div>
       <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
       <button id="finishRunButton" type="button" hidden>Finish Run</button>
       <div id="hudInputLabel">Input <div id="quickInputMode" role="group" aria-label="Input mode"></div></div>
       <button id="fullscreenButton" type="button">Full screen</button>
       <div id="perf" hidden></div>
+      <button id="menuButton" type="button" aria-label="Menu" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="menu" hidden>
+      <div id="menuPanel">
+        <div id="menuTitle">Lawn Mower</div>
+        <div id="menuOptions">
+          <button class="menu-item" type="button" data-action="resume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+            <span class="menu-label" data-resume-label>Resume</span>
+          </button>
+          <button class="menu-item" type="button" data-action="fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+            <span class="menu-label">Full screen</span>
+          </button>
+          <label class="menu-item menu-toggle">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 1 18 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 12l4-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+            <span class="menu-label">Show FPS</span>
+            <input id="menuFps" type="checkbox" checked />
+          </label>
+        </div>
+      </div>
     </div>
     <div id="celebration" hidden>
       <div id="celebrationTitle">Perfect Cut</div>
@@ -131,6 +158,7 @@
           <label>Slat fade band <span data-value-for="lodSlatFadeBand"></span><input id="lodSlatFadeBand" type="range" min="0.5" max="30" step="0.25" value="14" /></label>
           <label>Slat render distance <span data-value-for="lodSlatRenderDistance"></span><input id="lodSlatRenderDistance" type="range" min="5" max="75" step="0.5" value="70" /></label>
           <label>Road verge width <span data-value-for="lodRoadVergeWidth"></span><input id="lodRoadVergeWidth" type="range" min="0" max="2" step="0.01" value="0.3" /></label>
+          <label>Slat road inset <span data-value-for="lodSlatRoadInset"></span><input id="lodSlatRoadInset" type="range" min="0" max="2" step="0.01" value="0.4" /></label>
           <hr />
           <label>Show vertical slats <input id="lodSlatsShow" type="checkbox" /></label>
           <label>Slat height <span data-value-for="lodSlatHeight"></span><input id="lodSlatHeight" type="range" min="0.1" max="1.2" step="0.01" value="0.5" /></label>

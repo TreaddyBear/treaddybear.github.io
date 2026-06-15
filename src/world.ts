@@ -674,15 +674,19 @@ function roadInnerEdge(x: number, z: number) {
 }
 
 function roadOuterEdge(x: number, z: number) {
-  // Small wobble too (the whole band is ~30 cm), a touch lower frequency than the
-  // inner edge so the dirt->grass side has its own slightly wider character.
-  const wobble = ((valueNoise((x * 1.7) - 11, (z * 1.7) + 5) - 0.5) * 0.13)
-    + ((valueNoise((x * 3.3) + 2, (z * 3.3) - 8) - 0.5) * 0.06);
-  return (ROAD_HALF + settings.lodRoadVergeWidth) + wobble;
+  // STRONG multi-octave wobble so the dirt->grass edge is highly irregular (the
+  // average band stays ~lodRoadVergeWidth wide, but the edge swings a lot). Big
+  // low-frequency lobes + finer detail. Clamped to stay just outside the kerb so
+  // grass never reaches the road.
+  const big = (valueNoise((x * 0.55) - 11, (z * 0.55) + 5) - 0.5) * 0.62;
+  const mid = (valueNoise((x * 1.5) + 2, (z * 1.5) - 8) - 0.5) * 0.34;
+  const fine = (valueNoise((x * 3.6) - 6, (z * 3.6) + 14) - 0.5) * 0.15;
+  const edge = (ROAD_HALF + settings.lodRoadVergeWidth) + big + mid + fine;
+  return Math.max(ROAD_HALF + 0.05, edge);
 }
 
 // 1 inside the dirt band (between the two edges), 0 on the road and on grass.
-function roadVergeDirt(x: number, z: number) {
+export function roadVergeDirt(x: number, z: number) {
   const d = Math.abs(x - ROAD_CENTER_X);
   const up = smoothstep01((d - roadInnerEdge(x, z)) / 0.045);
   const down = 1 - smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
@@ -691,9 +695,11 @@ function roadVergeDirt(x: number, z: number) {
 
 // 1 where there is grass (past the verge), 0 on the road and dirt band. The slat
 // coverage multiplies this in so slats stop at the irregular dirt->grass edge.
-export function roadGrassAmount(x: number, z: number) {
+export function roadGrassAmount(x: number, z: number, inset = 0) {
   const d = Math.abs(x - ROAD_CENTER_X);
-  return smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
+  // `inset` pushes the grass edge further from the road. The slats pass a small
+  // inset so their leaning/wiggling geometry doesn't overhang the dirt verge.
+  return smoothstep01((d - (roadOuterEdge(x, z) + inset)) / 0.05);
 }
 
 // Dirt overlay along the road, same technique as the fence-dirt overlay but

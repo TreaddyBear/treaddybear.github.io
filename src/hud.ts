@@ -475,7 +475,11 @@ export function createHud(deps: HudDeps) {
       deps.score.hidden = !deps.isArmed();
       deps.score.textContent = deps.isArmed() ? "Armed" : "";
 
-      deps.mistakes.textContent = `Mistakes: ${mistakes}`;
+      // Update only the count span so the impact-mark icon survives.
+      const mistakeCount = deps.mistakes.querySelector(".mistake-count");
+      if (mistakeCount) {
+        mistakeCount.textContent = `${mistakes}`;
+      }
       deps.mistakeMeterFill.style.width = `${Math.min(100, mistakes * 12)}%`;
 
       if(hudState.celebrationShown) {
