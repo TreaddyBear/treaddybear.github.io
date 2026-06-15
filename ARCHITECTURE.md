@@ -47,7 +47,7 @@ the transient effects group from `src/renderOrder.ts`.
 
 ## Current Game Shape
 
-The prototype now has selectable maps. `Main` is the original L-shaped yard with a low white plank fence. `Flower Court` is a wider, different-shaped yard with a protected tulip bed in the middle. The fence should be a visual boundary, but the player should not feel forced to ram the mower into it: grass near the fence is intentionally sparse or already effectively cut, with a very small falloff close to the fence line.
+The prototype now has selectable maps. `Main` is the original L-shaped yard with a low white plank fence. `Flower Court` is a wider, different-shaped yard with a protected tulip bed in the middle. `Keyhole Gardens` is a third map shaped like two offset courts joined by a narrow waist, with two smaller protected beds that make route planning feel different from the first two lawns. The fence should be a visual boundary, but the player should not feel forced to ram the mower into it: grass near the fence is intentionally sparse or already effectively cut, with a very small falloff close to the fence line.
 
 The mower is a short, low box with arcade steering. `W` drives forward in the mower's facing direction, reverse drives backward, `A` and `D` steer with a hold-to-build turn response, and space is boost/run. Top speed is fixed by live settings `playerSpeed` and `playerBoost`; `playerSpeed` is the tunable unboosted top speed. Acceleration uses a torque-style curve that is strongest at low speed and fades as the mower approaches that fixed target. Space must not toggle fullscreen. The chase camera follows the mower and currently feels acceptable.
 

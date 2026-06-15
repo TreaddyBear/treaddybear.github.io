@@ -180,7 +180,7 @@ export type FlowerBed = RectLike & {
 // Level codes are durable save/tuning keys. Display names can change freely.
 // `bgrn` is the temporary Beta Green prefix while the first green-level roster
 // is still being shaped.
-export const levelCodes = ["bgrnEll", "bgrnBed"] as const;
+export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole"] as const;
 export type LevelCode = (typeof levelCodes)[number];
 
 type LawnLevelSettings = {
@@ -211,6 +211,7 @@ export const lawnLevels: LawnLevels = {
     parSeconds: {
       bgrnEll: 360,
       bgrnBed: 360,
+      bgrnKeyhole: 420,
     },
   },
   bgrnEll: {
@@ -257,6 +258,35 @@ export const lawnLevels: LawnLevels = {
     ],
     dandelionCount: 12,
   },
+  bgrnKeyhole: {
+    code: "bgrnKeyhole",
+    name: "Keyhole Gardens",
+    spawn: new Vector3(-2, 0.18, 0),
+    segments: [
+      { xMin: -16, xMax: -6, zMin: -10, zMax: 8, width: 10, height: 18, center: new Vector3(-11, 0, -1) },
+      { xMin: -6, xMax: 2, zMin: -3, zMax: 3, width: 8, height: 6, center: new Vector3(-2, 0, 0) },
+      { xMin: 2, xMax: 11.2, zMin: -8, zMax: 10, width: 9.2, height: 18, center: new Vector3(6.6, 0, 1) },
+    ],
+    fenceSegments: [
+      { start: new Vector3(-16.25, 0, -10.25), end: new Vector3(-5.75, 0, -10.25) },
+      { start: new Vector3(-5.75, 0, -10.25), end: new Vector3(-5.75, 0, -3.25) },
+      { start: new Vector3(-5.75, 0, -3.25), end: new Vector3(1.75, 0, -3.25) },
+      { start: new Vector3(1.75, 0, -3.25), end: new Vector3(1.75, 0, -8.25) },
+      { start: new Vector3(1.75, 0, -8.25), end: new Vector3(11.45, 0, -8.25) },
+      { start: new Vector3(11.45, 0, -8.25), end: new Vector3(11.45, 0, 10.25) },
+      { start: new Vector3(11.45, 0, 10.25), end: new Vector3(1.75, 0, 10.25) },
+      { start: new Vector3(1.75, 0, 10.25), end: new Vector3(1.75, 0, 3.25) },
+      { start: new Vector3(1.75, 0, 3.25), end: new Vector3(-5.75, 0, 3.25) },
+      { start: new Vector3(-5.75, 0, 3.25), end: new Vector3(-5.75, 0, 8.25) },
+      { start: new Vector3(-5.75, 0, 8.25), end: new Vector3(-16.25, 0, 8.25) },
+      { start: new Vector3(-16.25, 0, 8.25), end: new Vector3(-16.25, 0, -10.25) },
+    ],
+    flowerBeds: [
+      { xMin: -14.1, xMax: -11.1, zMin: -4.2, zMax: 3.8, count: 34 },
+      { xMin: 4.9, xMax: 9.5, zMin: 3.6, zMax: 6.8, count: 30 },
+    ],
+    dandelionCount: 16,
+  },
 };
 
 export const lawnMaps = levelCodes.map((code) => lawnLevels[code]);
@@ -264,6 +294,7 @@ export const lawnMaps = levelCodes.map((code) => lawnLevels[code]);
 const legacyLevelCodes: Record<string, LevelCode> = {
   main: "bgrnEll",
   "flower-court": "bgrnBed",
+  "keyhole-gardens": "bgrnKeyhole",
 };
 
 export function normalizeLevelCode(code: string): LevelCode {
