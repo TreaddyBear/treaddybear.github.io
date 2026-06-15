@@ -33,7 +33,7 @@ import { createMaterials } from "./materials";
 import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { createGunEffects } from "./gunEffects";
 import { createTulips } from "./tulips";
-import { createWind } from "./wind";
+import { createWind, windDirection } from "./wind";
 import { createDandelions } from "./dandelions";
 import { createFenceSystem } from "./fence";
 import { createGrass } from "./grass";
@@ -41,8 +41,22 @@ import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
 import { createMowerControl } from "./mowerControl";
+import { renderingGroups } from "./renderOrder";
 import { isInsideSegments } from "./utils/yard";
-import { createBiomeGroundMaterial, createFence, createMapGrounds, createRoad, createRoadDirtOverlay, createWorldTerrain, flowerBedHeightAt, sampledTerrainHeightAt, terrainHeightAt, updateBiomeGroundMaterialScale } from "./world";
+import {
+  biomeHomeAmount,
+  createBiomeGroundMaterial,
+  createFence,
+  createMapGrounds,
+  createRoad,
+  createRoadDirtOverlay,
+  createWorldTerrain,
+  fenceDirtAmountAt,
+  flowerBedHeightAt,
+  sampledTerrainHeightAt,
+  terrainHeightAt,
+  updateBiomeGroundMaterialScale,
+} from "./world";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -115,6 +129,7 @@ const analogInput = createInputController(touchPadElement, touchKnobElement);
 
 const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
+scene.setRenderingAutoClearDepthStencil(renderingGroups.transientEffects, false);
 const prototypeAudio = createPrototypeAudio();
 const perfEl = document.querySelector<HTMLDivElement>("#perf");
 const useMobileRenderProfile = matchMedia("(pointer: coarse)").matches || window.innerWidth < 620;
@@ -157,6 +172,7 @@ let fenceMistakeCount = 0;
 let lastControllerShoot = false;
 let lastCelebrationAdvance = false;
 let lastCelebrationDismiss = false;
+let dirtKickupDistance = 0;
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 const rockColliders: RockCollider[] = [];
 
@@ -268,6 +284,121 @@ function isInsideYard(x: number, z: number) {
 
 function isOnRoad(x: number) {
   return x > 11.8 && x < 17.2;
+}
+
+function flowerBedDirtAmountAt(x: number, z: number) {
+  for (const bed of getActiveMap().flowerBeds) {
+    if (x >= bed.xMin && x <= bed.xMax && z >= bed.zMin && z <= bed.zMax) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+function dirtAmountAt(x: number, z: number) {
+  if (isOnRoad(x)) {
+    return 0;
+  }
+
+  const biomeDirt = 1 - biomeHomeAmount(x, z);
+  const fenceDirt = fenceDirtAmountAt(x, z, getActiveMap().fenceSegments);
+  const flowerBedDirt = flowerBedDirtAmountAt(x, z);
+  return Math.max(biomeDirt, fenceDirt, flowerBedDirt);
+}
+
+type DirtDustSensor = {
+  x: number;
+  z: number;
+  outwardX: number;
+  outwardZ: number;
+  dirt: number;
+};
+
+function chooseDirtDustSensor(sensors: DirtDustSensor[]) {
+  const total = sensors.reduce((sum, sensor) => sum + sensor.dirt, 0);
+  let pick = Math.random() * total;
+
+  for (const sensor of sensors) {
+    pick -= sensor.dirt;
+
+    if (pick <= 0) {
+      return sensor;
+    }
+  }
+
+  return sensors[sensors.length - 1];
+}
+
+function dirtDustCoverageUnderMower() {
+  const forwardX = Math.sin(playerYaw);
+  const forwardZ = Math.cos(playerYaw);
+  const sideX = Math.cos(playerYaw);
+  const sideZ = -Math.sin(playerYaw);
+  const halfSide = player.scaling.x / 2;
+  const halfForward = player.scaling.z / 2;
+  const sampleSteps = 4;
+  let totalDirt = 0;
+  let sampleCount = 0;
+  const sensors: DirtDustSensor[] = [];
+
+  for (let forwardIndex = 0; forwardIndex <= sampleSteps; forwardIndex += 1) {
+    const forwardT = (forwardIndex / sampleSteps) - 0.5;
+    const localForward = forwardT * halfForward * 2;
+
+    for (let sideIndex = 0; sideIndex <= sampleSteps; sideIndex += 1) {
+      const sideT = (sideIndex / sampleSteps) - 0.5;
+      const localSide = sideT * halfSide * 2;
+      const x = player.position.x + (forwardX * localForward) + (sideX * localSide);
+      const z = player.position.z + (forwardZ * localForward) + (sideZ * localSide);
+      const dirt = dirtAmountAt(x, z);
+
+      totalDirt += dirt;
+      sampleCount += 1;
+    }
+  }
+
+  const sensorCount = 16;
+  let sensorDirtTotal = 0;
+
+  for (let index = 0; index < sensorCount; index += 1) {
+    const angle = (index / sensorCount) * Math.PI * 2;
+    const localSide = Math.cos(angle) * halfSide * 0.92;
+    const localForward = Math.sin(angle) * halfForward * 0.92;
+    const outwardWorldX = (sideX * localSide) + (forwardX * localForward);
+    const outwardWorldZ = (sideZ * localSide) + (forwardZ * localForward);
+    const outwardLength = Math.sqrt((outwardWorldX * outwardWorldX) + (outwardWorldZ * outwardWorldZ));
+
+    if (outwardLength < 0.0001) {
+      continue;
+    }
+
+    const outwardX = outwardWorldX / outwardLength;
+    const outwardZ = outwardWorldZ / outwardLength;
+    const tangentX = -outwardZ;
+    const tangentZ = outwardX;
+    const x = player.position.x + outwardWorldX;
+    const z = player.position.z + outwardWorldZ;
+    const dirt = (dirtAmountAt(x, z) * 0.5)
+      + (dirtAmountAt(x + (outwardX * 0.18), z + (outwardZ * 0.18)) * 0.25)
+      + (dirtAmountAt(x - (outwardX * 0.12), z - (outwardZ * 0.12)) * 0.15)
+      + (dirtAmountAt(x + (tangentX * 0.16), z + (tangentZ * 0.16)) * 0.05)
+      + (dirtAmountAt(x - (tangentX * 0.16), z - (tangentZ * 0.16)) * 0.05);
+
+    sensorDirtTotal += dirt;
+
+    if (dirt > 0.025) {
+      sensors.push({ x, z, outwardX, outwardZ, dirt });
+    }
+  }
+
+  const averageBodyDirt = totalDirt / sampleCount;
+  const averageSensorDirt = sensorDirtTotal / sensorCount;
+
+  return {
+    amount: Math.max(averageBodyDirt, averageSensorDirt * 0.9),
+    sensors,
+  };
 }
 
 function groundHeightAt(x: number, z: number) {
@@ -534,6 +665,47 @@ function movePlayer(deltaSeconds: number) {
       prototypeAudio.playFenceBump(settings.wallBumpVolume, severity);
       bumpCooldown = 0.35;
     }
+  }
+}
+
+function updateMowerDirtKickup(deltaSeconds: number) {
+  const speed = Math.abs(driveSpeed);
+  const dustEmissionScale = Math.max(0, settings.dustEmissionScale);
+
+  if (speed < 0.16 || dustEmissionScale <= 0) {
+    dirtKickupDistance = 0;
+    return;
+  }
+
+  const dirtCoverage = dirtDustCoverageUnderMower();
+
+  if (dirtCoverage.amount < 0.018 || dirtCoverage.sensors.length === 0) {
+    dirtKickupDistance = 0;
+    return;
+  }
+
+  const maxSpeed = settings.playerSpeed * settings.playerBoost;
+  const speedAmount = Math.min(1, speed / Math.max(0.01, maxSpeed));
+  const burstDistance = 0.16;
+  dirtKickupDistance += deltaSeconds * speed * dirtCoverage.amount * 2.25;
+  let burstCount = 0;
+
+  while (dirtKickupDistance >= burstDistance && burstCount < 2) {
+    dirtKickupDistance -= burstDistance;
+    burstCount += 1;
+    const sensor = chooseDirtDustSensor(dirtCoverage.sensors);
+    const strength = (0.24 + (sensor.dirt * 1.35)) * (0.5 + (speedAmount * 0.95));
+    gunEffects.spawnMowerDirtDust(
+      sensor.x,
+      sensor.z,
+      groundHeightAt(sensor.x, sensor.z),
+      playerYaw,
+      driveSpeed,
+      strength,
+      windDirection,
+      new Vector3(sensor.outwardX, 0, sensor.outwardZ),
+      dustEmissionScale,
+    );
   }
 }
 
@@ -1009,6 +1181,7 @@ engine.runRenderLoop(() => {
   movePlayer(deltaSeconds);
   fence.resolveOverlap();
   updatePlayerGroundPose(deltaSeconds);
+  updateMowerDirtKickup(deltaSeconds);
   cameraRig.follow(deltaSeconds);
   grass.updateMotion(timeSeconds);
   wind.update(deltaSeconds);

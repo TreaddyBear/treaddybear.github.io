@@ -4,6 +4,7 @@ import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
 import { hexToColor3 } from "./utils/color";
 import { biomeHomeAmount, roadGrassAmount, terrainHeightAt } from "./world";
+import { windDirection } from "./wind";
 import type { GrassBake } from "./grassBake";
 
 // Far-LOD grass as vertical slats. The geometry supplies density and silhouette;
@@ -11,7 +12,7 @@ import type { GrassBake } from "./grassBake";
 // the visible motion instead of to a fabricated sky-facing normal.
 
 const SPACING = 0.5; // strip spacing + segment length in world units
-const SLAT_DOWNWIND_DIRECTION = new Vector2(1, 0.35).normalize();
+const slatWindDirection = new Vector2(windDirection.x, windDirection.z).normalize();
 
 // The slat MESH spans far more than the playable mow field: the far grass runs
 // well past the fence into the visible distance. Mow state (cutting) only exists
@@ -110,7 +111,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       uniform float bendAmp;
       uniform float time;
       uniform float windAmp;
-      uniform vec2 windDir;
+      uniform vec2 windDirection;
       varying vec3 vNormal;
       varying vec3 vWorldPos;
       varying float vTop;
@@ -159,13 +160,13 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vec2 staticLeanDir = vec2(cos(leanAngle), sin(leanAngle));
         float staticLean = bendAmp * (0.4 + (1.6 * vnoise((cell * 1.3) + 3.0)));
 
-        vec2 windAcross = vec2(-windDir.y, windDir.x);
-        float along = dot(cell, windDir);
+        vec2 windAcross = vec2(-windDirection.y, windDirection.x);
+        float along = dot(cell, windDirection);
         float across = dot(cell, windAcross);
         float gustA = 0.5 + (0.5 * sin((time * 1.7) + (along * 0.45) + (across * 0.12)));
         float gustB = 0.5 + (0.5 * sin((time * 2.6) + (along * 0.8) + (across * 0.3)));
         float gust = 0.35 + (0.45 * gustA) + (0.2 * gustB);
-        vec2 windLean = windDir * windAmp * gust;
+        vec2 windLean = windDirection * windAmp * gust;
 
         vec2 lean = (staticLeanDir * staticLean) + windLean;
         float curve = top * top;
@@ -335,7 +336,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight",
       "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
-      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDir",
+      "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDirection",
       "lodFade", "lodCenter", "slatFadeDistance", "slatFadeBand", "slatMaxDistance",
     ],
     samplers: ["mowField", "grassNormal", "grassAlbedo"],
@@ -346,7 +347,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   material.setTexture("grassAlbedo", bake.albedoTex);
   material.setVector4("bounds", new Vector4(MOW_FIELD.minX, MOW_FIELD.minZ, mowWidth, mowDepth));
   material.setVector3("lightDir", new Vector3(-0.45, -1, 0.24).normalize());
-  material.setVector2("windDir", SLAT_DOWNWIND_DIRECTION);
+  material.setVector2("windDirection", slatWindDirection);
   material.setVector2("lodCenter", new Vector2(0, 0));
   material.backFaceCulling = false;
   // The slats fade in by ALPHA, so they need blending. alpha < 1 flips Babylon's
@@ -403,10 +404,10 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         return;
       }
       const next = new Array(pos.length / 3);
-      for (let i = 0; i < next.length; i += 1) {
-        const x = pos[i * 3];
-        const z = pos[(i * 3) + 2];
-        next[i] = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
+      for (let index = 0; index < next.length; index += 1) {
+        const x = pos[index * 3];
+        const z = pos[(index * 3) + 2];
+        next[index] = roadGrassAmount(x, z) * biomeHomeAmount(x, z);
       }
       mesh.updateVerticesData("cover", next);
     },

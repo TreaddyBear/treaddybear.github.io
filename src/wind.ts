@@ -1,9 +1,11 @@
 import { Color3, Mesh, MeshBuilder, StandardMaterial, Vector3, VertexBuffer, VertexData } from "@babylonjs/core";
 import type { ArcRotateCamera, Scene } from "@babylonjs/core";
-import { yardSegments } from "./config";
+import { settings, yardSegments } from "./config";
 import type { WindMote, WindWisp } from "./types";
 
 export type Wind = ReturnType<typeof createWind>;
+export const windDirection = new Vector3(1, 0, 0).normalize();
+const windSideDirection = new Vector3(windDirection.z, 0, -windDirection.x);
 
 // Owns the ambient wind wisps and motes (and the mower-clipping / seed bursts
 // that spawn motes). Needs the camera for billboarding wisps and the player for
@@ -18,9 +20,9 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     const positions = new Float32Array((segments + 1) * 2 * 3);
     const indices: number[] = [];
 
-    for (let i = 0; i <= segments; i += 1) {
-      if (i < segments) {
-        const base = i * 2;
+    for (let index = 0; index <= segments; index += 1) {
+      if (index < segments) {
+        const base = index * 2;
         indices.push(base, base + 1, base + 2);
         indices.push(base + 1, base + 3, base + 2);
       }
@@ -65,8 +67,8 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     const hookAmount = Math.max(0, (t - 0.48) / 0.4);
     const baseWidth = 0.075 * visibility;
 
-    for (let i = 0; i <= segments; i += 1) {
-      const local = i / segments;
+    for (let index = 0; index <= segments; index += 1) {
+      const local = index / segments;
       const u = trimStart + ((growEnd - trimStart) * local);
       const localWidth = Math.sin(Math.PI * local) * baseWidth;
       const x = u * wisp.length;
@@ -75,14 +77,15 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       const hook = Math.sin(Math.PI * hookT * 0.9) * wisp.hook * hookAmount;
       const tangentZ = (Math.cos(Math.PI * Math.min(1, u * 0.92)) * Math.PI * 0.92 * wisp.bend * curveAmount)
         + (hookT > 0 ? Math.cos(Math.PI * hookT * 0.9) * Math.PI * 0.9 * wisp.hook * hookAmount / 0.42 : 0);
-      const tangent = new Vector3(1, 0, tangentZ).normalize();
-      const centerX = wisp.x + x;
+      const tangent = windDirection.add(windSideDirection.scale(tangentZ)).normalize();
+      const sideDistance = firstCurve + hook;
+      const centerX = wisp.x + (windDirection.x * x) + (windSideDirection.x * sideDistance);
       const centerY = wisp.y + (Math.sin(Math.PI * u) * 0.04 * curveAmount);
-      const centerZ = wisp.z + firstCurve + hook;
+      const centerZ = wisp.z + (windDirection.z * x) + (windSideDirection.z * sideDistance);
       const lift = Math.sin(Math.PI * u) * 0.04 * curveAmount;
       const cameraDirection = camera.position.subtract(new Vector3(centerX, centerY, centerZ)).normalize();
       const widthDirection = Vector3.Cross(tangent, cameraDirection).normalize();
-      const offset = i * 6;
+      const offset = index * 6;
 
       wisp.positions[offset] = centerX + (widthDirection.x * localWidth);
       wisp.positions[offset + 1] = centerY + lift + (widthDirection.y * localWidth);
@@ -97,15 +100,15 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
   };
 
   const createWindWisps = () => {
-    for (let i = 0; i < 4; i += 1) {
-      const material = new StandardMaterial(`windWispMaterial-${i}`, scene);
+    for (let index = 0; index < 4; index += 1) {
+      const material = new StandardMaterial(`windWispMaterial-${index}`, scene);
       material.diffuseColor = new Color3(1, 1, 1);
       material.emissiveColor = new Color3(0.9, 1, 0.92);
       material.alpha = 0.4;
       material.backFaceCulling = false;
       material.disableLighting = true;
 
-      const { mesh, positions } = createWindWispMesh(`windWisp-${i}`);
+      const { mesh, positions } = createWindWispMesh(`windWisp-${index}`);
       mesh.material = material;
       mesh.isPickable = false;
 
@@ -125,7 +128,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       };
 
       resetWindWisp(wisp);
-      wisp.age = i === 0 ? wisp.duration * 0.12 : -(2 + (i * 2.7) + (Math.random() * 1.3));
+      wisp.age = index === 0 ? wisp.duration * 0.12 : -(2 + (index * 2.7) + (Math.random() * 1.3));
       updateWindWispShape(wisp);
       windWisps.push(wisp);
     }
@@ -158,7 +161,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     mote.x = -34 + (Math.random() * 3);
     mote.z = -24 + (Math.random() * 54);
     mote.y = 0.45 + (Math.random() * 1.2);
-    mote.speed = 1.25 + (Math.random() * 0.35);
+    mote.speed = settings.windSpeed * (0.86 + (Math.random() * 0.32));
     mote.drift = (Math.random() - 0.5) * 0.5;
     mote.size = 0.018 + (Math.random() * 0.035);
   };
@@ -191,7 +194,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
   };
 
   const createWindMotes = () => {
-    for (let i = 0; i < 1; i += 1) {
+    for (let index = 0; index < 1; index += 1) {
       const mote = createWindMote(Math.random() < 0.18 ? new Color3(1, 0.92, 0.34) : undefined);
       resetWindMote(mote);
       windMotes.push(mote);
@@ -202,8 +205,10 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     for (const mote of windMotes) {
       mote.age += deltaSeconds;
 
-      const currentX = mote.x + (Math.max(0, mote.age) * mote.speed);
-      if (mote.age > mote.duration || currentX > 42) {
+      const travelDistance = Math.max(0, mote.age) * mote.speed;
+      const currentX = mote.x + (windDirection.x * travelDistance);
+      const currentZ = mote.z + (windDirection.z * travelDistance);
+      if (mote.age > mote.duration || currentX > 42 || currentZ > 34 || currentZ < -28) {
         resetWindMote(mote);
       }
 
@@ -214,9 +219,11 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
 
       const t = mote.age / mote.duration;
       const fade = Math.sin(Math.PI * t);
-      const x = mote.x + (mote.age * mote.speed);
+      const travel = mote.age * mote.speed;
+      const sideDrift = Math.sin(t * Math.PI) * mote.drift;
+      const x = mote.x + (windDirection.x * travel) + (windSideDirection.x * sideDrift);
       const y = mote.y + (Math.sin((t * Math.PI * 2) + mote.drift) * 0.08);
-      const z = mote.z + (Math.sin(t * Math.PI) * mote.drift);
+      const z = mote.z + (windDirection.z * travel) + (windSideDirection.z * sideDrift);
 
       mote.mesh.position.set(x, y, z);
       mote.mesh.scaling.set(mote.size, mote.size, mote.size);
@@ -244,8 +251,8 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       const originZ = player.position.z - (forwardZ * 0.35) + (sideZ * 0.52);
       const count = includeYellow ? 5 : 1;
 
-      for (let i = 0; i < count; i += 1) {
-        const color = includeYellow && i < 5
+      for (let index = 0; index < count; index += 1) {
+        const color = includeYellow && index < 5
           ? new Color3(1, 0.94, 0.02)
           : new Color3(0.42 + (Math.random() * 0.2), 0.74 + (Math.random() * 0.18), 0.12);
         const mote = createWindMote(color);
@@ -260,7 +267,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
         mote.x = originX + ((Math.random() - 0.5) * 0.38);
         mote.y = 0.18 + (Math.random() * 0.32);
         mote.z = originZ + ((Math.random() - 0.5) * 0.38);
-        mote.speed = 0.25 + (Math.random() * 0.45);
+        mote.speed = settings.windSpeed * (0.34 + (Math.random() * 0.4));
         mote.drift = (sideSign * 0.75) + ((Math.random() - 0.5) * 0.35);
         mote.size = 0.014 + (Math.random() * 0.03);
         windMotes.push(mote);
@@ -268,7 +275,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     },
 
     burstDandelionSeeds(x: number, z: number, y: number) {
-      for (let i = 0; i < 32; i += 1) {
+      for (let index = 0; index < 32; index += 1) {
         const mote = createWindMote();
         mote.segment = yardSegments.find((segment) => (
           x >= segment.xMin
@@ -281,7 +288,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
         mote.x = x + ((Math.random() - 0.5) * 0.25);
         mote.y = y + ((Math.random() - 0.5) * 0.18);
         mote.z = z + ((Math.random() - 0.5) * 0.25);
-        mote.speed = 0.7 + (Math.random() * 1.1);
+        mote.speed = settings.windSpeed * (0.72 + (Math.random() * 0.75));
         mote.drift = (Math.random() - 0.5) * 0.9;
         mote.size = 0.018 + (Math.random() * 0.025);
         windMotes.push(mote);

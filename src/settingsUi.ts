@@ -139,6 +139,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "clumpStrength",
       "heightRandomness",
       "windStrength",
+      "windSpeed",
       "bendStrength",
       "mowerAcceleration",
       "mowerTorqueFade",
@@ -171,6 +172,10 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "hueVariance",
       "satVariance",
       "lightVariance",
+      "dustEmissionScale",
+      "dustHueVariance",
+      "dustSaturationVariance",
+      "dustLightnessVariance",
       "grassyTextureScale",
       "dirtTextureUScale",
       "dirtTextureVScale",
@@ -220,6 +225,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "cutGrassTopColorA",
       "cutGrassTopColorB",
       "groundColor",
+      "dustColor",
       "skyAmbientColor",
       "lodTopColor",
       "lodBottomColor",
@@ -375,6 +381,8 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
         if (id === "groundColor") {
           deps.refreshGroundColor();
+        } else if (id === "dustColor") {
+          // New dust puffs read this directly as they spawn.
         } else if (id === "skyAmbientColor") {
           deps.refreshLighting();
         } else if (

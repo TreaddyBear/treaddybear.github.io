@@ -18,6 +18,7 @@ import wallBumpMediumUrl from "./assets/wall-bump-medium.mp3?url";
 import wallBumpHardUrl from "./assets/wall-bump-hard.mp3?url";
 import reverseBeepUrl from "./assets/reverse-beep.mp3?url";
 import gunShotUrl from "./assets/gun-shot.mp3?url";
+import { windDirection } from "./wind";
 
 type AudioSettings = {
   mowerVolume: number;
@@ -333,7 +334,6 @@ export function createPrototypeAudio() {
     },
 
     update(camera: ArcRotateCamera, settings: AudioSettings) {
-      const windDirection = new Vector3(-1, 0, 0);
       const cameraForward = camera.target.subtract(camera.position).normalize();
       const facing = clamp01((Vector3.Dot(cameraForward, windDirection) + 1) / 2);
       const facingVolume = 1 - settings.breezeFacingAmount + (settings.breezeFacingAmount * facing);

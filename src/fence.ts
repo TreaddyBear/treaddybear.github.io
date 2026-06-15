@@ -42,8 +42,10 @@ export function createFenceSystem(
       const steps = Math.floor(length / 0.55);
       const axisX = length > 0 ? dx / length : 1;
       const axisZ = length > 0 ? dz / length : 0;
+      const firstPieceIndex = steps <= 1 ? 0 : 1;
+      const lastPieceIndex = steps <= 1 ? steps : steps - 1;
 
-      for (let pieceIndex = 0; pieceIndex <= steps; pieceIndex += 1) {
+      for (let pieceIndex = firstPieceIndex; pieceIndex <= lastPieceIndex; pieceIndex += 1) {
         const t = steps === 0 ? 0 : pieceIndex / steps;
         const x = segment.start.x + (dx * t);
         const z = segment.start.z + (dz * t);

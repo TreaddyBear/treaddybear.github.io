@@ -73,6 +73,7 @@ export function createMaterials(scene: Scene) {
 
   const fenceMaterial = new StandardMaterial("fenceMaterial", scene);
   fenceMaterial.diffuseColor = new Color3(0.92, 0.9, 0.84);
+  fenceMaterial.emissiveColor = new Color3(0.065, 0.08, 0.13);
   fenceMaterial.specularColor = Color3.Black();
 
   const worldGroundMaterial = new StandardMaterial("worldGroundMaterial", scene);

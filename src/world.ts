@@ -17,6 +17,7 @@ import {
 } from "@babylonjs/core";
 import { lawnMaps, settings } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
+import { alphaSortOrder, renderingGroups } from "./renderOrder";
 import { valueNoise } from "./utils/noise";
 import { distanceToSegment } from "./utils/geometry";
 import { createRoadFileTexture, createRoadStripeAtlasTexture, dirtGroundTextureUrl, grassyGroundTextureUrl } from "./textures";
@@ -539,16 +540,37 @@ function createFencePlanks(scene: Scene, material: StandardMaterial, segmentInde
   const length = Math.sqrt((dx * dx) + (dz * dz));
   const steps = Math.floor(length / 0.55);
   const yaw = Math.atan2(dx, dz);
+  const firstPieceIndex = steps <= 1 ? 0 : 1;
+  const lastPieceIndex = steps <= 1 ? steps : steps - 1;
 
-  for (let i = 0; i <= steps; i += 1) {
-    const t = steps === 0 ? 0 : i / steps;
+  for (let pieceIndex = firstPieceIndex; pieceIndex <= lastPieceIndex; pieceIndex += 1) {
+    const t = steps === 0 ? 0 : pieceIndex / steps;
     const x = start.x + (dx * t);
     const z = start.z + (dz * t);
-    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${i}`, { width: 0.34, height: fencePlankHeight, depth: 0.08 }, scene);
+    const plank = MeshBuilder.CreateBox(`fence-${segmentIndex}-plank-${pieceIndex}`, { width: 0.34, height: fencePlankHeight, depth: 0.08 }, scene);
     plank.position = new Vector3(x, fenceVisualSurfaceY + (fencePlankHeight / 2) + fenceGroundClearance, z);
-    plank.rotation.y = yaw;
+    plank.rotation.y = yaw + (Math.PI / 2);
     plank.material = material;
   }
+}
+
+export function fenceDirtAmountAt(x: number, z: number, segments: FenceSegment[]) {
+  let distance = Number.POSITIVE_INFINITY;
+
+  for (const segment of segments) {
+    distance = Math.min(distance, distanceToSegment(x, z, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
+  }
+
+  if (!Number.isFinite(distance)) {
+    return 0;
+  }
+
+  // Keep this in lockstep with the fence dirt overlay so effects key off the
+  // visible soil band instead of a separate approximate shape.
+  const edge = (((valueNoise((x * 1.3) + 5, (z * 1.3) - 9) - 0.5) * 0.17))
+    + (((valueNoise((x * 3.7) - 2, (z * 3.7) + 4) - 0.5) * 0.08));
+  const band = 0.3 + edge;
+  return 1 - smoothstep01((distance - band) / 0.22);
 }
 
 // A single ground-level overlay of the real dirt texture, made opaque only
@@ -595,18 +617,7 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
 
     for (let i = 0; i < maskWidth; i += 1) {
       const worldX = xMin + ((i / (maskWidth - 1)) * width);
-      let distance = Number.POSITIVE_INFINITY;
-
-      for (const segment of segments) {
-        distance = Math.min(distance, distanceToSegment(worldX, worldZ, segment.start.x, segment.start.z, segment.end.x, segment.end.z));
-      }
-
-      // Wobble the band edge with two octaves of noise so the soil border reads
-      // as a natural ragged edge instead of a clean offset line.
-      const edge = (((valueNoise((worldX * 1.3) + 5, (worldZ * 1.3) - 9) - 0.5) * 0.17))
-        + (((valueNoise((worldX * 3.7) - 2, (worldZ * 3.7) + 4) - 0.5) * 0.08));
-      const band = 0.3 + edge;
-      const dirtAmount = 1 - smoothstep01((distance - band) / 0.22);
+      const dirtAmount = fenceDirtAmountAt(worldX, worldZ, segments);
       const index = ((j * maskWidth) + i) * 4;
       image.data[index] = 255;
       image.data[index + 1] = 255;
@@ -629,10 +640,13 @@ function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
   material.opacityTexture = mask;
   material.specularColor = Color3.Black();
   material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  material.disableDepthWrite = true;
   material.backFaceCulling = false;
 
   const overlay = MeshBuilder.CreateGround("fence-dirt-overlay", { width, height: depth }, scene);
   overlay.position = new Vector3((xMin + xMax) / 2, fenceDirtOverlayY, (zMin + zMax) / 2);
+  overlay.renderingGroupId = renderingGroups.world;
+  overlay.alphaIndex = alphaSortOrder.groundOverlay;
   overlay.material = material;
   overlay.isPickable = false;
   overlay.receiveShadows = true;
@@ -739,10 +753,13 @@ export function createRoadDirtOverlay(scene: Scene) {
   material.opacityTexture = mask;
   material.specularColor = Color3.Black();
   material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  material.disableDepthWrite = true;
   material.backFaceCulling = false;
 
   const overlay = MeshBuilder.CreateGround("road-dirt-overlay", { width, height: depth }, scene);
   overlay.position = new Vector3((xMin + xMax) / 2, ROAD_VERGE_Y, (zMin + zMax) / 2);
+  overlay.renderingGroupId = renderingGroups.world;
+  overlay.alphaIndex = alphaSortOrder.groundOverlay;
   overlay.material = material;
   overlay.isPickable = false;
   overlay.receiveShadows = true;

@@ -31,6 +31,20 @@ The prototype is still intentionally small, but the big one-file scene has been 
 - `src/utils/yard.ts` contains yard/rectangle sampling and grid key helpers.
 - `src/utils/buffers.ts` contains thin-instance matrix/color buffer helpers.
 
+## Render Order Notes
+
+Transparent ground overlays need explicit ordering. The fence and road dirt
+patches are alpha-blended ground overlays, so they stay in world rendering
+group `0`, use alpha sort order `0`, and have depth writes disabled. Transient
+visual effects that must appear over those overlays, such as mower dirt dust,
+gun tracers, and impact flecks, render in group `1` with depth auto-clear
+disabled for that group. That keeps normal world depth intact while preventing
+large transparent ground planes from visually drawing over small dust clouds.
+
+When adding a new transparent ground patch, use the world group and low alpha
+sort order. When adding a temporary effect meant to sit above the ground, use
+the transient effects group from `src/renderOrder.ts`.
+
 ## Current Game Shape
 
 The prototype now has selectable maps. `Main` is the original L-shaped yard with a low white plank fence. `Flower Court` is a wider, different-shaped yard with a protected tulip bed in the middle. The fence should be a visual boundary, but the player should not feel forced to ram the mower into it: grass near the fence is intentionally sparse or already effectively cut, with a very small falloff close to the fence line.
