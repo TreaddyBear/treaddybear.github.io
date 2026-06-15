@@ -686,7 +686,7 @@ function roadOuterEdge(x: number, z: number) {
 }
 
 // 1 inside the dirt band (between the two edges), 0 on the road and on grass.
-function roadVergeDirt(x: number, z: number) {
+export function roadVergeDirt(x: number, z: number) {
   const d = Math.abs(x - ROAD_CENTER_X);
   const up = smoothstep01((d - roadInnerEdge(x, z)) / 0.045);
   const down = 1 - smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
@@ -695,9 +695,11 @@ function roadVergeDirt(x: number, z: number) {
 
 // 1 where there is grass (past the verge), 0 on the road and dirt band. The slat
 // coverage multiplies this in so slats stop at the irregular dirt->grass edge.
-export function roadGrassAmount(x: number, z: number) {
+export function roadGrassAmount(x: number, z: number, inset = 0) {
   const d = Math.abs(x - ROAD_CENTER_X);
-  return smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
+  // `inset` pushes the grass edge further from the road. The slats pass a small
+  // inset so their leaning/wiggling geometry doesn't overhang the dirt verge.
+  return smoothstep01((d - (roadOuterEdge(x, z) + inset)) / 0.05);
 }
 
 // Dirt overlay along the road, same technique as the fence-dirt overlay but

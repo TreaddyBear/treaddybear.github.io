@@ -52,6 +52,7 @@ import {
   createRoadDirtOverlay,
   createWorldTerrain,
   fenceDirtAmountAt,
+  roadVergeDirt,
   flowerBedHeightAt,
   sampledTerrainHeightAt,
   terrainHeightAt,
@@ -304,7 +305,8 @@ function dirtAmountAt(x: number, z: number) {
   const biomeDirt = 1 - biomeHomeAmount(x, z);
   const fenceDirt = fenceDirtAmountAt(x, z, getActiveMap().fenceSegments);
   const flowerBedDirt = flowerBedDirtAmountAt(x, z);
-  return Math.max(biomeDirt, fenceDirt, flowerBedDirt);
+  const roadDirt = roadVergeDirt(x, z); // the ~30 cm dirt band beside the road
+  return Math.max(biomeDirt, fenceDirt, flowerBedDirt, roadDirt);
 }
 
 type DirtDustSensor = {

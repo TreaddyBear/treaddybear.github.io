@@ -218,6 +218,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatFadeBand",
       "lodSlatRenderDistance",
       "lodRoadVergeWidth",
+      "lodSlatRoadInset",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -337,7 +338,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatRenderDistance",
         ].includes(id)) {
           deps.refreshLod();
-        } else if (id === "lodRoadVergeWidth") {
+        } else if (id === "lodRoadVergeWidth" || id === "lodSlatRoadInset") {
           deps.refreshRoadVerge();
         } else if (id === "portraitFov") {
           deps.updateCameraProjection();
