@@ -6,11 +6,11 @@ This document is the compact handoff for starting a fresh conversation without r
 
 - Active development branch: `dev`.
 - Do not use `main` or `master` for day-to-day work.
-- Public releases should be made from tested commits using version tags like `v0.1.1`.
+- Public releases should be made from tested commits using version tags like `v0.2.1`.
 - GitHub Pages deploys are handled by `.github/workflows/deploy-gh-pages.yml` on pushes to `master` or manual workflow dispatch.
 - Tags remain the release markers, but Pages deploys from `master` because the `github-pages` environment protection blocked tag-triggered deploys. The failed `v0.1.0` tag workflow can be ignored.
-- Current published release marker: `v0.1.2` at commit `63d61b8` (`Add terrain hiding and fence debug tools`).
-- `dev`, `master`, `origin/dev`, and `origin/master` were aligned at the same `v0.1.2` commit before the current uncommitted development work.
+- Current published release marker: `v0.2.0` at commit `2763b78` (`Fill in CC0 sources and licenses for audio and texture assets`).
+- Current local `dev` contains `v0.2.0`, is ahead of `origin/dev` by local development/merge work, and has additional uncommitted release-polish changes. Check `git status --short --branch` before release work.
 - The project is a Vite TypeScript Babylon.js app using `@babylonjs/core` only for runtime dependencies.
 - Package manager is `pnpm@11.0.0`.
 - Dependency security policy currently requires `minimumReleaseAge: 57600` in `pnpm-workspace.yaml`.
@@ -24,9 +24,10 @@ This document is the compact handoff for starting a fresh conversation without r
 
 ## Current Working Tree
 
-- As of the `v0.1.2` release push, the working tree was clean.
-- Current development has moved beyond `v0.1.2` on `dev`; check `git status --short --branch` and local commits before release work.
-- Recent dev work includes biome-mask terrain, shader-tiled grass/dirt terrain textures, higher terrain texture scale controls, denser but smoother outside grass, multi-tone cut grass coloring, star-result UI, fence-mistake scoring, mower-width broken fence openings, raised flower-bed terrain, and smooth mower tilt on sloped ground.
+- Current development has moved beyond `v0.2.0` on `dev`; check `git status --short --branch` and local commits before release work.
+- Recent dev work includes Keyhole Gardens, biome-mask terrain, shader-tiled grass/dirt terrain textures, higher terrain texture scale controls, denser but smoother outside grass, multi-tone cut grass coloring, star-result UI, fence-mistake scoring, mower-width broken fence openings, raised flower-bed terrain, smooth mower tilt on sloped ground, the pause/menu start gate, asset-backed menu SVG icons, local saved level progress, sequential level unlocks, and the accident-mark HUD.
+- Current uncommitted polish also changes auto input behavior, touch steering, star-meter fill, level-select persistence, and broken-fence exit handling.
+- `.codex/` may be present as local Codex environment configuration. Decide explicitly whether to keep, ignore, or align it with `packageManager: pnpm@11.0.0` before staging a release commit.
 - There may be user-owned texture edits such as `src/assets/textures/ground-grassy.png` and a `ground-grassy.png~` backup; do not overwrite or stage those unless explicitly asked.
 - Usual harmless local warning: Git may print `unable to access 'C:\Users\Owner/.config/git/ignore': Permission denied`.
 
@@ -51,8 +52,8 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 ## Last Verified State
 
 - `pnpm install --frozen-lockfile` passed after the 40-day minimum package age setting was added.
-- TypeScript compile passed via bundled Node: `node node_modules/typescript/bin/tsc -p tsconfig.json`.
-- Vite production build passed via bundled Node: `node node_modules/vite/bin/vite.js build`. The first sandboxed Vite attempt may fail with `Cannot read directory "../.."`; rerun with approval because esbuild needs access to load the config/native helper.
+- TypeScript compile passed in the current Codex shell with `.\node_modules\.bin\tsc.cmd`.
+- Vite production build passed in the current Codex shell with `.\node_modules\.bin\vite.cmd build`. The build still emits the expected large chunk warning for the main bundle.
 - A browser smoke test on `http://127.0.0.1:5175/` confirmed the canvas rendered,
   Flower Bed could be selected, the raised flower bed/tulips loaded, and no
   browser console errors were reported.
@@ -60,14 +61,15 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - A LAN dev server was tested from the host at `http://10.0.0.223:5175/` and returned `200 OK`; use the current LAN IP and printed Vite port on the actual phone.
 - `v0.1.0` was pushed but its tag-triggered Pages workflow failed due to GitHub environment protection rules.
 - `v0.1.1` changed Pages deployment to run from `master` pushes instead of tags.
-- `v0.1.2` added terrain hiding, fence debug controls, simple trees, and related world polish, then pushed `dev`, `master`, and the `v0.1.2` tag.
+- `v0.2.0` filled in CC0 sources and licenses for audio/texture assets and is the latest published marker found locally.
 
 ## Current Features
 
 - Full-window Babylon canvas.
-- Selectable Beta Green levels, keyed by permanent level codes.
+- Player-facing level select appears after saved progress exists. Levels are keyed by permanent level codes and unlock sequentially when the previous level has at least one saved star.
 - `bgrnEll` is currently named `Main`; it is the original L-shaped playable lawn.
 - `bgrnBed` is currently named `Flower Bed`; it has a central protected tulip bed.
+- `bgrnKeyhole` is currently named `Keyhole Gardens`; it has two offset courts joined by a narrow waist and protected beds.
 - Flower beds are slightly raised dirt terrain with a subtle sloped edge and mostly no grass on the bed; tulips sit on the raised surface and the mower height/tilt follows that surface.
 - Low fence plank boundaries generated from each map config.
 - Chase camera following the mower.
@@ -80,20 +82,22 @@ Empty placeholders are intentional during prototyping; the audio layer must hand
 - Dandelions with yellow and white seed-head behavior.
 - Sparse large wind wisps and tiny wind particles.
 - Development settings panel with numeric value readouts.
-- Settings include a level selector.
+- Settings include a level selector for development/testing; the player-facing path uses the pause menu level select after progress exists.
 - Production builds hide the settings panel.
-- Fullscreen button that does not conflict with spacebar boost.
+- Fullscreen is available from the pause menu and does not conflict with spacebar boost.
 - Touch-primary or narrow screens get a mobile render profile: dynamic resolution stays off by default, the target is 30 FPS if the player enables it, SSAO is disabled, and the shadow-map cap is lower than desktop.
-- Keyboard movement with forward/reverse throttle, steering, and boost.
-- Stubbed controller/touch input behind an input mode selector.
-- Mouse position can steer the mower when the canvas is focused in `auto` or controller-oriented modes, but not in forced `keyboard` or `touch` mode.
+- Auto input is the default player mode. Keyboard/WASD stays active in auto, controller input is accepted when present, and touch uses the virtual pad on coarse-pointer devices.
+- Keyboard movement supports forward/reverse throttle, steering, and boost.
+- Controller/touch input is functional but still light.
+- Mouse hover does not steer. Left mouse drag on the play canvas can steer/drive in auto or mouse mode; a short left click still shoots after the hidden gun is found.
 - Right mouse drag orbits the follow camera, mouse wheel zooms, and controller right stick controls camera orbit/height.
 - In forced `keyboard` input mode, arrow keys adjust camera orbit/height.
 - Audio system with mower, directional breeze, ambient breeze, cutting loop, reverse beep, weighted random yellow flower pop bank, and wall bump hooks.
 - Hidden gun feedback now includes a placeholder shot sound, a short fuzzy tracer, impact dust, and sparse grass fleck particles when shots cut blades.
 - Completion UI has a fanfare one-shot hook, a looping chill-bed hook, and `Next Level` / `Retry` buttons. Current completion audio files are placeholders unless replaced.
 - Completion-card decorative seeds should not intercept clicks, and the overlay should remain visible until the player chooses `Next Level` or `Close`.
-- The top HUD uses the compact star meter from `src/starMeter.ts` instead of the old "Mowed: %" text and green progress bar. The normal clock is hidden during play; `Mistakes` stays visible on every map and increments when protected tulips are destroyed.
+- The top HUD uses the compact star meter from `src/starMeter.ts` instead of the old "Mowed: %" text and green progress bar. The normal clock is hidden during play. Accidents are shown as a fixed row of faint X marks that light up for flower/fence mistakes without using a visible counter.
+- The first page load opens the pause/start menu. Desktop users can reopen it with Escape; touch users get a hamburger button near the HUD. FPS visibility, fullscreen, and input-mode icon buttons live in the menu.
 - The level ending now uses a star results card in the existing celebration
   overlay. It shows earned stars, a short verdict from `limitingFactor`,
   grass/time/mistake stats, and contextual actions. There is no hard time-limit
@@ -210,9 +214,9 @@ Important defaults in `src/config.ts`:
 - When an idea is deferred instead of implemented, add it to `BACKLOG.md` so it survives context resets.
 - Mower top speed is fixed by live settings `playerSpeed` and `playerBoost`; it should not grow over time. `playerSpeed` is the tunable unboosted top speed. Acceleration uses a torque-style curve: `mowerAcceleration` is strongest at low speed, then fades toward `mowerMinTorque` according to `mowerTorqueFade` as the mower approaches the fixed target speed.
 - Keyboard steering should use the original gentle-to-fast turn acceleration curve. Controller steering should stay stable for small stick movements and only add acceleration once the left stick passes the tunable threshold, currently `0.7`.
-- The HUD has a quick input-mode selector. It should only show currently available modes such as keyboard, detected controller, and detected touch; the full dev settings menu still keeps all modes for forced testing.
+- The HUD quick input-mode selector has been removed from normal play. Input mode is controlled from the pause menu using loaded SVG icon assets; the full dev settings menu still keeps lower-level controls for forced testing.
 - The dev settings menu starts hidden in raw HTML and is only unhidden by script in dev mode, so production builds should not flicker the settings panel.
-- Camera orbit controls should rest briefly after manual adjustment, then slowly return behind the mower. Each manual adjustment increases the rest delay, and after repeated adjustments the camera should stop auto-returning.
+- Camera orbit controls should rest briefly after manual adjustment, then slowly return yaw/azimuth behind the mower while preserving the player's chosen pitch/elevation. Each manual adjustment increases the rest delay, and after repeated adjustments the camera should stop auto-returning.
 - Long grass blade tips were narrowed because the older top triangle read like a devil-tail/arrowhead.
 
 ## Useful Commands
@@ -231,10 +235,10 @@ For release:
 ```bash
 git checkout dev
 pnpm run build:gh-pages
-git tag v0.1.3
+git tag vNEXT
 git push origin dev
-git push origin v0.1.3
+git push origin vNEXT
 git checkout master
-git merge --ff-only v0.1.3
+git merge --ff-only vNEXT
 git push origin master
 ```

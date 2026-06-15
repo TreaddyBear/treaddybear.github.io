@@ -50,15 +50,15 @@ export function createSettingsUi(deps: SettingsUiDeps) {
     return "keyboard";
   };
 
-  // Pushes the resolved device into analogInput, but only when it changes, so a
-  // connected controller or touch device engages automatically and touch state
-  // is not reset every frame.
+  // Pushes the active preference into analogInput, but only when it changes, so
+  // auto can accept controller/touch while keyboard remains available.
   const applyActiveInputMode = () => {
     const resolved = effectiveInputMode();
+    const applied: InputMode = settings.inputMode === "auto" ? "auto" : resolved;
 
-    if (resolved !== lastAppliedInputMode) {
-      deps.analogInput.setMode(resolved);
-      lastAppliedInputMode = resolved;
+    if (applied !== lastAppliedInputMode) {
+      deps.analogInput.setMode(applied);
+      lastAppliedInputMode = applied;
     }
   };
 
@@ -116,18 +116,10 @@ export function createSettingsUi(deps: SettingsUiDeps) {
     syncQuickInputSelection();
   };
 
-  // One-time startup pick: a controller or a genuine touch device that is
-  // already present wins, otherwise keyboard.
+  // One-time startup pick: keep Auto as the default so keyboard, mouse-drag,
+  // touch, and controller can all be accepted without the player choosing.
   const detectInitialInputMode = (): InputMode => {
-    if (hasControllerInput()) {
-      return "controller";
-    }
-
-    if (isTouchPrimaryDevice()) {
-      return "touch";
-    }
-
-    return "keyboard";
+    return "auto";
   };
 
   const setup = () => {

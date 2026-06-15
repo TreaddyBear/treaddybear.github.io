@@ -1,4 +1,4 @@
-import { bandProgress, earnedStarsForRun, totalScore } from "./scoring";
+import { earnedStarsForRun, meterFillFractionForRun } from "./scoring";
 import type { StarMode } from "./scoring";
 
 // The HUD star meter. Owns its DOM (#starMeter and children) and ports the
@@ -39,6 +39,8 @@ export function createStarMeter() {
   if(!meterBar || !meterFill || !activeStar || !earnedCluster || !remainingCluster) {
     return { update() {}, reset() {} };
   }
+
+  document.querySelector<HTMLDivElement>("#starMeter")!.hidden = false;
 
   const starMeterState: StarMeterState = {
     earned: 0,
@@ -148,7 +150,7 @@ export function createStarMeter() {
     }
   };
 
-  const render = (score: number, bankNewStar: boolean) => {
+  const render = (fillFraction: number, bankNewStar: boolean) => {
     if(starMeterState.earned >= starMeterState.mode) {
       showComplete();
       return;
@@ -162,11 +164,6 @@ export function createStarMeter() {
     const increment = 1 / starMeterState.mode;
     const breakoff = milestone - (increment / 2);
     const isFinalStar = nextStar === starMeterState.mode;
-    const fillFraction = (
-      (starMeterState.earned / starMeterState.mode)
-      + (bandProgress(score, starMeterState.earned, starMeterState.mode) * increment)
-    );
-
     meterFill.style.width = `${(fillFraction * 100).toFixed(1)}%`;
 
     const brokenOff = !isFinalStar && fillFraction >= breakoff;
@@ -217,7 +214,6 @@ export function createStarMeter() {
         starMeterState.lastRightCount = -1;
       }
 
-      const score = totalScore(grassPercent, elapsedSeconds, mistakeCount);
       const target = earnedStarsForRun(
         grassPercent,
         elapsedSeconds,
@@ -233,7 +229,10 @@ export function createStarMeter() {
         bankedStar = true;
       }
 
-      render(score, bankedStar);
+      render(
+        meterFillFractionForRun(grassPercent, elapsedSeconds, mistakeCount, starMeterState.mode),
+        bankedStar,
+      );
     },
   };
 }

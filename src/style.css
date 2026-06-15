@@ -28,6 +28,7 @@ body {
 }
 
 #fullscreenButton {
+  display: none;
   width: 100%;
   min-height: 30px;
   margin-top: 9px;
@@ -60,7 +61,7 @@ body {
 }
 
 #hudInputLabel {
-  display: block;
+  display: none;
   margin-top: 9px;
   color: #e8f5df;
   font-size: 12px;
@@ -158,6 +159,10 @@ body {
   align-items: center;
   gap: 8px;
   min-height: 42px;
+}
+
+#starMeter[hidden] {
+  display: none;
 }
 
 .sm-cluster {
@@ -336,10 +341,6 @@ body {
   50% {
     filter: brightness(1.4);
   }
-}
-
-#mistakeMeterFill {
-  background: #ff6b6b;
 }
 
 #settings {
@@ -542,6 +543,27 @@ body {
 }
 
 #loading[hidden] {
+  display: none;
+}
+
+#hintToast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 18;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #f4ffe0;
+  background: rgb(14 24 10 / 82%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 34%);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+#hintToast[hidden] {
   display: none;
 }
 
@@ -913,22 +935,39 @@ body {
   }
 }
 
-/* Accidents counter: impact-mark icon + count (replaces the "Mistakes" text). */
+/* Accidents: fixed slots, no counter or meter. */
 #mistakes {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  width: 100%;
 }
 
-.mistake-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  color: #ff8a8a;
+.accident-slot {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: rgb(174 184 160 / 18%);
 }
 
-.mistake-count {
-  font-variant-numeric: tabular-nums;
+.accident-slot::before {
+  color: currentColor;
+  background: transparent;
+  content: "\00d7";
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 1;
+}
+
+.accident-slot.active::before {
+  color: #ff6a35;
+  content: "\00d7";
+  filter:
+    drop-shadow(0 0 6px rgb(255 106 53 / 54%))
+    drop-shadow(0 1px 2px rgb(0 0 0 / 60%));
+  font-size: 15px;
 }
 
 /* Hamburger menu button — shown only on touch (createMenu un-hides it). */
@@ -947,7 +986,7 @@ body {
   cursor: pointer;
 }
 
-#menuButton svg {
+#menuButton .menu-button-icon {
   width: 24px;
   height: 24px;
 }
@@ -974,9 +1013,10 @@ body {
 
 #menuPanel {
   width: min(320px, calc(100vw - 40px));
+  box-sizing: border-box;
   padding: 18px;
   border: 1px solid rgb(216 245 176 / 30%);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgb(18 30 12 / 96%);
   box-shadow: 0 12px 48px rgb(0 0 0 / 45%);
 }
@@ -1000,6 +1040,8 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 11px 14px;
   border: 1px solid rgb(216 245 176 / 18%);
   border-radius: 9px;
@@ -1016,7 +1058,7 @@ body {
   background: rgb(58 78 38 / 80%);
 }
 
-.menu-item svg {
+.menu-icon {
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
@@ -1024,10 +1066,105 @@ body {
 
 .menu-label {
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .menu-toggle input {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
   accent-color: #9ed35a;
+}
+
+.menu-section {
+  width: 100%;
+  min-width: 0;
+}
+
+.menu-section[hidden] {
+  display: none;
+}
+
+.menu-section-title {
+  margin: 2px 2px 7px;
+  color: rgb(234 251 210 / 78%);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.menu-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.menu-mode {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 4px;
+  border: 1px solid rgb(216 245 176 / 18%);
+  border-radius: 8px;
+  color: #eafbd2;
+  background: rgb(40 55 28 / 70%);
+  cursor: pointer;
+}
+
+.menu-mode[aria-pressed="true"] {
+  color: #10200d;
+  background: #d8f5b0;
+}
+
+.menu-mode-icon {
+  width: 40px;
+  height: 32px;
+}
+
+.menu-mode[aria-pressed="true"] .menu-mode-icon {
+  filter: brightness(0.55) sepia(0.5) saturate(2.1) hue-rotate(35deg);
+}
+
+#menuLevelList {
+  display: grid;
+  gap: 6px;
+}
+
+.menu-level {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid rgb(216 245 176 / 18%);
+  border-radius: 8px;
+  color: #eafbd2;
+  background: rgb(35 50 24 / 72%);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-level[aria-current="true"] {
+  border-color: rgb(216 245 176 / 52%);
+  background: rgb(63 82 42 / 84%);
+}
+
+.menu-level-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-level-stars {
+  color: #ffcf33;
+  font-size: 13px;
+  letter-spacing: 0;
 }

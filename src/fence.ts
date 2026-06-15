@@ -362,6 +362,22 @@ export function createFenceSystem(
       return hit;
     },
 
+    isNearBrokenOpening(x: number, z: number) {
+      for (const piece of fenceDamage) {
+        if (!piece?.broken) {
+          continue;
+        }
+
+        const dx = x - piece.x;
+        const dz = z - piece.z;
+        if ((dx * dx) + (dz * dz) <= 1.05 * 1.05) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+
     // Slides the mower out of any plank it has rotated or drifted into, so it
     // can never wedge inside the wall. Resolving the deepest overlap first and
     // iterating keeps corners stable.

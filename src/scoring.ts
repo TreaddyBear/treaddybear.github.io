@@ -65,7 +65,7 @@ const normalCompletionCap = (mowedPercent: number) => {
   if (mowedPercent >= scoring.normal.nearCompletePercent) {
     return 2;
   }
-  return mowedPercent >= scoring.normal.partialPercent ? 2 : 0;
+  return mowedPercent >= scoring.normal.partialPercent ? 1 : 0;
 };
 
 const normalTimeRank = (elapsedSeconds: number) => {
@@ -174,6 +174,46 @@ export const bandProgress = (score: number, earned: number, mode: StarMode) => {
   const prev = earned === 0 ? meterFloor() : thresholds[earned - 1];
   const next = thresholds[earned];
   return Math.max(0, Math.min(1, (score - prev) / (next - prev)));
+};
+
+const normalCompletionProgress = (mowedPercent: number) => {
+  const clamped = Math.max(0, Math.min(100, mowedPercent));
+
+  if (clamped < scoring.normal.partialPercent) {
+    return (clamped / scoring.normal.partialPercent) / 3;
+  }
+
+  if (clamped < scoring.normal.nearCompletePercent) {
+    const step = (clamped - scoring.normal.partialPercent)
+      / (scoring.normal.nearCompletePercent - scoring.normal.partialPercent);
+    return (1 + step) / 3;
+  }
+
+  if (clamped < scoring.normal.completePercent) {
+    const step = (clamped - scoring.normal.nearCompletePercent)
+      / (scoring.normal.completePercent - scoring.normal.nearCompletePercent);
+    return (2 + step) / 3;
+  }
+
+  return 1;
+};
+
+export const meterFillFractionForRun = (
+  mowedPercent: number,
+  elapsedSeconds: number,
+  mistakeCount: number,
+  mode: StarMode,
+) => {
+  if (mode === 3) {
+    return Math.max(
+      earnedStarsForRun(mowedPercent, elapsedSeconds, mistakeCount, mode) / mode,
+      normalCompletionProgress(mowedPercent),
+    );
+  }
+
+  const score = totalScore(mowedPercent, elapsedSeconds, mistakeCount);
+  const earned = earnedStarsForRun(mowedPercent, elapsedSeconds, mistakeCount, mode);
+  return Math.min(1, (earned / mode) + (bandProgress(score, earned, mode) / mode));
 };
 
 // Best score still reachable if the rest of the lawn were mowed right now.

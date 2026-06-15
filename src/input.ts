@@ -23,6 +23,17 @@ function deadzone(value: number, threshold = 0.18) {
   return Math.sign(value) * ((Math.abs(value) - threshold) / (1 - threshold));
 }
 
+function shapedDeadzone(value: number, threshold: number, exponent: number) {
+  const magnitude = Math.abs(value);
+
+  if (magnitude < threshold) {
+    return 0;
+  }
+
+  const normalized = (magnitude - threshold) / (1 - threshold);
+  return Math.sign(value) * Math.pow(normalized, exponent);
+}
+
 export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElement): AnalogInput {
   const state: AnalogInput = {
     turn: 0,
@@ -43,6 +54,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     x: 0,
     y: 0,
   };
+  const touchRadius = 58;
 
   const updateTouchKnob = () => {
     if (!touch.active) {
@@ -80,8 +92,8 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
       return;
     }
 
-    touch.x = clamp(event.clientX - touch.originX, -54, 54);
-    touch.y = clamp(event.clientY - touch.originY, -54, 54);
+    touch.x = clamp(event.clientX - touch.originX, -touchRadius, touchRadius);
+    touch.y = clamp(event.clientY - touch.originY, -touchRadius, touchRadius);
     updateTouchKnob();
   });
 
@@ -102,7 +114,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
   return {
     get turn() {
-      const touchTurn = touch.active && shouldUseTouch() ? deadzone(touch.x / 54) : 0;
+      const touchTurn = touch.active && shouldUseTouch() ? shapedDeadzone(touch.x / touchRadius, 0.24, 1.75) : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const gamepadTurn = gamepad ? deadzone(gamepad.axes[0] ?? 0) : 0;
       return clamp(touchTurn + gamepadTurn, -1, 1);
@@ -115,9 +127,9 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
     get touchTurn() {
       // Same feel as the analog stick: a dead center, then gentle proportional
-      // turning. The turn-acceleration ramp on the sides is applied downstream
-      // once this passes controllerTurnAccelThreshold, exactly like the gamepad.
-      return touch.active && shouldUseTouch() ? deadzone(touch.x / 54) : 0;
+      // turning. The wider dead zone and exponent make the first few millimeters
+      // outside center much less twitchy than a plain stick curve.
+      return touch.active && shouldUseTouch() ? shapedDeadzone(touch.x / touchRadius, 0.24, 1.75) : 0;
     },
 
     get cameraTurn() {
@@ -131,7 +143,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     get throttle() {
-      const touchThrottle = touch.active && shouldUseTouch() ? clamp(-touch.y / 54, -0.45, 1) : 0;
+      const touchThrottle = touch.active && shouldUseTouch() ? clamp(-touch.y / touchRadius, -0.45, 1) : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const stickY = gamepad ? deadzone(gamepad.axes[1] ?? 0) : 0;
       const gamepadThrottle = stickY < 0 ? -stickY : stickY > 0 ? -stickY * 0.45 : 0;

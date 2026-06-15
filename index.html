@@ -7,44 +7,67 @@
   </head>
   <body>
     <div id="hud">
-      <div id="starMeter" aria-label="Star progress">
+      <div id="starMeter" aria-label="Star progress" hidden>
         <div id="smEarned" class="sm-cluster sm-earned"></div>
         <div id="smBar" class="sm-meter">
           <div class="sm-track"><div id="smFill" class="sm-fill"></div></div>
-          <div id="smActive" class="sm-active" style="display: none">★</div>
+          <div id="smActive" class="sm-active" style="display: none">&#9733;</div>
         </div>
         <div id="smRemaining" class="sm-cluster sm-remaining"></div>
       </div>
       <div id="score" hidden></div>
       <div id="timer">Time 3:00</div>
       <div id="mistakes" aria-label="Accidents">
-        <!-- Placeholder impact-mark icon; swap for final art. -->
-        <svg class="mistake-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1l2.3 6.1L20 5l-2.4 5.7L23 12l-5.4 1.3L20 19l-5.7-2.3L12 23l-2.3-6.3L6 19l2.4-5.7L1 12l5.6-1.3L4 5l5.7 2.1z" fill="currentColor"/></svg>
-        <span class="mistake-count">0</span>
+        <span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span>
+        <span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span><span class="accident-slot"></span>
       </div>
-      <div id="mistakeMeter"><div id="mistakeMeterFill"></div></div>
       <button id="finishRunButton" type="button" hidden>Finish Run</button>
       <div id="hudInputLabel">Input <div id="quickInputMode" role="group" aria-label="Input mode"></div></div>
       <button id="fullscreenButton" type="button">Full screen</button>
       <div id="perf" hidden></div>
       <button id="menuButton" type="button" aria-label="Menu" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+        <img class="menu-button-icon" src="/icons/menu/hamburger.svg" alt="" aria-hidden="true" />
       </button>
     </div>
+    <div id="hintToast" hidden></div>
     <div id="menu" hidden>
       <div id="menuPanel">
         <div id="menuTitle">Lawn Mower</div>
         <div id="menuOptions">
+          <div id="menuLevelSelect" class="menu-section" hidden>
+            <div class="menu-section-title">Levels</div>
+            <div id="menuLevelList"></div>
+          </div>
           <button class="menu-item" type="button" data-action="resume">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+            <img class="menu-icon" src="/icons/menu/resume.svg" alt="" aria-hidden="true" />
             <span class="menu-label" data-resume-label>Resume</span>
           </button>
+          <div class="menu-section">
+            <div class="menu-section-title">Input</div>
+            <div id="menuInputModes" class="menu-mode-grid" role="group" aria-label="Input mode">
+              <button class="menu-mode" type="button" data-input-mode="auto" aria-label="Auto input">
+                <img class="menu-mode-icon" src="/icons/menu/input-auto.svg" alt="" aria-hidden="true" />
+              </button>
+              <button class="menu-mode" type="button" data-input-mode="keyboard" aria-label="Keyboard">
+                <img class="menu-mode-icon" src="/icons/menu/input-keyboard.svg" alt="" aria-hidden="true" />
+              </button>
+              <button class="menu-mode" type="button" data-input-mode="mouse" aria-label="Mouse">
+                <img class="menu-mode-icon" src="/icons/menu/input-mouse.svg" alt="" aria-hidden="true" />
+              </button>
+              <button class="menu-mode" type="button" data-input-mode="controller" aria-label="Controller">
+                <img class="menu-mode-icon" src="/icons/menu/input-controller.svg" alt="" aria-hidden="true" />
+              </button>
+              <button class="menu-mode" type="button" data-input-mode="touch" aria-label="Touch">
+                <img class="menu-mode-icon" src="/icons/menu/input-touch.svg" alt="" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
           <button class="menu-item" type="button" data-action="fullscreen">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+            <img class="menu-icon" src="/icons/menu/fullscreen.svg" alt="" aria-hidden="true" />
             <span class="menu-label">Full screen</span>
           </button>
           <label class="menu-item menu-toggle">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 1 18 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 12l4-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+            <img class="menu-icon" src="/icons/menu/fps.svg" alt="" aria-hidden="true" />
             <span class="menu-label">Show FPS</span>
             <input id="menuFps" type="checkbox" checked />
           </label>
@@ -83,7 +106,7 @@
         <details class="settings-subgroup">
           <summary>Input</summary>
           <label>Map <select id="mapId"><option value="bgrnEll">Main</option><option value="bgrnBed">Flower Court</option><option value="bgrnKeyhole">Keyhole Gardens</option></select></label>
-          <label>Input mode <select id="inputMode"><option value="auto">Auto</option><option value="keyboard" selected>Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
+          <label>Input mode <select id="inputMode"><option value="auto" selected>Auto</option><option value="keyboard">Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
         </details>
         <details class="settings-subgroup">
           <summary>Movement</summary>

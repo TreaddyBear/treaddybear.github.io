@@ -4,14 +4,13 @@ import { earnedStarsForRun, limitingFactor, nextStarOutOfReach } from "./scoring
 import type { LimitingFactor, StarMode } from "./scoring";
 
 export type Hud = ReturnType<typeof createHud>;
-type ResultReason = "complete" | "out-of-reach" | "time-up" | "maxed" | "offer" | "good-enough";
+export type ResultReason = "complete" | "out-of-reach" | "time-up" | "maxed" | "offer" | "good-enough";
 type GrassHelpResult = { cleared: number; remaining: number; onlyIsolated: boolean };
 
 export type HudDeps = {
   score: HTMLDivElement;
   timer: HTMLDivElement;
   mistakes: HTMLDivElement;
-  mistakeMeterFill: HTMLDivElement;
   celebration: HTMLDivElement;
   celebrationSeeds: HTMLDivElement;
   nextLevelButton: HTMLButtonElement;
@@ -36,6 +35,13 @@ export type HudDeps = {
   clearIsolatedGrass: () => GrassHelpResult;
   onRequestHelp: () => GrassHelpResult;
   onRequestReset: () => void;
+  onRunComplete: (result: {
+    reason: ResultReason;
+    stars: number;
+    grassPercent: number;
+    elapsedSeconds: number;
+    mistakes: number;
+  }) => void;
 };
 
 type HudState = {
@@ -351,6 +357,10 @@ export function createHud(deps: HudDeps) {
     const factor = limitingFactor(grassPercent, elapsedSeconds, mistakes, starMode);
 
     hudState.bestStars = stars;
+    if ((reason === "complete" || reason === "good-enough" || reason === "maxed") && stars > 0) {
+      deps.onRunComplete({ reason, stars, grassPercent, elapsedSeconds, mistakes });
+    }
+
     deps.celebration.dataset.result = reason;
     deps.celebration.dataset.stars = String(stars);
     deps.celebration.querySelector("#celebrationTitle")!.textContent = resultTitleFor(
@@ -475,12 +485,11 @@ export function createHud(deps: HudDeps) {
       deps.score.hidden = !deps.isArmed();
       deps.score.textContent = deps.isArmed() ? "Armed" : "";
 
-      // Update only the count span so the impact-mark icon survives.
-      const mistakeCount = deps.mistakes.querySelector(".mistake-count");
-      if (mistakeCount) {
-        mistakeCount.textContent = `${mistakes}`;
+      const accidentSlots = deps.mistakes.querySelectorAll<HTMLElement>(".accident-slot");
+      deps.mistakes.setAttribute("aria-label", `Accidents ${mistakes}`);
+      for (const [index, slot] of accidentSlots.entries()) {
+        slot.classList.toggle("active", index < mistakes);
       }
-      deps.mistakeMeterFill.style.width = `${Math.min(100, mistakes * 12)}%`;
 
       if(hudState.celebrationShown) {
         return;
@@ -610,16 +619,9 @@ export function createHud(deps: HudDeps) {
       deps.onRequestReset();
     },
 
-    // The mistakes meter only makes sense where mistakes are possible (maps with
-    // protected flowers), but the star-scoring design keeps it visible on every
-    // map so the HUD does not change shape between levels.
+    // Keep the accident slots visible on every map so the HUD shape is stable.
     syncMistakesVisibility() {
       deps.mistakes.style.display = "";
-      const meter = document.querySelector<HTMLDivElement>("#mistakeMeter");
-
-      if(meter) {
-        meter.style.display = "";
-      }
     },
   };
 }

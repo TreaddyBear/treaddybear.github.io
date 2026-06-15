@@ -16,11 +16,15 @@ import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipe
 import "./style.css";
 import { createPrototypeAudio } from "./audio";
 import { createInputController } from "./input";
+import type { InputMode } from "./input";
 import {
   bladeCount,
   applyActiveMap,
+  getActiveLevelCode,
   getActiveMap,
+  lawnMaps,
   mowerCutRadius,
+  normalizeLevelCode,
   playerFenceRadius,
   settings,
   yardSegments,
@@ -59,11 +63,11 @@ import {
   terrainHeightAt,
   updateBiomeGroundMaterialScale,
 } from "./world";
+import { getLevelBestStars, recordLevelStars } from "./localSettings";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
 const mistakesElement = document.querySelector<HTMLDivElement>("#mistakes");
-const mistakeMeterFillElement = document.querySelector<HTMLDivElement>("#mistakeMeterFill");
 const quickInputModeElement = document.querySelector<HTMLDivElement>("#quickInputMode");
 const settingsElement = document.querySelector<HTMLDetailsElement>("#settings");
 const fullscreenButtonElement = document.querySelector<HTMLButtonElement>("#fullscreenButton");
@@ -81,12 +85,12 @@ const touchKnobElement = document.querySelector<HTMLDivElement>("#touchKnob");
 const timerElement = document.querySelector<HTMLDivElement>("#timer");
 const timeupElement = document.querySelector<HTMLDivElement>("#timeup");
 const retryButtonElement = document.querySelector<HTMLButtonElement>("#retryButton");
+const hintToastElement = document.querySelector<HTMLDivElement>("#hintToast");
 
 if (
   !canvasElement
   || !scoreElement
   || !mistakesElement
-  || !mistakeMeterFillElement
   || !quickInputModeElement
   || !settingsElement
   || !fullscreenButtonElement
@@ -104,6 +108,7 @@ if (
   || !timerElement
   || !timeupElement
   || !retryButtonElement
+  || !hintToastElement
 ) {
   throw new Error("Missing canvas, HUD, or settings element.");
 }
@@ -113,8 +118,8 @@ const scoreEl = scoreElement;
 const timerEl = timerElement;
 const timeupEl = timeupElement;
 const retryButtonEl = retryButtonElement;
+const hintToastEl = hintToastElement;
 const mistakesEl = mistakesElement;
-const mistakeMeterFillEl = mistakeMeterFillElement;
 const quickInputModeEl = quickInputModeElement;
 const settingsEl = settingsElement;
 const fullscreenButtonEl = fullscreenButtonElement;
@@ -164,9 +169,14 @@ let currentThrottle = 0;
 let driveSpeed = 0;
 let bumpCooldown = 0;
 let bumpPenaltyCooldown = 0;
-let mouseTurn = 0;
-let mouseSteeringActive = false;
-let mouseSteeringPointer = false;
+let mouseDriveActive = false;
+let mouseDrivePointerId = -1;
+let mouseDriveOriginX = 0;
+let mouseDriveOriginY = 0;
+let mouseDriveTurn = 0;
+let mouseDriveThrottle = 0;
+let mouseDrivePeakDistance = 0;
+let mouseDriveStartedAt = 0;
 let hasSecretGun = false;
 let shootCooldown = 0;
 let elapsedRunSeconds = 0;
@@ -177,6 +187,10 @@ let lastCelebrationDismiss = false;
 let dirtKickupDistance = 0;
 const loadingEl = document.querySelector<HTMLDivElement>("#loading");
 const rockColliders: RockCollider[] = [];
+let gameStarted = false;
+let sawDriveInput = false;
+let hintToastTimer = 0;
+let controlsHintTimer = 0;
 
 // Imperative drive-the-mower layer (and a classic-AI hook later). Reads live
 // vehicle state; its per-frame turn/throttle is folded into movePlayer below.
@@ -286,6 +300,33 @@ function isInsideYard(x: number, z: number) {
 
 function isOnRoad(x: number) {
   return x > 11.8 && x < 17.2;
+}
+
+function showHintToast(message: string, duration = 3200) {
+  window.clearTimeout(hintToastTimer);
+  hintToastEl.textContent = message;
+  hintToastEl.hidden = false;
+  hintToastTimer = window.setTimeout(() => {
+    hintToastEl.hidden = true;
+  }, duration);
+}
+
+function markDriveInput() {
+  sawDriveInput = true;
+  window.clearTimeout(controlsHintTimer);
+  hintToastEl.hidden = true;
+}
+
+function showIntroHints() {
+  const touchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+  showHintToast(touchPrimary ? "Menu lives in the top-right button" : "Esc opens the menu");
+  controlsHintTimer = window.setTimeout(() => {
+    if (sawDriveInput) {
+      return;
+    }
+
+    showHintToast(touchPrimary ? "Use the thumbpad to mow" : "WASD to mow");
+  }, 3600);
 }
 
 function flowerBedDirtAmountAt(x: number, z: number) {
@@ -541,7 +582,12 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
   const nextGround = groundHeightAt(nextPosition.x, nextPosition.z);
   const horizontalDistance = Math.sqrt((movement.x * movement.x) + (movement.z * movement.z));
   const slope = horizontalDistance > 0.0001 ? Math.abs(nextGround - currentGround) / horizontalDistance : 0;
-  const steepTerrainHit = !isInsideYard(nextPosition.x, nextPosition.z) && !isOnRoad(nextPosition.x) && slope > 0.72;
+  const crossingBrokenOpening = fence.isNearBrokenOpening(player.position.x, player.position.z)
+    || fence.isNearBrokenOpening(nextPosition.x, nextPosition.z);
+  const steepTerrainHit = !crossingBrokenOpening
+    && !isInsideYard(nextPosition.x, nextPosition.z)
+    && !isOnRoad(nextPosition.x)
+    && slope > 0.72;
 
   if (fenceHit.index < 0 && rockHit.index < 0 && !steepTerrainHit) {
     nextPosition.y = nextGround;
@@ -560,19 +606,18 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
 
 function movePlayer(deltaSeconds: number) {
   const activeInputMode = settingsUi.effectiveInputMode();
-  const useKeyboard = activeInputMode === "keyboard" || activeInputMode === "mouse";
-  // Mouse steering only when the player actually means it: explicit mouse mode,
-  // or auto that resolved to keyboard on a desktop. A present controller/touch
-  // resolves away from keyboard, so it no longer fights the mouse cursor.
-  const useMouseSteering = (settings.inputMode === "mouse" || (settings.inputMode === "auto" && activeInputMode === "keyboard"))
-    && mouseSteeringActive && mouseSteeringPointer && document.hasFocus() && !cameraRig.isDragging();
+  const useKeyboard = settings.inputMode === "auto" || activeInputMode === "keyboard" || activeInputMode === "mouse";
+  // Mouse drive is opt-in per gesture: only a held left-drag on the canvas
+  // contributes steering/throttle. Hovering the cursor never drives the mower.
+  const useMouseDrive = (settings.inputMode === "auto" || settings.inputMode === "mouse")
+    && mouseDriveActive && document.hasFocus() && !cameraRig.isDragging();
   // Scripted/AI control (window.mower, and a future bot): produces the same
   // turn/throttle a stick would, folded into the normal input below.
   const scripted = mowerControl.update(deltaSeconds);
   const keyboardTurn = useKeyboard ? (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0) : 0;
   const controllerTurn = analogInput.controllerTurn;
   const touchTurn = analogInput.touchTurn;
-  const analogTurn = Math.max(-1, Math.min(1, controllerTurn + touchTurn + scripted.turn + (useMouseSteering ? mouseTurn * 0.72 : 0)));
+  const analogTurn = Math.max(-1, Math.min(1, controllerTurn + touchTurn + scripted.turn + (useMouseDrive ? mouseDriveTurn * 0.72 : 0)));
   const turnDirection = Math.max(-1, Math.min(1, keyboardTurn + analogTurn));
   const turnSign = Math.sign(turnDirection);
   const shouldAccelerateTurn = keyboardTurn !== 0
@@ -615,13 +660,17 @@ function movePlayer(deltaSeconds: number) {
     currentThrottle -= 0.45;
   }
 
-  currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle + scripted.throttle));
+  currentThrottle = Math.max(-0.45, Math.min(1, currentThrottle + analogInput.throttle + scripted.throttle + (useMouseDrive ? mouseDriveThrottle : 0)));
 
   const throttleActive = Math.abs(currentThrottle) > 0.05;
   const isBoosting = (useKeyboard && keys.has(" ")) || analogInput.boost;
   const targetSpeed = !throttleActive
     ? 0
     : settings.playerSpeed * (isBoosting ? settings.playerBoost : 1) * currentThrottle;
+
+  if (throttleActive || turnSign !== 0) {
+    markDriveInput();
+  }
 
   if (!throttleActive) {
     driveSpeed += (targetSpeed - driveSpeed) * Math.min(1, deltaSeconds * 7);
@@ -936,7 +985,6 @@ const hud = createHud({
   score: scoreEl,
   timer: timerEl,
   mistakes: mistakesEl,
-  mistakeMeterFill: mistakeMeterFillEl,
   celebration: celebrationEl,
   celebrationSeeds: celebrationSeedsEl,
   nextLevelButton: nextLevelButtonEl,
@@ -961,6 +1009,9 @@ const hud = createHud({
   clearIsolatedGrass: () => grass.clearIsolatedBlades(),
   onRequestHelp: () => grass.requestHelp(),
   onRequestReset: resetGame,
+  onRunComplete: ({ stars }) => {
+    recordLevelStars(getActiveLevelCode(), stars);
+  },
 });
 
 const settingsUi = createSettingsUi({
@@ -1014,38 +1065,79 @@ canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
 });
 
-canvas.addEventListener("pointerenter", () => {
-  mouseSteeringActive = true;
-});
+function shapeMouseAxis(value: number) {
+  const magnitude = Math.abs(value);
 
-canvas.addEventListener("pointerleave", () => {
-  mouseSteeringActive = false;
-  mouseSteeringPointer = false;
-  mouseTurn = 0;
-});
+  if (magnitude < 0.08) {
+    return 0;
+  }
+
+  const normalized = (magnitude - 0.08) / 0.92;
+  return Math.sign(value) * Math.pow(normalized, 1.22);
+}
+
+function updateMouseDrive(event: PointerEvent) {
+  const radius = 96;
+  const dx = Math.max(-radius, Math.min(radius, event.clientX - mouseDriveOriginX));
+  const dy = Math.max(-radius, Math.min(radius, event.clientY - mouseDriveOriginY));
+  mouseDrivePeakDistance = Math.max(mouseDrivePeakDistance, Math.sqrt((dx * dx) + (dy * dy)));
+  mouseDriveTurn = shapeMouseAxis(dx / radius);
+  mouseDriveThrottle = Math.max(-0.45, Math.min(1, -dy / radius));
+}
+
+function endMouseDrive(event: PointerEvent, allowClickAction = true) {
+  if (!mouseDriveActive || event.pointerId !== mouseDrivePointerId) {
+    return false;
+  }
+
+  const clickDuration = performance.now() - mouseDriveStartedAt;
+  const wasClick = mouseDrivePeakDistance < 5 && clickDuration < 260;
+  mouseDriveActive = false;
+  mouseDrivePointerId = -1;
+  mouseDriveTurn = 0;
+  mouseDriveThrottle = 0;
+
+  if (canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
+
+  if (allowClickAction && wasClick) {
+    shootSecretGun();
+  }
+
+  return true;
+}
 
 canvas.addEventListener("pointermove", (event) => {
   if (cameraRig.dragTo(event.pointerId, event.clientX, event.clientY)) {
     return;
   }
 
-  mouseSteeringPointer = event.pointerType === "mouse";
-
-  if (settings.inputMode === "touch" || event.pointerType !== "mouse") {
-    mouseTurn = 0;
+  if (!mouseDriveActive || event.pointerId !== mouseDrivePointerId || event.pointerType !== "mouse") {
     return;
   }
 
-  const normalizedX = (event.clientX / Math.max(1, window.innerWidth)) - 0.5;
-  mouseTurn = Math.max(-1, Math.min(1, normalizedX * 2.2));
+  updateMouseDrive(event);
 });
 
 canvas.addEventListener("pointerdown", (event) => {
-  mouseSteeringActive = true;
-  mouseSteeringPointer = event.pointerType === "mouse";
-
-  if (event.button === 0) {
-    shootSecretGun();
+  if (
+    event.button === 0
+    && event.pointerType === "mouse"
+    && (settings.inputMode === "auto" || settings.inputMode === "mouse")
+  ) {
+    event.preventDefault();
+    mouseDriveActive = true;
+    mouseDrivePointerId = event.pointerId;
+    mouseDriveOriginX = event.clientX;
+    mouseDriveOriginY = event.clientY;
+    mouseDriveTurn = 0;
+    mouseDriveThrottle = 0;
+    mouseDrivePeakDistance = 0;
+    mouseDriveStartedAt = performance.now();
+    canvas.setPointerCapture(event.pointerId);
+    markDriveInput();
+    return;
   }
 
   if (event.button !== 2) {
@@ -1058,11 +1150,21 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 const endCameraDrag = (event: PointerEvent) => {
+  if (endMouseDrive(event)) {
+    return;
+  }
+
   cameraRig.endDrag(event.pointerId);
 };
 
 canvas.addEventListener("pointerup", endCameraDrag);
-canvas.addEventListener("pointercancel", endCameraDrag);
+canvas.addEventListener("pointercancel", (event) => {
+  if (endMouseDrive(event, false)) {
+    return;
+  }
+
+  cameraRig.endDrag(event.pointerId);
+});
 
 canvas.addEventListener("wheel", (event) => {
   if (settings.inputMode === "touch") {
@@ -1085,9 +1187,40 @@ document.addEventListener("fullscreenchange", () => {
 const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
 const menu = createMenu({
   toggleFullscreen: () => fullscreenButtonEl.click(),
+  getInputMode: () => settings.inputMode as InputMode,
+  setInputMode: (mode) => settingsUi.setInputMode(mode),
+  getLevels: () => lawnMaps.map((map) => ({
+    code: map.code,
+    name: map.name,
+    bestStars: getLevelBestStars(map.code),
+  })).filter((level, index, levels) => (
+    index === 0 || levels[index - 1].bestStars > 0
+  )),
+  getCurrentLevelCode: () => getActiveLevelCode(),
+  onSelectLevel: (code) => {
+    settings.mapId = normalizeLevelCode(code);
+    const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
+
+    if (mapControl) {
+      mapControl.value = settings.mapId;
+    }
+
+    resetGame();
+  },
   isTouch: isTouchPrimary,
   onOpen: () => keys.clear(),
+  onClose: () => {
+    if (gameStarted) {
+      return;
+    }
+
+    gameStarted = true;
+    menu.setStartMode(false);
+    showIntroHints();
+  },
 });
+menu.setStartMode(true);
+menu.open();
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();

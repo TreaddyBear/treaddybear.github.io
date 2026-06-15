@@ -100,7 +100,7 @@ export const settings = {
   lodSlatRenderDistance: 51, // far limit — slats fade back out by here (from the mower)
   lodRoadVergeWidth: 0.3, // dirt band width past the road edge, in world units (~m)
   lodSlatRoadInset: 0.4, // extra setback so slats don't overhang the dirt verge
-  inputMode: "keyboard",
+  inputMode: "auto",
   grassBaseColor: "#0d2c02",
   hueVariance: 0.035,
   satVariance: 0.18,
