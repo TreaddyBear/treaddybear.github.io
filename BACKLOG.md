@@ -87,6 +87,7 @@ We will need a generator that produces/updates this field from where the mower h
 
 ## Game Design
 
+- Keep the naming distinction: **LaMow** is the game/project name, while **Lawmo** is a possible later name for the cute robot mower character/main mower.
 - Build more maps and keep refining level select as a real level flow. Current player-facing selection is driven by locally saved stars and sequential unlocks, while the dev settings still expose lower-level tuning controls.
 - Explore win/lose pressure. Ideas included timers, mistakes bars, protected flower beds, or dandelion spread as a soft fail pressure.
 - Prototype dandelion lifecycle gameplay: wind carries seeds, seeds land, yellow dandelions grow, yellow turns white, white can pop and spread more seeds.

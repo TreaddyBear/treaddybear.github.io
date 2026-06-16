@@ -64,6 +64,7 @@ export type FallingPetal = {
   age: number;
   duration: number;
   velocity: Vector3;
+  spin: Vector3;
   settled: boolean;
 };
 

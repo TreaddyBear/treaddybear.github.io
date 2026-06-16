@@ -52,9 +52,14 @@ type HudState = {
   softPromptShown: boolean;
   lastMowedCount: number;
   lastMowProgressSeconds: number;
+  accidentOffsets: AccidentOffset[];
 };
 
 const starMode: StarMode = 3;
+type AccidentOffset = { x: number; y: number; rotation: number; scale: number };
+
+const accidentSlotCount = 10;
+const maxVisibleAccidents = 14;
 
 const formatTime = (seconds: number) => {
   const whole = Math.max(0, Math.floor(seconds));
@@ -236,6 +241,132 @@ const celebrationSeedCount = (reason: ResultReason, stars: number) => {
   return 150;
 };
 
+const randomSign = () => (Math.random() < 0.5 ? -1 : 1);
+
+const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentOffset => {
+  if(index < 3) {
+    return { x: 0, y: 0, rotation: 0, scale: 1 };
+  }
+
+  if(index < 6) {
+    const drift = index === 5 ? 3 + Math.random() : index - 2;
+    return {
+      x: randomSign() * drift,
+      y: randomSign() * Math.max(1, Math.round(drift - 1)),
+      rotation: randomSign() * (2 + (Math.random() * 5)),
+      scale: 1,
+    };
+  }
+
+  if(index === 6) {
+    return {
+      x: -5 - (Math.random() * 3),
+      y: randomSign() * (5 + (Math.random() * 3)),
+      rotation: randomSign() * (8 + (Math.random() * 6)),
+      scale: 1.02,
+    };
+  }
+
+  if(index === 7) {
+    const previous = offsets[6] ?? { y: 6 };
+    const side = previous.y >= 0 ? -1 : 1;
+    return {
+      x: -8 - (Math.random() * 4),
+      y: side * (6 + (Math.random() * 4)),
+      rotation: side * (9 + (Math.random() * 7)),
+      scale: 1.04,
+    };
+  }
+
+  if(index === 8) {
+    return {
+      x: -14 - (Math.random() * 5),
+      y: randomSign() * (1 + (Math.random() * 3)),
+      rotation: randomSign() * (12 + (Math.random() * 8)),
+      scale: 1.06,
+    };
+  }
+
+  if(index === 9) {
+    return {
+      x: 8 + (Math.random() * 9),
+      y: randomSign() * (8 + (Math.random() * 6)),
+      rotation: randomSign() * (18 + (Math.random() * 14)),
+      scale: 1.1,
+    };
+  }
+
+  const pile = offsets[9] ?? { x: 10, y: -8, rotation: 18, scale: 1.1 };
+  return {
+    x: pile.x + ((Math.random() - 0.5) * 8),
+    y: pile.y + ((Math.random() - 0.5) * 9),
+    rotation: pile.rotation + ((Math.random() - 0.5) * 34),
+    scale: 0.96 + (Math.random() * 0.18),
+  };
+};
+
+const applyAccidentOffset = (slot: HTMLElement, offset: AccidentOffset) => {
+  slot.style.setProperty("--accident-x", `${offset.x.toFixed(1)}px`);
+  slot.style.setProperty("--accident-y", `${offset.y.toFixed(1)}px`);
+  slot.style.setProperty("--accident-rotation", `${offset.rotation.toFixed(1)}deg`);
+  slot.style.setProperty("--accident-scale", offset.scale.toFixed(2));
+};
+
+const syncAccidentSlots = (container: HTMLElement, mistakes: number, offsets: AccidentOffset[]) => {
+  const overflowing = mistakes > accidentSlotCount;
+
+  if(mistakes <= 0 || !overflowing) {
+    offsets.length = 0;
+  }
+
+  const visibleAccidents = Math.min(mistakes, maxVisibleAccidents);
+  while(overflowing && offsets.length < visibleAccidents) {
+    offsets.push(nextAccidentOffset(offsets.length, offsets));
+  }
+  if(offsets.length > visibleAccidents) {
+    offsets.length = visibleAccidents;
+  }
+
+  const baseSlots = [...container.querySelectorAll<HTMLElement>(".accident-slot:not(.accident-overflow)")];
+  const existingOverflow = [...container.querySelectorAll<HTMLElement>(".accident-overflow")];
+  const overflowCount = Math.max(0, visibleAccidents - accidentSlotCount);
+
+  while(existingOverflow.length > overflowCount) {
+    existingOverflow.pop()?.remove();
+  }
+  while(existingOverflow.length < overflowCount) {
+    const slot = document.createElement("span");
+    slot.className = "accident-slot accident-overflow";
+    container.append(slot);
+    existingOverflow.push(slot);
+  }
+
+  container.dataset.accidents = String(mistakes);
+  container.classList.toggle("accidents-overflowing", overflowing);
+
+  for(const [index, slot] of baseSlots.entries()) {
+    const active = index < Math.min(mistakes, accidentSlotCount);
+    slot.classList.toggle("active", active);
+    slot.style.zIndex = active ? String(index + 1) : "";
+    if(active && overflowing) {
+      applyAccidentOffset(slot, offsets[index]);
+    } else {
+      slot.style.removeProperty("--accident-x");
+      slot.style.removeProperty("--accident-y");
+      slot.style.removeProperty("--accident-rotation");
+      slot.style.removeProperty("--accident-scale");
+    }
+  }
+
+  for(const [overflowIndex, slot] of existingOverflow.entries()) {
+    const index = accidentSlotCount + overflowIndex;
+    slot.classList.add("active");
+    slot.style.zIndex = String(30 + overflowIndex);
+    slot.dataset.overflowIndex = String(overflowIndex + 1);
+    applyAccidentOffset(slot, offsets[index]);
+  }
+};
+
 // The on-screen HUD: mow/mistake meters, the level-complete celebration card,
 // the Next Level loading spinner, and mistakes-meter visibility. Reads the live
 // counts through getters so it stays decoupled from grass/tulips.
@@ -248,6 +379,7 @@ export function createHud(deps: HudDeps) {
     softPromptShown: false,
     lastMowedCount: deps.getMowed(),
     lastMowProgressSeconds: performance.now() / 1000,
+    accidentOffsets: [],
   };
   const starMeter = createStarMeter();
 
@@ -485,11 +617,8 @@ export function createHud(deps: HudDeps) {
       deps.score.hidden = !deps.isArmed();
       deps.score.textContent = deps.isArmed() ? "Armed" : "";
 
-      const accidentSlots = deps.mistakes.querySelectorAll<HTMLElement>(".accident-slot");
       deps.mistakes.setAttribute("aria-label", `Accidents ${mistakes}`);
-      for (const [index, slot] of accidentSlots.entries()) {
-        slot.classList.toggle("active", index < mistakes);
-      }
+      syncAccidentSlots(deps.mistakes, mistakes, hudState.accidentOffsets);
 
       if(hudState.celebrationShown) {
         return;

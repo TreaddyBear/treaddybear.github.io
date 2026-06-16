@@ -34,26 +34,150 @@ export function createMenu(deps: MenuDeps) {
   const perfEl = document.querySelector<HTMLElement>("#perf");
   const resumeLabel = document.querySelector<HTMLSpanElement>("[data-resume-label]");
   const inputModesEl = document.querySelector<HTMLDivElement>("#menuInputModes");
+  const inputSwapSlot = document.querySelector<HTMLDivElement>("#menuInputSwapSlot");
+  const inputOverflowEl = document.querySelector<HTMLDivElement>("#menuInputOverflow");
   const levelSelectEl = document.querySelector<HTMLDivElement>("#menuLevelSelect");
   const levelListEl = document.querySelector<HTMLDivElement>("#menuLevelList");
 
   let open = false;
   let everOpened = false;
   let startMode = false;
+  let selectedLevelCode = "";
+  let selectedLevelManual = false;
+
+  const swappableInputModes: InputMode[] = ["controller", "mouse", "touch"];
+
+  const expanderEntries = () => (
+    [...document.querySelectorAll<HTMLDetailsElement>("[data-menu-expander]")]
+      .map((details) => {
+        const key = details.dataset.menuExpander;
+        const panel = key
+          ? document.querySelector<HTMLElement>(`[data-menu-panel="${key}"]`)
+          : null;
+        return key && panel ? { key, details, panel } : null;
+      })
+      .filter((entry): entry is { key: string; details: HTMLDetailsElement; panel: HTMLElement } => Boolean(entry))
+  );
+
+  const setExpanderOpen = (entry: { details: HTMLDetailsElement; panel: HTMLElement }, expanded: boolean) => {
+    entry.details.open = expanded;
+    entry.panel.classList.toggle("is-open", expanded);
+    entry.panel.setAttribute("aria-hidden", String(!expanded));
+    entry.panel.toggleAttribute("inert", !expanded);
+  };
+
+  const closeExpanders = (exceptKey = "") => {
+    for (const entry of expanderEntries()) {
+      if (entry.key !== exceptKey) {
+        setExpanderOpen(entry, false);
+      }
+    }
+  };
+
+  const toggleExpander = (key: string) => {
+    const entry = expanderEntries().find((candidate) => candidate.key === key);
+    if (!entry) {
+      return;
+    }
+
+    if (entry.details.open) {
+      setExpanderOpen(entry, false);
+      return;
+    }
+
+    closeExpanders(key);
+    setExpanderOpen(entry, true);
+  };
+
+  const renderStars = (container: HTMLElement, bestStars: number) => {
+    const starCount = Math.max(0, Math.min(3, bestStars));
+    container.replaceChildren();
+    for (let starIndex = 0; starIndex < 3; starIndex += 1) {
+      const star = document.createElement("span");
+      star.className = starIndex < starCount ? "menu-star earned" : "menu-star";
+      star.textContent = "\u2605";
+      container.append(star);
+    }
+  };
+
+  const automaticLevelCode = (levels: MenuLevel[]) => {
+    if (levels.length <= 0) {
+      return deps.getCurrentLevelCode();
+    }
+
+    if (!startMode) {
+      const currentLevelCode = deps.getCurrentLevelCode();
+      return levels.some((level) => level.code === currentLevelCode)
+        ? currentLevelCode
+        : levels[0].code;
+    }
+
+    let newestZeroStarLevel: MenuLevel | null = null;
+    for (const level of levels) {
+      if (level.bestStars <= 0) {
+        newestZeroStarLevel = level;
+      }
+    }
+
+    return (newestZeroStarLevel ?? levels[levels.length - 1]).code;
+  };
+
+  const syncSelectedLevel = () => {
+    const levels = deps.getLevels();
+    const selectedIsValid = levels.some((level) => level.code === selectedLevelCode);
+
+    if (!selectedLevelManual || !selectedIsValid) {
+      selectedLevelCode = automaticLevelCode(levels);
+      selectedLevelManual = false;
+    }
+
+    return levels;
+  };
 
   const setResumeLabel = () => {
     if (!resumeLabel) {
       return;
     }
 
-    const hasProgress = deps.getLevels().some((level) => level.bestStars > 0);
-    resumeLabel.textContent = startMode
-      ? (hasProgress ? "Start Selected" : "Start Game")
-      : "Resume";
+    const levels = deps.getLevels();
+
+    if (selectedLevelManual) {
+      resumeLabel.textContent = "Play Selected Level";
+      return;
+    }
+
+    if (startMode) {
+      const hasProgress = levels.some((level) => level.bestStars > 0);
+      const firstLevelCode = levels[0]?.code ?? selectedLevelCode;
+      resumeLabel.textContent = !hasProgress && selectedLevelCode === firstLevelCode
+        ? "Start Game"
+        : "Continue Game";
+      return;
+    }
+
+    resumeLabel.textContent = "Resume";
   };
 
   const syncInputModes = () => {
     const current = deps.getInputMode();
+    const primaryMode = swappableInputModes.includes(current)
+      ? current
+      : "controller";
+
+    if (inputSwapSlot && inputOverflowEl) {
+      for (const mode of swappableInputModes) {
+        const button = inputModesEl?.querySelector<HTMLButtonElement>(`[data-input-mode="${mode}"]`);
+        if (!button) {
+          continue;
+        }
+
+        if (mode === primaryMode) {
+          inputSwapSlot.append(button);
+        } else {
+          inputOverflowEl.append(button);
+        }
+      }
+    }
 
     for (const button of inputModesEl?.querySelectorAll<HTMLButtonElement>("[data-input-mode]") ?? []) {
       button.setAttribute("aria-pressed", String(button.dataset.inputMode === current));
@@ -65,38 +189,29 @@ export function createMenu(deps: MenuDeps) {
       return;
     }
 
-    const levels = deps.getLevels();
-    const show = levels.some((level) => level.bestStars > 0);
-    levelSelectEl.hidden = !show;
+    const levels = syncSelectedLevel();
+
+    levelSelectEl.hidden = false;
     levelListEl.replaceChildren();
 
-    if (!show) {
+    if (levels.length <= 0) {
       setResumeLabel();
       return;
     }
 
-    const currentLevelCode = deps.getCurrentLevelCode();
     for (const level of levels) {
       const button = document.createElement("button");
       const name = document.createElement("span");
       const stars = document.createElement("span");
-      const bestStars = Math.max(0, Math.min(3, level.bestStars));
 
       button.type = "button";
       button.className = "menu-level";
       button.dataset.levelCode = level.code;
-      button.setAttribute("aria-current", String(level.code === currentLevelCode));
+      button.setAttribute("aria-current", String(level.code === selectedLevelCode));
       name.className = "menu-level-name";
       name.textContent = level.name;
       stars.className = "menu-level-stars";
-      // One span per star so earned (gold) vs unearned (greyed) is unmistakable \u2014
-      // a row of dim stars must not read as "already 3 stars" on an unplayed level.
-      for (let starIndex = 0; starIndex < 3; starIndex += 1) {
-        const star = document.createElement("span");
-        star.className = starIndex < bestStars ? "menu-star earned" : "menu-star";
-        star.textContent = "\u2605";
-        stars.append(star);
-      }
+      renderStars(stars, level.bestStars);
       button.append(name, stars);
       levelListEl.append(button);
     }
@@ -114,6 +229,8 @@ export function createMenu(deps: MenuDeps) {
     }
     if (value) {
       everOpened = true;
+      closeExpanders();
+      selectedLevelManual = false;
       syncInputModes();
       renderLevelSelect();
       deps.onOpen?.();
@@ -130,6 +247,15 @@ export function createMenu(deps: MenuDeps) {
   };
   syncFps();
   fpsCheckbox?.addEventListener("change", syncFps);
+  closeExpanders();
+  for (const entry of expanderEntries()) {
+    entry.details.addEventListener("toggle", () => {
+      if (entry.details.open) {
+        closeExpanders(entry.key);
+      }
+      setExpanderOpen(entry, entry.details.open);
+    });
+  }
 
   // Reverse-steer flip: lets players who dislike the mirrored reverse restore the
   // old un-mirrored feel. In-session for now (a proper input panel + persistence
@@ -146,21 +272,36 @@ export function createMenu(deps: MenuDeps) {
     const target = event.target as HTMLElement;
     const inputMode = target.closest<HTMLElement>("[data-input-mode]")?.dataset.inputMode as InputMode | undefined;
     const levelCode = target.closest<HTMLElement>("[data-level-code]")?.dataset.levelCode;
+    const expanderKey = target.closest<HTMLElement>("[data-menu-open]")?.dataset.menuOpen;
+
+    if (expanderKey) {
+      toggleExpander(expanderKey);
+      return;
+    }
 
     if (inputMode) {
       deps.setInputMode(inputMode);
       syncInputModes();
+      closeExpanders();
       return;
     }
 
     if (levelCode) {
-      deps.onSelectLevel(levelCode);
-      setOpen(false);
+      selectedLevelCode = levelCode;
+      selectedLevelManual = true;
+      renderLevelSelect();
+      closeExpanders();
       return;
     }
 
     const action = target.closest<HTMLElement>("[data-action]")?.dataset.action;
     if (action === "resume") {
+      if (startMode || selectedLevelManual) {
+        const levels = syncSelectedLevel();
+        const levelCodeToPlay = selectedLevelCode || automaticLevelCode(levels);
+        deps.onSelectLevel(levelCodeToPlay);
+        selectedLevelManual = false;
+      }
       setOpen(false);
     } else if (action === "fullscreen") {
       deps.toggleFullscreen();
@@ -178,9 +319,11 @@ export function createMenu(deps: MenuDeps) {
     open: () => setOpen(true),
     close: () => setOpen(false),
     toggle: () => setOpen(!open),
-    // Before the first level the "Resume" item reads as "Start Game".
+    // Before the first level this primary action reads as Start/Continue.
     setStartMode(start: boolean) {
       startMode = start;
+      selectedLevelManual = false;
+      renderLevelSelect();
       setResumeLabel();
     },
   };

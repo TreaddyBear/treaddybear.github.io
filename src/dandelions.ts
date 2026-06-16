@@ -150,14 +150,19 @@ export function createDandelions(
           const angle = ((i / ring.count) * Math.PI * 2) + ring.offset;
           const petal = MeshBuilder.CreateSphere(`yellow-petal-${petalIndex}`, { diameter: 0.085, segments: 5 }, scene);
           petal.parent = head;
+          const heightJitter = (Math.random() - 0.5) * 0.044;
           petal.position = new Vector3(
             Math.cos(angle) * ring.radius,
-            ring.lift + (Math.sin(angle * 3) * 0.01) + (Math.random() * 0.032),
+            ring.lift + (Math.sin(angle * 3) * 0.012) + heightJitter,
             Math.sin(angle) * ring.radius,
           );
           // Per-petal length + a slight (mostly upward) tilt so the head domes and
           // varies instead of reading as one flat disc of identical petals.
-          petal.scaling = new Vector3(ring.length * (0.84 + (Math.random() * 0.32)), 0.26, ring.width);
+          petal.scaling = new Vector3(
+            ring.length * (0.84 + (Math.random() * 0.32)),
+            0.22 + (Math.random() * 0.1),
+            ring.width * (0.9 + (Math.random() * 0.18)),
+          );
           petal.rotation = new Vector3((Math.random() - 0.25) * 0.5, -angle, 0);
           petal.material = materials.dandelionYellowMaterial;
           pieces.push(petal);
@@ -293,6 +298,11 @@ export function createDandelions(
           (Math.cos(angle) * burst) + ((Math.random() - 0.5) * 0.6),
           0.7 + (Math.random() * 1.5),
           (Math.sin(angle) * burst) + ((Math.random() - 0.5) * 0.6),
+        ),
+        spin: new Vector3(
+          1.4 + (Math.random() * 3.8),
+          1.8 + (Math.random() * 4.6),
+          1.1 + (Math.random() * 3.6),
         ),
         settled: false,
       });
@@ -484,8 +494,9 @@ export function createDandelions(
         if (!petal.settled) {
           petal.velocity.y -= 4.2 * deltaSeconds;
           petal.mesh.position.addInPlace(petal.velocity.scale(deltaSeconds));
-          petal.mesh.rotation.y += deltaSeconds * 3.2;
-          petal.mesh.rotation.z += deltaSeconds * 2.1;
+          petal.mesh.rotation.x += deltaSeconds * petal.spin.x;
+          petal.mesh.rotation.y += deltaSeconds * petal.spin.y;
+          petal.mesh.rotation.z += deltaSeconds * petal.spin.z;
 
           if (petal.mesh.position.y <= groundY && petal.velocity.y < 0) {
             petal.mesh.position.y = groundY;

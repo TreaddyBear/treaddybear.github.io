@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Babylon Prototype</title>
+    <title>LaMow</title>
+    <meta name="theme-color" content="#394d00" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png?v=0.10.0" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=0.10.0" />
+    <link rel="shortcut icon" href="/favicon.ico?v=0.10.0" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=0.10.0" />
+    <meta name="apple-mobile-web-app-title" content="LaMow" />
+    <link rel="manifest" href="/site.webmanifest?v=0.10.0" />
   </head>
   <body>
     <div id="hud">
@@ -32,54 +39,79 @@
     <div id="hintToast" hidden></div>
     <div id="menu" hidden>
       <div id="menuPanel">
-        <div id="menuTitle">Lawn Mower</div>
+        <div id="menuTitle">
+          <img id="menuLogo" src="/lamow.svg" alt="LaMow" />
+        </div>
         <div id="menuOptions">
-          <div id="menuLevelSelect" class="menu-section" hidden>
-            <div class="menu-section-title">Levels</div>
-            <div id="menuLevelList"></div>
-          </div>
-          <button class="menu-item" type="button" data-action="resume">
-            <img class="menu-icon" src="/icons/menu/resume.svg" alt="" aria-hidden="true" />
-            <span class="menu-label" data-resume-label>Resume</span>
-          </button>
-          <div class="menu-section">
-            <div class="menu-section-title">Input</div>
-            <div id="menuInputModes" class="menu-mode-grid" role="group" aria-label="Input mode">
-              <button class="menu-mode" type="button" data-input-mode="auto" aria-label="Auto input">
-                <img class="menu-mode-icon" src="/icons/menu/input-auto.svg" alt="" aria-hidden="true" />
+          <div id="menuLevelSelect" class="menu-section menu-expander-host">
+            <div class="menu-level-row">
+              <button id="menuPrimaryAction" class="menu-item menu-item-wide" type="button" data-action="resume">
+                <img class="menu-icon" src="/icons/menu/resume.svg" alt="" aria-hidden="true" />
+                <span class="menu-label" data-resume-label>Start Game</span>
               </button>
-              <button class="menu-mode" type="button" data-input-mode="keyboard" aria-label="Keyboard">
-                <img class="menu-mode-icon" src="/icons/menu/input-keyboard.svg" alt="" aria-hidden="true" />
-              </button>
-              <button class="menu-mode" type="button" data-input-mode="mouse" aria-label="Mouse">
-                <img class="menu-mode-icon" src="/icons/menu/input-mouse.svg" alt="" aria-hidden="true" />
-              </button>
-              <button class="menu-mode" type="button" data-input-mode="controller" aria-label="Controller">
-                <img class="menu-mode-icon" src="/icons/menu/input-controller.svg" alt="" aria-hidden="true" />
-              </button>
-              <button class="menu-mode" type="button" data-input-mode="touch" aria-label="Touch">
-                <img class="menu-mode-icon" src="/icons/menu/input-touch.svg" alt="" aria-hidden="true" />
-              </button>
+              <details class="menu-expander" data-menu-expander="levels">
+                <summary class="menu-expander-toggle" aria-label="Level select">&#8942;</summary>
+              </details>
             </div>
-            <details class="menu-advanced">
-              <summary class="menu-advanced-toggle" aria-label="More input options">&#8943;</summary>
-              <div class="menu-advanced-body">
-                <label class="menu-item menu-toggle">
-                  <span class="menu-label">Flip reverse steering</span>
-                  <input id="menuReverseFlip" type="checkbox" />
-                </label>
-              </div>
-            </details>
+            <div id="menuLevelPanel" class="menu-expander-panel menu-level-panel" data-menu-panel="levels" aria-hidden="true" inert>
+              <div id="menuLevelList"></div>
+            </div>
           </div>
-          <button class="menu-item" type="button" data-action="fullscreen">
-            <img class="menu-icon" src="/icons/menu/fullscreen.svg" alt="" aria-hidden="true" />
-            <span class="menu-label">Full screen</span>
-          </button>
-          <label class="menu-item menu-toggle">
-            <img class="menu-icon" src="/icons/menu/fps.svg" alt="" aria-hidden="true" />
-            <span class="menu-label">Show FPS</span>
-            <input id="menuFps" type="checkbox" checked />
-          </label>
+          <hr class="menu-section-rule" />
+          <div class="menu-section menu-expander-host">
+            <div class="menu-section-title">Input</div>
+            <div id="menuInputModes" class="menu-input-options" role="group" aria-label="Input mode">
+              <div class="menu-mode-primary">
+                <button class="menu-mode" type="button" data-input-mode="auto" aria-label="Auto input">
+                  <img class="menu-mode-icon" src="/icons/menu/input-auto.svg" alt="" aria-hidden="true" />
+                </button>
+                <button class="menu-mode" type="button" data-input-mode="keyboard" aria-label="Keyboard">
+                  <img class="menu-mode-icon" src="/icons/menu/input-keyboard.svg" alt="" aria-hidden="true" />
+                </button>
+                <div id="menuInputSwapSlot" class="menu-mode-slot">
+                  <button class="menu-mode" type="button" data-input-mode="controller" aria-label="Controller">
+                    <img class="menu-mode-icon" src="/icons/menu/input-controller.svg" alt="" aria-hidden="true" />
+                  </button>
+                </div>
+                <details class="menu-expander" data-menu-expander="input">
+                  <summary class="menu-expander-toggle" aria-label="More input options">&#8942;</summary>
+                </details>
+              </div>
+              <div class="menu-expander-panel menu-input-panel" data-menu-panel="input" aria-hidden="true" inert>
+                <div id="menuInputOverflow" class="menu-mode-grid menu-mode-grid-advanced">
+                  <button class="menu-mode" type="button" data-input-mode="mouse" aria-label="Mouse">
+                    <img class="menu-mode-icon" src="/icons/menu/input-mouse.svg" alt="" aria-hidden="true" />
+                  </button>
+                  <button class="menu-mode" type="button" data-input-mode="touch" aria-label="Touch">
+                    <img class="menu-mode-icon" src="/icons/menu/input-touch.svg" alt="" aria-hidden="true" />
+                  </button>
+                </div>
+                <div class="menu-controller-section">
+                  <label class="menu-item menu-toggle">
+                    <span class="menu-label">Flip reverse steering</span>
+                    <input id="menuReverseFlip" type="checkbox" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <hr class="menu-section-rule" />
+          <div class="menu-action-row menu-expander-host">
+            <button class="menu-item menu-item-wide" type="button" data-action="fullscreen">
+              <img class="menu-icon" src="/icons/menu/fullscreen.svg" alt="" aria-hidden="true" />
+              <span class="menu-label">Full screen</span>
+            </button>
+            <details class="menu-expander" data-menu-expander="display">
+              <summary class="menu-expander-toggle" aria-label="More settings">&#8942;</summary>
+            </details>
+            <div id="menuDisplayPanel" class="menu-expander-panel menu-display-panel" data-menu-panel="display" aria-hidden="true" inert>
+              <label class="menu-item menu-toggle">
+                <img class="menu-icon" src="/icons/menu/fps.svg" alt="" aria-hidden="true" />
+                <span class="menu-label">Show FPS</span>
+                <input id="menuFps" type="checkbox" checked />
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
