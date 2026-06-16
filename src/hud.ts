@@ -299,10 +299,10 @@ const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentO
   const displacedTenth = offsets[9] ?? { x: 10, y: -8, rotation: 18, scale: 1.1 };
   const previousPile = offsets[index - 1] ?? displacedTenth;
   const rightwardPush = index === accidentSlotCount
-    ? 18 + (Math.random() * 5)
-    : 5 + (Math.random() * 7);
+    ? 10 + (Math.random() * 3)
+    : 2 + (Math.random() * 5);
   return {
-    x: Math.max(previousPile.x + rightwardPush, displacedTenth.x + 18),
+    x: previousPile.x + rightwardPush,
     y: previousPile.y + ((Math.random() - 0.5) * 9),
     rotation: previousPile.rotation + ((Math.random() - 0.5) * 34),
     scale: 0.96 + (Math.random() * 0.18),
