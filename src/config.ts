@@ -29,6 +29,7 @@ export const settings = {
   turnBuild: 0.77,
   controllerTurnAccelThreshold: 0.7,
   reverseSteerFlip: false, // false = mirror steering in reverse (default); true = old un-mirrored feel
+  touchSplitControls: false, // false = all-in-one thumbpad; true = split steering strip + set-and-hold throttle
   fenceMaxHealth: 100,
   fenceDamageSpeed: 1.5,
   showFenceHealth: false,

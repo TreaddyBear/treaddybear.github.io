@@ -453,6 +453,83 @@ body {
   display: block;
 }
 
+/* Split touch controls: a steering strip (bottom-left) + a set-and-hold throttle
+   with reverse / idle / forward zones (bottom-right). */
+.touch-split {
+  position: fixed;
+  z-index: 2;
+  display: none;
+  border: 2px solid rgb(255 255 255 / 34%);
+  border-radius: 40px;
+  background: rgb(0 0 0 / 24%);
+  touch-action: none;
+}
+
+.touch-split[data-mode="visible"] {
+  display: block;
+}
+
+.touch-split.active {
+  border-color: rgb(216 245 176 / 55%);
+}
+
+.touch-steer {
+  left: 22px;
+  bottom: 26px;
+  width: min(46vw, 220px);
+  height: 76px;
+}
+
+.touch-throttle {
+  right: 22px;
+  bottom: 26px;
+  width: 78px;
+  height: min(52vh, 240px);
+  overflow: hidden;
+}
+
+.touch-throttle-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.touch-throttle-fwd {
+  top: 0;
+  height: 42%;
+  background: linear-gradient(to top, transparent, rgb(120 220 90 / 24%));
+}
+
+.touch-throttle-idle {
+  top: 42%;
+  height: 16%;
+  background: rgb(255 255 255 / 12%);
+}
+
+.touch-throttle-rev {
+  bottom: 0;
+  height: 42%;
+  background: linear-gradient(to bottom, transparent, rgb(230 120 60 / 24%));
+}
+
+.touch-split-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgb(240 255 200 / 72%);
+  box-shadow: 0 3px 18px rgb(0 0 0 / 32%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch-throttle .touch-split-knob {
+  width: 62px;
+}
+
 @media (max-width: 620px) {
   #hud {
     top: 8px;

@@ -1,3 +1,5 @@
+import { settings } from "./config";
+
 export type AnalogInput = {
   turn: number;
   controllerTurn: number;
@@ -7,6 +9,8 @@ export type AnalogInput = {
   throttle: number;
   boost: boolean;
   setMode: (mode: InputMode) => void;
+  // Re-sync which touch widget shows (all-in-one vs split) after a settings change.
+  syncTouchControls: () => void;
 };
 
 export type InputMode = "auto" | "keyboard" | "mouse" | "controller" | "touch";
@@ -44,6 +48,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     throttle: 0,
     boost: false,
     setMode: () => {},
+    syncTouchControls: () => {},
   };
   let inputMode: InputMode = "auto";
   const touch = {
@@ -62,6 +67,119 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
   const TOUCH_STEER_EXPONENT = 2.6;
   const touchSteer = () => shapedDeadzone(touch.x / touchRadius, TOUCH_STEER_DEADZONE, TOUCH_STEER_EXPONENT);
 
+  // --- Optional SPLIT touch controls: a steering strip (absolute position, the
+  // mower straightens when you let go) and a set-and-hold throttle (reverse /
+  // idle / analog-forward zones that stay where you set them). Toggled live by
+  // settings.touchSplitControls. ---
+  const steerPad = document.querySelector<HTMLElement>("#touchSteer");
+  const steerKnob = document.querySelector<HTMLElement>("#touchSteerKnob");
+  const throttlePad = document.querySelector<HTMLElement>("#touchThrottle");
+  const throttleKnob = document.querySelector<HTMLElement>("#touchThrottleKnob");
+  const steer = { active: false, pointerId: -1, x: 0 }; // x in [-1,1] across the strip
+  const throttleCtl = { active: false, pointerId: -1, p: 0 }; // last Y in [-1,1], persists (locked)
+  const THROTTLE_IDLE = 0.16; // dead band around centre
+
+  const splitOn = () => settings.touchSplitControls;
+
+  const throttleFromP = (p: number) => {
+    if (Math.abs(p) < THROTTLE_IDLE) {
+      return 0;
+    }
+    if (p > 0) {
+      return Math.min(1, (p - THROTTLE_IDLE) / (1 - THROTTLE_IDLE)); // analog forward
+    }
+    return -0.45; // simple constant reverse
+  };
+
+  const updateSteerKnob = () => {
+    if (!steerKnob) {
+      return;
+    }
+    steerPad?.classList.toggle("active", steer.active);
+    const half = ((steerPad?.clientWidth ?? 180) / 2) - 24;
+    steerKnob.style.transform = `translate(calc(-50% + ${steer.x * half}px), -50%)`;
+  };
+  const updateThrottleKnob = () => {
+    if (!throttleKnob) {
+      return;
+    }
+    throttlePad?.classList.toggle("active", throttleCtl.active);
+    const half = ((throttlePad?.clientHeight ?? 230) / 2) - 26;
+    throttleKnob.style.transform = `translate(-50%, calc(-50% + ${-throttleCtl.p * half}px))`;
+  };
+
+  const steerAt = (clientX: number) => {
+    if (!steerPad) {
+      return 0;
+    }
+    const rect = steerPad.getBoundingClientRect();
+    return clamp((((clientX - rect.left) / rect.width) * 2) - 1, -1, 1);
+  };
+  const throttleAt = (clientY: number) => {
+    if (!throttlePad) {
+      return 0;
+    }
+    const rect = throttlePad.getBoundingClientRect();
+    return clamp(1 - (((clientY - rect.top) / rect.height) * 2), -1, 1); // top = +1, bottom = -1
+  };
+
+  if (steerPad) {
+    steerPad.addEventListener("pointerdown", (event) => {
+      steer.active = true;
+      steer.pointerId = event.pointerId;
+      steer.x = steerAt(event.clientX);
+      steerPad.setPointerCapture(event.pointerId);
+      updateSteerKnob();
+    });
+    steerPad.addEventListener("pointermove", (event) => {
+      if (!steer.active || event.pointerId !== steer.pointerId) {
+        return;
+      }
+      steer.x = steerAt(event.clientX);
+      updateSteerKnob();
+    });
+    const endSteer = (event: PointerEvent) => {
+      if (event.pointerId !== steer.pointerId) {
+        return;
+      }
+      steer.active = false;
+      steer.pointerId = -1;
+      steer.x = 0; // re-centre (straighten) on release
+      updateSteerKnob();
+    };
+    steerPad.addEventListener("pointerup", endSteer);
+    steerPad.addEventListener("pointercancel", endSteer);
+  }
+
+  if (throttlePad) {
+    throttlePad.addEventListener("pointerdown", (event) => {
+      throttleCtl.active = true;
+      throttleCtl.pointerId = event.pointerId;
+      throttleCtl.p = throttleAt(event.clientY);
+      throttlePad.setPointerCapture(event.pointerId);
+      updateThrottleKnob();
+    });
+    throttlePad.addEventListener("pointermove", (event) => {
+      if (!throttleCtl.active || event.pointerId !== throttleCtl.pointerId) {
+        return;
+      }
+      throttleCtl.p = throttleAt(event.clientY);
+      updateThrottleKnob();
+    });
+    const endThrottle = (event: PointerEvent) => {
+      if (event.pointerId !== throttleCtl.pointerId) {
+        return;
+      }
+      throttleCtl.active = false;
+      throttleCtl.pointerId = -1;
+      updateThrottleKnob(); // p persists: throttle stays locked where you set it
+    };
+    throttlePad.addEventListener("pointerup", endThrottle);
+    throttlePad.addEventListener("pointercancel", endThrottle);
+  }
+
+  const steerTurn = () => (steer.active ? shapedDeadzone(steer.x, TOUCH_STEER_DEADZONE, TOUCH_STEER_EXPONENT) : 0);
+
   const updateTouchKnob = () => {
     if (!touch.active) {
       touchPad.classList.remove("active");
@@ -76,11 +194,28 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
   const shouldUseTouch = () => inputMode === "auto" || inputMode === "touch";
   const shouldUseController = () => inputMode === "auto" || inputMode === "controller";
   const shouldShowTouchPad = () => inputMode === "touch" || (inputMode === "auto" && matchMedia("(pointer: coarse)").matches);
-  const syncTouchVisibility = () => {
-    touchPad.dataset.mode = shouldShowTouchPad() ? "visible" : "hidden";
+  const syncTouchControls = () => {
+    const showTouch = shouldShowTouchPad();
+    const split = showTouch && splitOn();
+    touchPad.dataset.mode = (showTouch && !split) ? "visible" : "hidden";
+    if (steerPad) {
+      steerPad.dataset.mode = split ? "visible" : "hidden";
+    }
+    if (throttlePad) {
+      throttlePad.dataset.mode = split ? "visible" : "hidden";
+    }
+    if (!split) {
+      // No locked throttle / held steer left running behind a hidden widget.
+      steer.active = false;
+      steer.x = 0;
+      throttleCtl.active = false;
+      throttleCtl.p = 0;
+    }
+    updateSteerKnob();
+    updateThrottleKnob();
   };
 
-  syncTouchVisibility();
+  syncTouchControls();
 
   touchPad.addEventListener("pointerdown", (event) => {
     touch.active = true;
@@ -120,7 +255,9 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
   return {
     get turn() {
-      const touchTurn = touch.active && shouldUseTouch() ? touchSteer() : 0;
+      const touchTurn = shouldUseTouch()
+        ? (splitOn() ? steerTurn() : (touch.active ? touchSteer() : 0))
+        : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const gamepadTurn = gamepad ? deadzone(gamepad.axes[0] ?? 0) : 0;
       return clamp(touchTurn + gamepadTurn, -1, 1);
@@ -134,8 +271,11 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     get touchTurn() {
       // Wide dead center then a very gentle ramp (see TOUCH_STEER_* above): the
       // first few millimeters outside center barely steer, full lock only near
-      // the rim — much less twitchy than a plain stick curve.
-      return touch.active && shouldUseTouch() ? touchSteer() : 0;
+      // the rim. In split mode this comes from the steering strip instead.
+      if (!shouldUseTouch()) {
+        return 0;
+      }
+      return splitOn() ? steerTurn() : (touch.active ? touchSteer() : 0);
     },
 
     get cameraTurn() {
@@ -149,7 +289,9 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     get throttle() {
-      const touchThrottle = touch.active && shouldUseTouch() ? clamp(-touch.y / touchRadius, -0.45, 1) : 0;
+      const touchThrottle = shouldUseTouch()
+        ? (splitOn() ? throttleFromP(throttleCtl.p) : (touch.active ? clamp(-touch.y / touchRadius, -0.45, 1) : 0))
+        : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const stickY = gamepad ? deadzone(gamepad.axes[1] ?? 0) : 0;
       const gamepadThrottle = stickY < 0 ? -stickY : stickY > 0 ? -stickY * 0.45 : 0;
@@ -163,7 +305,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
     setMode(mode: InputMode) {
       inputMode = mode;
-      syncTouchVisibility();
+      syncTouchControls();
 
       if (!shouldUseTouch()) {
         touch.active = false;
@@ -173,5 +315,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
         updateTouchKnob();
       }
     },
+
+    syncTouchControls,
   };
 }

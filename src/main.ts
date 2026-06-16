@@ -1209,6 +1209,7 @@ const menu = createMenu({
     resetGame();
   },
   isTouch: isTouchPrimary,
+  onTouchControlsChange: () => analogInput.syncTouchControls(),
   onOpen: () => keys.clear(),
   onClose: () => {
     if (gameStarted) {

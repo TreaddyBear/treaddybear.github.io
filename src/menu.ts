@@ -17,6 +17,8 @@ export type MenuDeps = {
   onSelectLevel: (code: string) => void;
   // True on a touch-first device: show the hamburger; otherwise Esc opens it.
   isTouch: boolean;
+  // Re-sync which touch widget shows after the split-controls toggle changes.
+  onTouchControlsChange?: () => void;
   // Called when the menu opens/closes so the game can pause/resume.
   onOpen?: () => void;
   onClose?: () => void;
@@ -265,6 +267,17 @@ export function createMenu(deps: MenuDeps) {
     reverseFlipCheckbox.checked = settings.reverseSteerFlip;
     reverseFlipCheckbox.addEventListener("change", () => {
       settings.reverseSteerFlip = reverseFlipCheckbox.checked;
+    });
+  }
+
+  // Split touch controls: separate steering strip + set-and-hold throttle vs the
+  // all-in-one thumbpad. input.ts re-syncs which widget shows via the callback.
+  const touchSplitCheckbox = document.querySelector<HTMLInputElement>("#menuTouchSplit");
+  if (touchSplitCheckbox) {
+    touchSplitCheckbox.checked = settings.touchSplitControls;
+    touchSplitCheckbox.addEventListener("change", () => {
+      settings.touchSplitControls = touchSplitCheckbox.checked;
+      deps.onTouchControlsChange?.();
     });
   }
 

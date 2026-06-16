@@ -91,6 +91,10 @@
                     <span class="menu-label">Flip reverse steering</span>
                     <input id="menuReverseFlip" type="checkbox" />
                   </label>
+                  <label class="menu-item menu-toggle">
+                    <span class="menu-label">Split touch controls</span>
+                    <input id="menuTouchSplit" type="checkbox" />
+                  </label>
                 </div>
               </div>
             </div>
@@ -140,6 +144,15 @@
       <div id="loadingText">Preparing the next lawn&hellip;</div>
     </div>
     <div id="touchPad" aria-hidden="true"><div id="touchKnob"></div></div>
+    <div id="touchSteer" class="touch-split touch-steer" data-mode="hidden" aria-hidden="true">
+      <div id="touchSteerKnob" class="touch-split-knob"></div>
+    </div>
+    <div id="touchThrottle" class="touch-split touch-throttle" data-mode="hidden" aria-hidden="true">
+      <div class="touch-throttle-zone touch-throttle-fwd"></div>
+      <div class="touch-throttle-zone touch-throttle-idle"></div>
+      <div class="touch-throttle-zone touch-throttle-rev"></div>
+      <div id="touchThrottleKnob" class="touch-split-knob"></div>
+    </div>
     <details id="settings" hidden>
       <summary>Settings</summary>
       <details class="settings-group settings-category">
