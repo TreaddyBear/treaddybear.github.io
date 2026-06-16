@@ -1,4 +1,5 @@
 import type { InputMode } from "./input";
+import { settings } from "./config";
 
 export type MenuLevel = {
   code: string;
@@ -88,7 +89,14 @@ export function createMenu(deps: MenuDeps) {
       name.className = "menu-level-name";
       name.textContent = level.name;
       stars.className = "menu-level-stars";
-      stars.textContent = `${"\u2605".repeat(bestStars)}${"\u2606".repeat(3 - bestStars)}`;
+      // One span per star so earned (gold) vs unearned (greyed) is unmistakable \u2014
+      // a row of dim stars must not read as "already 3 stars" on an unplayed level.
+      for (let starIndex = 0; starIndex < 3; starIndex += 1) {
+        const star = document.createElement("span");
+        star.className = starIndex < bestStars ? "menu-star earned" : "menu-star";
+        star.textContent = "\u2605";
+        stars.append(star);
+      }
       button.append(name, stars);
       levelListEl.append(button);
     }
@@ -122,6 +130,17 @@ export function createMenu(deps: MenuDeps) {
   };
   syncFps();
   fpsCheckbox?.addEventListener("change", syncFps);
+
+  // Reverse-steer flip: lets players who dislike the mirrored reverse restore the
+  // old un-mirrored feel. In-session for now (a proper input panel + persistence
+  // is the planned follow-up).
+  const reverseFlipCheckbox = document.querySelector<HTMLInputElement>("#menuReverseFlip");
+  if (reverseFlipCheckbox) {
+    reverseFlipCheckbox.checked = settings.reverseSteerFlip;
+    reverseFlipCheckbox.addEventListener("change", () => {
+      settings.reverseSteerFlip = reverseFlipCheckbox.checked;
+    });
+  }
 
   menuEl?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;

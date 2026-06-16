@@ -28,6 +28,7 @@ export const settings = {
   turnMaxSpeed: 2.25,
   turnBuild: 0.77,
   controllerTurnAccelThreshold: 0.7,
+  reverseSteerFlip: false, // false = mirror steering in reverse (default); true = old un-mirrored feel
   fenceMaxHealth: 100,
   fenceDamageSpeed: 1.5,
   showFenceHealth: false,

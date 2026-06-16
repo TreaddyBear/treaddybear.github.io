@@ -3,7 +3,7 @@ import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
 import { settings } from "./config";
 import { hexToColor3 } from "./utils/color";
-import { biomeHomeAmount, roadGrassAmount, terrainHeightAt } from "./world";
+import { biomeHomeAmount, roadGrassAmount, sampledTerrainHeightAt } from "./world";
 import { windDirection } from "./wind";
 import type { GrassBake } from "./grassBake";
 
@@ -58,8 +58,10 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         uvs.push(runDistance, 0, runDistance, heightFactor);
         // Bake the ground height and grass/dirt coverage here (world-space, same
         // signals the real ground uses) so slats follow the terrain and only grow
-        // where there's grass — never on the road or far dirt.
-        const groundY = terrainHeightAt(x, z);
+        // where there's grass — never on the road or far dirt. Use the SAMPLED
+        // (mesh-interpolated) height, not the exact curve, so slats sit ON the
+        // visible ground mesh instead of floating above it on steep hills.
+        const groundY = sampledTerrainHeightAt(x, z);
         // Grass only past the road's dirt verge AND inside the grass biome, so the
         // slats stop at the same irregular dirt->grass edge the ground draws.
         const cover = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);

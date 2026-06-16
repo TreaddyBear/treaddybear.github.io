@@ -642,8 +642,9 @@ function movePlayer(deltaSeconds: number) {
     // Mirror steering when backing up so it behaves like a real steering wheel
     // (hold left while reversing -> the mower's rear tracks left), instead of the
     // turn feeling inverted in reverse. Based on actual travel, so a turn-in-place
-    // at a standstill stays normal.
-    const reverseSteer = driveSpeed < -0.02 ? -1 : 1;
+    // at a standstill stays normal. The "flip" toggle restores the old un-mirrored
+    // feel for players who prefer it.
+    const reverseSteer = driveSpeed < -0.02 ? (settings.reverseSteerFlip ? 1 : -1) : 1;
     playerYaw += scaledTurn * settings.turnMaxSpeed * deltaSeconds * reverseSteer;
   } else {
     turnHoldSeconds = 0;

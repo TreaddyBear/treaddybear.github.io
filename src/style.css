@@ -954,7 +954,8 @@ body {
 .accident-slot::before {
   color: currentColor;
   background: transparent;
-  content: "\00d7";
+  /* Faint grey bullet until an accident lands; turns into an "x" when active. */
+  content: "\2022";
   font-size: 13px;
   font-weight: 900;
   line-height: 1;
@@ -1164,7 +1165,14 @@ body {
 }
 
 .menu-level-stars {
-  color: #ffcf33;
   font-size: 13px;
   letter-spacing: 0;
+}
+
+.menu-star {
+  color: rgb(255 255 255 / 16%); /* unearned: clearly dim/greyed */
+}
+
+.menu-star.earned {
+  color: #ffcf33; /* earned: gold */
 }
