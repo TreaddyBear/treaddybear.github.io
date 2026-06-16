@@ -152,11 +152,13 @@ export function createDandelions(
           petal.parent = head;
           petal.position = new Vector3(
             Math.cos(angle) * ring.radius,
-            ring.lift + (Math.sin(angle * 3) * 0.01),
+            ring.lift + (Math.sin(angle * 3) * 0.01) + (Math.random() * 0.032),
             Math.sin(angle) * ring.radius,
           );
-          petal.scaling = new Vector3(ring.length, 0.26, ring.width);
-          petal.rotation.y = -angle;
+          // Per-petal length + a slight (mostly upward) tilt so the head domes and
+          // varies instead of reading as one flat disc of identical petals.
+          petal.scaling = new Vector3(ring.length * (0.84 + (Math.random() * 0.32)), 0.26, ring.width);
+          petal.rotation = new Vector3((Math.random() - 0.25) * 0.5, -angle, 0);
           petal.material = materials.dandelionYellowMaterial;
           pieces.push(petal);
           petalIndex += 1;
@@ -278,16 +280,19 @@ export function createDandelions(
       piece.material = piece.material?.clone(`${piece.name}-falling-material`) ?? null;
       dandelion.detachedPieces.push(piece);
 
+      // Strong per-petal variance so neighbors scatter distinctly instead of
+      // moving as a clump: wide speed range, extra per-axis jitter off the radial
+      // direction, and a broad vertical/lifetime spread.
       const angle = Math.random() * Math.PI * 2;
-      const burst = 0.6 + (Math.random() * 0.85);
+      const burst = 0.5 + (Math.random() * 1.5);
       fallingPetals.push({
         mesh: piece,
         age: 0,
-        duration: 2.6 + (Math.random() * 1.4),
+        duration: 2.4 + (Math.random() * 1.8),
         velocity: new Vector3(
-          Math.cos(angle) * burst + 0.2,
-          1.1 + (Math.random() * 0.7),
-          Math.sin(angle) * burst,
+          (Math.cos(angle) * burst) + ((Math.random() - 0.5) * 0.6),
+          0.7 + (Math.random() * 1.5),
+          (Math.sin(angle) * burst) + ((Math.random() - 0.5) * 0.6),
         ),
         settled: false,
       });

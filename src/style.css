@@ -1128,6 +1128,44 @@ body {
   filter: brightness(0.55) sepia(0.5) saturate(2.1) hue-rotate(35deg);
 }
 
+/* Collapsible "..." holding the advanced input options. */
+.menu-advanced {
+  margin-top: 8px;
+}
+
+.menu-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 26px;
+  margin-left: auto;
+  box-sizing: border-box;
+  border: 1px solid rgb(216 245 176 / 18%);
+  border-radius: 8px;
+  color: #eafbd2;
+  background: rgb(40 55 28 / 70%);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+}
+
+.menu-advanced-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.menu-advanced[open] .menu-advanced-toggle {
+  color: #10200d;
+  background: #d8f5b0;
+}
+
+.menu-advanced-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 #menuLevelList {
   display: grid;
   gap: 6px;
