@@ -983,7 +983,7 @@ body {
 .accident-overflow {
   position: absolute;
   top: calc(50% - 7px);
-  right: -2px;
+  left: calc(100% - 14px);
   pointer-events: none;
 }
 
