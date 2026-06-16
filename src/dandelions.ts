@@ -137,15 +137,30 @@ export function createDandelions(
       center.material = materials.dandelionCenterMaterial;
       pieces.push(center);
 
-      for (let i = 0; i < 22; i += 1) {
-        const angle = (i / 22) * Math.PI * 2;
-        const petal = MeshBuilder.CreateSphere(`yellow-petal-${i}`, { diameter: 0.085, segments: 5 }, scene);
-        petal.parent = head;
-        petal.position = new Vector3(Math.cos(angle) * 0.085, Math.sin(angle * 3) * 0.018, Math.sin(angle) * 0.085);
-        petal.scaling = new Vector3(1.6, 0.45, 0.65);
-        petal.rotation.y = -angle;
-        petal.material = materials.dandelionYellowMaterial;
-        pieces.push(petal);
+      // Two layered rings of elongated, thin rays read as real dandelion petals
+      // instead of a ring of fat beads: a longer outer ring slightly cupped up,
+      // a shorter inner ring offset half a step to fill the gaps.
+      const petalRings = [
+        { count: 24, radius: 0.094, offset: 0, length: 2.6, width: 0.5, lift: 0.004 },
+        { count: 15, radius: 0.058, offset: Math.PI / 15, length: 1.95, width: 0.46, lift: 0.024 },
+      ];
+      let petalIndex = 0;
+      for (const ring of petalRings) {
+        for (let i = 0; i < ring.count; i += 1) {
+          const angle = ((i / ring.count) * Math.PI * 2) + ring.offset;
+          const petal = MeshBuilder.CreateSphere(`yellow-petal-${petalIndex}`, { diameter: 0.085, segments: 5 }, scene);
+          petal.parent = head;
+          petal.position = new Vector3(
+            Math.cos(angle) * ring.radius,
+            ring.lift + (Math.sin(angle * 3) * 0.01),
+            Math.sin(angle) * ring.radius,
+          );
+          petal.scaling = new Vector3(ring.length, 0.26, ring.width);
+          petal.rotation.y = -angle;
+          petal.material = materials.dandelionYellowMaterial;
+          pieces.push(petal);
+          petalIndex += 1;
+        }
       }
     } else {
       const core = MeshBuilder.CreateIcoSphere("seed-core", { radius: 0.026, subdivisions: 1, flat: true }, scene);
@@ -154,17 +169,21 @@ export function createDandelions(
       pieces.push(core);
 
       const fuzzCount = 150 + Math.floor(Math.random() * 60);
+      // Even spherical distribution (Fibonacci sphere) so the puff reads as a
+      // round, uniform ball instead of the clumps/gaps of uniform-random points.
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
       for (let i = 0; i < fuzzCount; i += 1) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = 0.12 + (Math.random() * 0.08);
+        const y = 1 - ((i / (fuzzCount - 1)) * 2); // 1 -> -1
+        const ringRadius = Math.sqrt(Math.max(0, 1 - (y * y)));
+        const theta = i * goldenAngle;
+        const radius = 0.15 + (Math.random() * 0.045); // slight jitter off the shell
         const fuzz = MeshBuilder.CreatePlane(`seed-fuzz-${i}`, { size: 0.07 + (Math.random() * 0.05) }, scene);
         fuzz.parent = head;
         fuzz.position = new Vector3(
-          Math.sin(phi) * Math.cos(theta) * radius,
-          Math.cos(phi) * radius,
-          Math.sin(phi) * Math.sin(theta) * radius,
+          Math.cos(theta) * ringRadius * radius,
+          y * radius,
+          Math.sin(theta) * ringRadius * radius,
         );
         fuzz.billboardMode = Mesh.BILLBOARDMODE_ALL;
         fuzz.material = fluffMaterial;

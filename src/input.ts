@@ -55,6 +55,12 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     y: 0,
   };
   const touchRadius = 58;
+  // Touch steering shaping: a wider dead zone with a very gentle response just
+  // outside it (high exponent keeps small offsets tiny), ramping to full only near
+  // the rim — finer control than a near-linear stick.
+  const TOUCH_STEER_DEADZONE = 0.34;
+  const TOUCH_STEER_EXPONENT = 2.6;
+  const touchSteer = () => shapedDeadzone(touch.x / touchRadius, TOUCH_STEER_DEADZONE, TOUCH_STEER_EXPONENT);
 
   const updateTouchKnob = () => {
     if (!touch.active) {
@@ -114,7 +120,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
   return {
     get turn() {
-      const touchTurn = touch.active && shouldUseTouch() ? shapedDeadzone(touch.x / touchRadius, 0.24, 1.75) : 0;
+      const touchTurn = touch.active && shouldUseTouch() ? touchSteer() : 0;
       const gamepad = shouldUseController() ? navigator.getGamepads().find(Boolean) : null;
       const gamepadTurn = gamepad ? deadzone(gamepad.axes[0] ?? 0) : 0;
       return clamp(touchTurn + gamepadTurn, -1, 1);
@@ -126,10 +132,10 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     get touchTurn() {
-      // Same feel as the analog stick: a dead center, then gentle proportional
-      // turning. The wider dead zone and exponent make the first few millimeters
-      // outside center much less twitchy than a plain stick curve.
-      return touch.active && shouldUseTouch() ? shapedDeadzone(touch.x / touchRadius, 0.24, 1.75) : 0;
+      // Wide dead center then a very gentle ramp (see TOUCH_STEER_* above): the
+      // first few millimeters outside center barely steer, full lock only near
+      // the rim — much less twitchy than a plain stick curve.
+      return touch.active && shouldUseTouch() ? touchSteer() : 0;
     },
 
     get cameraTurn() {

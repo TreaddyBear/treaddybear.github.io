@@ -31,7 +31,8 @@ export function createMaterials(scene: Scene) {
 
   const dandelionYellowMaterial = new StandardMaterial("dandelionYellowMaterial", scene);
   dandelionYellowMaterial.diffuseColor = new Color3(1, 0.96, 0.02);
-  dandelionYellowMaterial.emissiveColor = new Color3(0.38, 0.28, 0);
+  // Faint warm-orange glow so the flower reads vivid without washing out.
+  dandelionYellowMaterial.emissiveColor = new Color3(0.5, 0.26, 0.04);
   dandelionYellowMaterial.specularColor = Color3.Black();
 
   const dandelionSeedMaterial = new StandardMaterial("dandelionSeedMaterial", scene);
