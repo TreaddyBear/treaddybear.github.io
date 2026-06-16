@@ -296,11 +296,14 @@ const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentO
     };
   }
 
-  const pile = offsets[9] ?? { x: 10, y: -8, rotation: 18, scale: 1.1 };
+  const previousPile = offsets[index - 1] ?? offsets[9] ?? { x: 10, y: -8, rotation: 18, scale: 1.1 };
+  const rightwardPush = index === accidentSlotCount
+    ? 9 + (Math.random() * 5)
+    : 3 + (Math.random() * 6);
   return {
-    x: pile.x + ((Math.random() - 0.5) * 8),
-    y: pile.y + ((Math.random() - 0.5) * 9),
-    rotation: pile.rotation + ((Math.random() - 0.5) * 34),
+    x: previousPile.x + rightwardPush,
+    y: previousPile.y + ((Math.random() - 0.5) * 9),
+    rotation: previousPile.rotation + ((Math.random() - 0.5) * 34),
     scale: 0.96 + (Math.random() * 0.18),
   };
 };
