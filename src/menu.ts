@@ -37,6 +37,7 @@ export function createMenu(deps: MenuDeps) {
   const resumeLabel = document.querySelector<HTMLSpanElement>("[data-resume-label]");
   const inputModesEl = document.querySelector<HTMLDivElement>("#menuInputModes");
   const inputSwapSlot = document.querySelector<HTMLDivElement>("#menuInputSwapSlot");
+  const touchSplitRow = document.querySelector<HTMLElement>("#menuTouchSplitRow");
   const inputOverflowEl = document.querySelector<HTMLDivElement>("#menuInputOverflow");
   const levelSelectEl = document.querySelector<HTMLDivElement>("#menuLevelSelect");
   const levelListEl = document.querySelector<HTMLDivElement>("#menuLevelList");
@@ -162,6 +163,12 @@ export function createMenu(deps: MenuDeps) {
 
   const syncInputModes = () => {
     const current = deps.getInputMode();
+    // The split-touch toggle only makes sense when touch is actually in use.
+    const touchEnabled = current === "touch"
+      || (current === "auto" && matchMedia("(pointer: coarse)").matches);
+    if (touchSplitRow) {
+      touchSplitRow.hidden = !touchEnabled;
+    }
     const primaryMode = swappableInputModes.includes(current)
       ? current
       : "controller";
