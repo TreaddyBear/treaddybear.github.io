@@ -140,13 +140,18 @@ const scene = new Scene(engine);
 scene.setRenderingAutoClearDepthStencil(renderingGroups.transientEffects, false);
 const prototypeAudio = createPrototypeAudio();
 prototypeAudio.setMasterVolume(settings.masterVolume);
-// Mute on lost focus (opt-in): suspend all audio while the window is unfocused.
+// Pause the game whenever the window loses focus; mute too if that's opted in.
+let pausedByBlur = false;
 window.addEventListener("blur", () => {
+  pausedByBlur = true;
   if (settings.muteOnBlur) {
     prototypeAudio.setSuspended(true);
   }
 });
-window.addEventListener("focus", () => prototypeAudio.setSuspended(false));
+window.addEventListener("focus", () => {
+  pausedByBlur = false;
+  prototypeAudio.setSuspended(false);
+});
 const perfEl = document.querySelector<HTMLDivElement>("#perf");
 const useMobileRenderProfile = matchMedia("(pointer: coarse)").matches || window.innerWidth < 620;
 
@@ -1385,7 +1390,7 @@ engine.runRenderLoop(() => {
   // Paused: render the frozen frame behind the menu, run no simulation — but keep
   // the grass swaying in the wind so it doesn't snap to a new wind phase the
   // instant the menu closes (timeSeconds keeps advancing while paused).
-  if (menu.isOpen()) {
+  if (menu.isOpen() || pausedByBlur) {
     grass.updateMotion(timeSeconds);
     scene.render();
     return;

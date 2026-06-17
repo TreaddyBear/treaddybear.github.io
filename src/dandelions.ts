@@ -59,7 +59,10 @@ export function createDandelions(
   fluffMaterial.diffuseColor = new Color3(1, 1, 1);
   fluffMaterial.emissiveColor = new Color3(0.46, 0.46, 0.42); // lift so it reads light/airy
   fluffMaterial.specularColor = Color3.Black();
-  fluffMaterial.useAlphaFromDiffuseTexture = true;
+  // Drive opacity from the sprite's alpha via an explicit opacityTexture (the
+  // reliable path) instead of useAlphaFromDiffuseTexture, which had stopped
+  // showing the white tuft.
+  fluffMaterial.opacityTexture = fluffTexture;
   fluffMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
   fluffMaterial.backFaceCulling = false;
 
