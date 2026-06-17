@@ -335,7 +335,7 @@ export function createMenu(deps: MenuDeps) {
     if (inputMode) {
       deps.setInputMode(inputMode);
       syncInputModes();
-      closeExpanders();
+      // Keep the submenu open — picking a mode shouldn't collapse it.
       return;
     }
 
