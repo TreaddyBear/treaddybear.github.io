@@ -156,6 +156,14 @@ if (!import.meta.env.PROD) {
   }
 }
 
+// PWA service worker — production only, so the dev server isn't shadowed by a
+// cache. Registered at the site root (this is the user-pages root deployment).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 const keys = new Set<string>();
 let player: Mesh;
 let mapGroundRoot: TransformNode | null = null;
