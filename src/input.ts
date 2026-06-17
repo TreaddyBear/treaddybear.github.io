@@ -216,7 +216,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
       steer.active = false;
       steer.x = 0;
       throttleCtl.active = false;
-      throttleCtl.p = 0;
+      throttleCtl.p = THROTTLE_REST;
     }
     updateSteerKnob();
     updateThrottleKnob();
@@ -326,12 +326,12 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     syncTouchControls,
 
     cancelThrottle() {
-      if (throttleCtl.p === 0 && !throttleCtl.active) {
+      if (throttleCtl.p === THROTTLE_REST && !throttleCtl.active) {
         return; // already idle — no work / no DOM write
       }
       throttleCtl.active = false;
       throttleCtl.pointerId = -1;
-      throttleCtl.p = 0;
+      throttleCtl.p = THROTTLE_REST;
       updateThrottleKnob();
     },
   };
