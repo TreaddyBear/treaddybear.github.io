@@ -56,10 +56,11 @@ type HudState = {
 };
 
 const starMode: StarMode = 3;
-type AccidentOffset = { x: number; y: number; rotation: number; scale: number };
+type AccidentOffset = { leftPercent: number; x: number; y: number; rotation: number; scale: number };
 
 const accidentSlotCount = 10;
 const maxVisibleAccidents = 14;
+const brokenAccidentPercents = [10, 20, 29.5, 38, 45, 55, 64, 70, 78, 85];
 
 const formatTime = (seconds: number) => {
   const whole = Math.max(0, Math.floor(seconds));
@@ -244,65 +245,37 @@ const celebrationSeedCount = (reason: ResultReason, stars: number) => {
 const randomSign = () => (Math.random() < 0.5 ? -1 : 1);
 
 const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentOffset => {
-  if(index < 3) {
-    return { x: 0, y: 0, rotation: 0, scale: 1 };
-  }
-
-  if(index < 6) {
-    const drift = index === 5 ? 3 + Math.random() : index - 2;
+  if(index < accidentSlotCount) {
+    const tension = Math.max(0, index - 2);
+    const jitter = tension <= 0 ? 0 : (Math.random() - 0.5) * Math.min(1.6, tension * 0.28);
+    const yAmount = tension <= 0
+      ? 0
+      : index < 6
+        ? randomSign() * Math.min(3, tension)
+        : randomSign() * (4 + (Math.random() * 4));
     return {
-      x: randomSign() * drift,
-      y: randomSign() * Math.max(1, Math.round(drift - 1)),
-      rotation: randomSign() * (2 + (Math.random() * 5)),
-      scale: 1,
+      leftPercent: brokenAccidentPercents[index] + jitter,
+      x: 0,
+      y: yAmount,
+      rotation: tension <= 0 ? 0 : randomSign() * (Math.min(18, tension * 3) + (Math.random() * 4)),
+      scale: index < 7 ? 1 : 1.02 + ((index - 7) * 0.02),
     };
   }
 
-  if(index === 6) {
-    return {
-      x: -5 - (Math.random() * 3),
-      y: randomSign() * (5 + (Math.random() * 3)),
-      rotation: randomSign() * (8 + (Math.random() * 6)),
-      scale: 1.02,
-    };
-  }
-
-  if(index === 7) {
-    const previous = offsets[6] ?? { y: 6 };
-    const side = previous.y >= 0 ? -1 : 1;
-    return {
-      x: -8 - (Math.random() * 4),
-      y: side * (6 + (Math.random() * 4)),
-      rotation: side * (9 + (Math.random() * 7)),
-      scale: 1.04,
-    };
-  }
-
-  if(index === 8) {
-    return {
-      x: -14 - (Math.random() * 5),
-      y: randomSign() * (1 + (Math.random() * 3)),
-      rotation: randomSign() * (12 + (Math.random() * 8)),
-      scale: 1.06,
-    };
-  }
-
-  if(index === 9) {
-    return {
-      x: 8 + (Math.random() * 9),
-      y: randomSign() * (8 + (Math.random() * 6)),
-      rotation: randomSign() * (18 + (Math.random() * 14)),
-      scale: 1.1,
-    };
-  }
-
-  const displacedTenth = offsets[9] ?? { x: 10, y: -8, rotation: 18, scale: 1.1 };
+  const displacedTenth = offsets[9] ?? {
+    leftPercent: brokenAccidentPercents[9],
+    x: 0,
+    y: -6,
+    rotation: 16,
+    scale: 1.08,
+  };
   const previousPile = offsets[index - 1] ?? displacedTenth;
   const rightwardPush = index === accidentSlotCount
-    ? 10 + (Math.random() * 3)
-    : 2 + (Math.random() * 5);
+    ? 3.4 + (Math.random() * 0.9)
+    : 1 + (Math.random() * 2.2) - (Math.random() < 0.28 ? Math.random() * 1.2 : 0);
   return {
-    x: previousPile.x + rightwardPush,
+    leftPercent: Math.max(displacedTenth.leftPercent + 3.2, previousPile.leftPercent + rightwardPush),
+    x: (Math.random() - 0.5) * 4,
     y: previousPile.y + ((Math.random() - 0.5) * 9),
     rotation: previousPile.rotation + ((Math.random() - 0.5) * 34),
     scale: 0.96 + (Math.random() * 0.18),
@@ -310,6 +283,7 @@ const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentO
 };
 
 const applyAccidentOffset = (slot: HTMLElement, offset: AccidentOffset) => {
+  slot.style.setProperty("--accident-left", `${offset.leftPercent.toFixed(1)}%`);
   slot.style.setProperty("--accident-x", `${offset.x.toFixed(1)}px`);
   slot.style.setProperty("--accident-y", `${offset.y.toFixed(1)}px`);
   slot.style.setProperty("--accident-rotation", `${offset.rotation.toFixed(1)}deg`);
@@ -359,6 +333,7 @@ const syncAccidentSlots = (container: HTMLElement, mistakes: number, offsets: Ac
       slot.style.removeProperty("--accident-y");
       slot.style.removeProperty("--accident-rotation");
       slot.style.removeProperty("--accident-scale");
+      slot.style.removeProperty("--accident-left");
     }
   }
 
