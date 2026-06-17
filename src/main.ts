@@ -570,6 +570,10 @@ function resetGame() {
   dandelions.place();
   tulips.place();
   grass.mowUnderMower(0);
+  // Prime the per-frame grass motion once so the blades are already in their
+  // wind/rest pose for the first render, instead of snapping from upright into
+  // the swayed pose the moment the loop (or the mower) first moves.
+  grass.updateMotion(0);
   dandelions.mowAt(player.position.x, player.position.z, mowerCutRadius * mowerCutRadius);
   hud.syncMistakesVisibility();
   hud.update();
