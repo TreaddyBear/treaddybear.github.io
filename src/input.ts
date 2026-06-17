@@ -79,7 +79,8 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
   const throttlePad = document.querySelector<HTMLElement>("#touchThrottle");
   const throttleKnob = document.querySelector<HTMLElement>("#touchThrottleKnob");
   const steer = { active: false, pointerId: -1, originX: 0, x: 0 }; // x = swipe delta in [-1,1]
-  const throttleCtl = { active: false, pointerId: -1, p: 0 }; // last Y in [-1,1], persists (locked)
+  const THROTTLE_REST = -0.4; // stop position: centre of the stop band, NOT the pad centre
+  const throttleCtl = { active: false, pointerId: -1, p: THROTTLE_REST }; // last Y in [-1,1], persists (locked)
   // Steering is a trackpad: swipe from where you touch, hold the position to hold
   // the steer, release re-centres.
   const SPLIT_STEER_RANGE = 110; // px of swipe for full lock
