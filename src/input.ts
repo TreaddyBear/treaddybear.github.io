@@ -11,6 +11,8 @@ export type AnalogInput = {
   setMode: (mode: InputMode) => void;
   // Re-sync which touch widget shows (all-in-one vs split) after a settings change.
   syncTouchControls: () => void;
+  // Clear the held split throttle (on menu open, end card, or a new level).
+  cancelThrottle: () => void;
 };
 
 export type InputMode = "auto" | "keyboard" | "mouse" | "controller" | "touch";
@@ -49,6 +51,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     boost: false,
     setMode: () => {},
     syncTouchControls: () => {},
+    cancelThrottle: () => {},
   };
   let inputMode: InputMode = "auto";
   const touch = {
@@ -75,20 +78,26 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
   const steerKnob = document.querySelector<HTMLElement>("#touchSteerKnob");
   const throttlePad = document.querySelector<HTMLElement>("#touchThrottle");
   const throttleKnob = document.querySelector<HTMLElement>("#touchThrottleKnob");
-  const steer = { active: false, pointerId: -1, x: 0 }; // x in [-1,1] across the strip
+  const steer = { active: false, pointerId: -1, originX: 0, x: 0 }; // x = swipe delta in [-1,1]
   const throttleCtl = { active: false, pointerId: -1, p: 0 }; // last Y in [-1,1], persists (locked)
-  const THROTTLE_IDLE = 0.16; // dead band around centre
+  // Steering is a trackpad: swipe from where you touch, hold the position to hold
+  // the steer, release re-centres.
+  const SPLIT_STEER_RANGE = 110; // px of swipe for full lock
+  const SPLIT_STEER_DEADZONE = 0.1;
+  const SPLIT_STEER_EXPONENT = 2.2;
 
   const splitOn = () => settings.touchSplitControls;
 
+  // Throttle is a set-and-hold slider in thirds (top -> bottom): the top 3/5 is a
+  // smooth analog forward, the next 1/5 is stop, the bottom 1/5 is constant reverse.
   const throttleFromP = (p: number) => {
-    if (Math.abs(p) < THROTTLE_IDLE) {
-      return 0;
+    if (p >= -0.2) {
+      return Math.min(1, Math.max(0, (p + 0.2) / 1.2)); // top 3/5: analog forward
     }
-    if (p > 0) {
-      return Math.min(1, (p - THROTTLE_IDLE) / (1 - THROTTLE_IDLE)); // analog forward
+    if (p >= -0.6) {
+      return 0; // middle 1/5: stop
     }
-    return -0.45; // simple constant reverse
+    return -0.45; // bottom 1/5: constant reverse
   };
 
   const updateSteerKnob = () => {
@@ -108,13 +117,9 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     throttleKnob.style.transform = `translate(-50%, calc(-50% + ${-throttleCtl.p * half}px))`;
   };
 
-  const steerAt = (clientX: number) => {
-    if (!steerPad) {
-      return 0;
-    }
-    const rect = steerPad.getBoundingClientRect();
-    return clamp((((clientX - rect.left) / rect.width) * 2) - 1, -1, 1);
-  };
+  // Trackpad: steer by the swipe DELTA from the touch-down point, not absolute
+  // position, so a swipe-and-hold holds the steer and a release re-centres.
+  const steerDelta = (clientX: number) => clamp((clientX - steer.originX) / SPLIT_STEER_RANGE, -1, 1);
   const throttleAt = (clientY: number) => {
     if (!throttlePad) {
       return 0;
@@ -127,7 +132,8 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     steerPad.addEventListener("pointerdown", (event) => {
       steer.active = true;
       steer.pointerId = event.pointerId;
-      steer.x = steerAt(event.clientX);
+      steer.originX = event.clientX;
+      steer.x = 0;
       steerPad.setPointerCapture(event.pointerId);
       updateSteerKnob();
     });
@@ -135,7 +141,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
       if (!steer.active || event.pointerId !== steer.pointerId) {
         return;
       }
-      steer.x = steerAt(event.clientX);
+      steer.x = steerDelta(event.clientX);
       updateSteerKnob();
     });
     const endSteer = (event: PointerEvent) => {
@@ -178,7 +184,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     throttlePad.addEventListener("pointercancel", endThrottle);
   }
 
-  const steerTurn = () => (steer.active ? shapedDeadzone(steer.x, TOUCH_STEER_DEADZONE, TOUCH_STEER_EXPONENT) : 0);
+  const steerTurn = () => (steer.active ? shapedDeadzone(steer.x, SPLIT_STEER_DEADZONE, SPLIT_STEER_EXPONENT) : 0);
 
   const updateTouchKnob = () => {
     if (!touch.active) {
@@ -317,5 +323,15 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     syncTouchControls,
+
+    cancelThrottle() {
+      if (throttleCtl.p === 0 && !throttleCtl.active) {
+        return; // already idle — no work / no DOM write
+      }
+      throttleCtl.active = false;
+      throttleCtl.pointerId = -1;
+      throttleCtl.p = 0;
+      updateThrottleKnob();
+    },
   };
 }

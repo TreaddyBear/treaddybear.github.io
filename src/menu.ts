@@ -163,11 +163,13 @@ export function createMenu(deps: MenuDeps) {
 
   const syncInputModes = () => {
     const current = deps.getInputMode();
-    // The split-touch toggle only makes sense when touch is actually in use.
-    const touchEnabled = current === "touch"
-      || (current === "auto" && matchMedia("(pointer: coarse)").matches);
+    // Split-touch toggle shows ONLY for explicit Touch ("T"), or Auto ("A") on a
+    // true mobile device (touch-primary: coarse pointer and no fine pointer) —
+    // never for keyboard/mouse/controller, or Auto on a desktop/touchscreen laptop.
+    const isMobile = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+    const showSplitToggle = current === "touch" || (current === "auto" && isMobile);
     if (touchSplitRow) {
-      touchSplitRow.hidden = !touchEnabled;
+      touchSplitRow.hidden = !showSplitToggle;
     }
     const primaryMode = swappableInputModes.includes(current)
       ? current

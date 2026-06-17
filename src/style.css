@@ -497,20 +497,20 @@ body {
 
 .touch-throttle-fwd {
   top: 0;
-  height: 42%;
-  background: linear-gradient(to top, transparent, rgb(120 220 90 / 24%));
+  height: 60%;
+  background: linear-gradient(to top, transparent, rgb(120 220 90 / 26%));
 }
 
 .touch-throttle-idle {
-  top: 42%;
-  height: 16%;
-  background: rgb(255 255 255 / 12%);
+  top: 60%;
+  height: 20%;
+  background: rgb(255 255 255 / 14%);
 }
 
 .touch-throttle-rev {
-  bottom: 0;
-  height: 42%;
-  background: linear-gradient(to bottom, transparent, rgb(230 120 60 / 24%));
+  top: 80%;
+  height: 20%;
+  background: linear-gradient(to bottom, transparent, rgb(230 120 60 / 26%));
 }
 
 .touch-split-knob {

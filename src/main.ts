@@ -569,6 +569,7 @@ function resetGame() {
   grass.generate();
   dandelions.place();
   tulips.place();
+  analogInput.cancelThrottle(); // a fresh level starts stopped, never at a held throttle
   grass.mowUnderMower(0);
   // Prime the per-frame grass motion once so the blades are already in their
   // wind/rest pose for the first render, instead of snapping from upright into
@@ -1222,7 +1223,10 @@ const menu = createMenu({
   },
   isTouch: isTouchPrimary,
   onTouchControlsChange: () => analogInput.syncTouchControls(),
-  onOpen: () => keys.clear(),
+  onOpen: () => {
+    keys.clear();
+    analogInput.cancelThrottle();
+  },
   onClose: () => {
     if (gameStarted) {
       return;
@@ -1354,8 +1358,11 @@ engine.runRenderLoop(() => {
   }
   lastControllerShoot = controllerShoot;
 
-  // Paused: render the frozen frame behind the menu, run no simulation.
+  // Paused: render the frozen frame behind the menu, run no simulation — but keep
+  // the grass swaying in the wind so it doesn't snap to a new wind phase the
+  // instant the menu closes (timeSeconds keeps advancing while paused).
   if (menu.isOpen()) {
+    grass.updateMotion(timeSeconds);
     scene.render();
     return;
   }
@@ -1387,6 +1394,8 @@ engine.runRenderLoop(() => {
     elapsedRunSeconds += deltaSeconds;
     hud.setTime(elapsedRunSeconds);
     hud.update();
+  } else {
+    analogInput.cancelThrottle(); // end card up: drop any held throttle so the mower stops
   }
 
   prototypeAudio.setCuttingActive(grass.isCutting());
