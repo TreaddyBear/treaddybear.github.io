@@ -1051,7 +1051,7 @@ export function createGrass(deps: GrassDeps) {
         const outsideDistance = Math.sqrt((outsideSide * outsideSide) + (outsideForward * outsideForward));
         const insideMower = Math.abs(localSide) <= halfWidth && Math.abs(localForward) <= halfLength;
 
-        if (throttle !== 0 && (insideMower || outsideDistance < feather)) {
+        if (insideMower || (throttle !== 0 && outsideDistance < feather)) {
           const edgeFalloff = insideMower ? 1 : 1 - (outsideDistance / feather);
           const movementBias = Math.max(0, 1 - (Math.max(0, localForward * Math.sign(throttle)) / (halfLength + feather)));
           const targetPressure = Math.min(1, edgeFalloff * (0.35 + (movementBias * 0.65)));

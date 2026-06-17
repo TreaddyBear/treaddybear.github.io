@@ -56,11 +56,22 @@ function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
 }
 
+// Master output level (0..1) multiplied into every sound, plus a registry of the
+// per-sound AudioContexts so "mute on lost focus" can suspend/resume them all.
+let masterVolume = 0.5;
+const audioContexts: AudioContext[] = [];
+
 function getAudioContext() {
   const AudioContextConstructor = window.AudioContext
     ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
-  return AudioContextConstructor ? new AudioContextConstructor() : null;
+  if (!AudioContextConstructor) {
+    return null;
+  }
+
+  const context = new AudioContextConstructor();
+  audioContexts.push(context);
+  return context;
 }
 
 function findLoopWindow(buffer: AudioBuffer): LoopWindow {
@@ -147,7 +158,7 @@ function createLoopingTrack(sourceUrl: string) {
 
     const loop = findLoopWindow(buffer);
     gainNode = audioContext.createGain();
-    gainNode.gain.value = volume;
+    gainNode.gain.value = volume * masterVolume;
     gainNode.connect(audioContext.destination);
 
     sourceNode = audioContext.createBufferSource();
@@ -163,10 +174,11 @@ function createLoopingTrack(sourceUrl: string) {
   return {
     setVolume(nextVolume: number, response = 0.035) {
       volume = clamp01(nextVolume);
-      fallbackAudio.volume = volume;
+      const out = volume * masterVolume;
+      fallbackAudio.volume = out;
 
       if(gainNode && audioContext) {
-        gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, Math.max(0.001, response));
+        gainNode.gain.setTargetAtTime(out, audioContext.currentTime, Math.max(0.001, response));
       }
     },
 
@@ -208,7 +220,7 @@ function createOneShotTrack(sourceUrl: string) {
     },
 
     play(volume: number) {
-      const safeVolume = clamp01(volume);
+      const safeVolume = clamp01(volume) * masterVolume;
       loading ??= load().catch(() => null);
       loading.then((loadedBuffer) => {
         if(!loadedBuffer || !audioContext) {
@@ -292,6 +304,25 @@ export function createPrototypeAudio() {
   window.addEventListener("keydown", unlock, { once: true });
 
   return {
+    // Master output level (0..1). Loops pick it up on their next per-frame
+    // setVolume; one-shots on their next play.
+    setMasterVolume(value: number) {
+      masterVolume = clamp01(value);
+    },
+
+    // "Mute on lost focus": suspend/resume every audio context so the game goes
+    // fully silent immediately (even if the render loop is throttled), and
+    // returns when focus comes back.
+    setSuspended(suspended: boolean) {
+      for(const context of audioContexts) {
+        if(suspended) {
+          void context.suspend();
+        } else if(context.state === "suspended") {
+          void context.resume();
+        }
+      }
+    },
+
     setCuttingActive(active: boolean) {
       if(active && !cuttingActive) {
         cuttingStartedAt = performance.now() / 1000;

@@ -20,6 +20,8 @@ export type MenuDeps = {
   isTouch: boolean;
   // Re-sync which touch widget shows after the split-controls toggle changes.
   onTouchControlsChange?: () => void;
+  // Apply the master volume slider value (0..1) to the audio engine.
+  onMasterVolume?: (value: number) => void;
   // Called when the menu opens/closes so the game can pause/resume.
   onOpen?: () => void;
   onClose?: () => void;
@@ -290,6 +292,23 @@ export function createMenu(deps: MenuDeps) {
       settings.touchSplitControls = touchSplitCheckbox.checked;
       setTouchSplitControls(settings.touchSplitControls);
       deps.onTouchControlsChange?.();
+    });
+  }
+
+  const masterVolumeSlider = document.querySelector<HTMLInputElement>("#menuMasterVolume");
+  if (masterVolumeSlider) {
+    masterVolumeSlider.value = String(settings.masterVolume);
+    masterVolumeSlider.addEventListener("input", () => {
+      settings.masterVolume = Number(masterVolumeSlider.value);
+      deps.onMasterVolume?.(settings.masterVolume);
+    });
+  }
+
+  const muteBlurCheckbox = document.querySelector<HTMLInputElement>("#menuMuteBlur");
+  if (muteBlurCheckbox) {
+    muteBlurCheckbox.checked = settings.muteOnBlur;
+    muteBlurCheckbox.addEventListener("change", () => {
+      settings.muteOnBlur = muteBlurCheckbox.checked;
     });
   }
 

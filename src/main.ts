@@ -139,6 +139,14 @@ const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
 scene.setRenderingAutoClearDepthStencil(renderingGroups.transientEffects, false);
 const prototypeAudio = createPrototypeAudio();
+prototypeAudio.setMasterVolume(settings.masterVolume);
+// Mute on lost focus (opt-in): suspend all audio while the window is unfocused.
+window.addEventListener("blur", () => {
+  if (settings.muteOnBlur) {
+    prototypeAudio.setSuspended(true);
+  }
+});
+window.addEventListener("focus", () => prototypeAudio.setSuspended(false));
 const perfEl = document.querySelector<HTMLDivElement>("#perf");
 const useMobileRenderProfile = matchMedia("(pointer: coarse)").matches || window.innerWidth < 620;
 
@@ -1225,6 +1233,7 @@ const menu = createMenu({
   },
   isTouch: isTouchPrimary,
   onTouchControlsChange: () => analogInput.syncTouchControls(),
+  onMasterVolume: (value) => prototypeAudio.setMasterVolume(value),
   onOpen: () => {
     keys.clear();
     analogInput.cancelThrottle();
