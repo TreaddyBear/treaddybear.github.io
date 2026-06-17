@@ -1229,6 +1229,12 @@ body {
   gap: 8px;
 }
 
+/* `.menu-item` sets display:flex, which otherwise beats the [hidden] attribute —
+   so a hidden menu row (e.g. the touch-split toggle off-touch) would still show. */
+.menu-item[hidden] {
+  display: none;
+}
+
 .menu-item {
   display: flex;
   align-items: center;
