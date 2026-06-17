@@ -1058,10 +1058,23 @@ body {
 }
 
 .accident-overflow {
-  position: absolute;
-  top: calc(50% - 7px);
-  left: calc(100% - 14px);
   pointer-events: none;
+}
+
+#mistakes.accidents-overflowing {
+  display: block;
+  min-height: 14px;
+}
+
+#mistakes.accidents-overflowing .accident-slot {
+  position: absolute;
+  top: 50%;
+  left: var(--accident-left, 0%);
+  transform:
+    translate(-50%, -50%)
+    translate(var(--accident-x, 0), var(--accident-y, 0))
+    rotate(var(--accident-rotation, 0))
+    scale(var(--accident-scale, 1));
 }
 
 #mistakes.accidents-overflowing .accident-slot.active::before {
