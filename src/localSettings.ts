@@ -7,11 +7,14 @@ type LevelProgress = {
 
 type LocalSettings = {
   levels: Partial<Record<LevelCode, LevelProgress>>;
+  preferences: {
+    touchSplitControls?: boolean;
+  };
 };
 
 const STORAGE_KEY = "lawnLocalSettings";
 
-const emptySettings = (): LocalSettings => ({ levels: {} });
+const emptySettings = (): LocalSettings => ({ levels: {}, preferences: {} });
 
 function isLevelCode(value: string): value is LevelCode {
   return (levelCodes as readonly string[]).includes(value);
@@ -32,6 +35,10 @@ export function loadLocalSettings(): LocalSettings {
       if (bestStars > 0) {
         next.levels[code] = { bestStars };
       }
+    }
+
+    if (typeof parsed.preferences?.touchSplitControls === "boolean") {
+      next.preferences.touchSplitControls = parsed.preferences.touchSplitControls;
     }
 
     return next;
@@ -71,5 +78,15 @@ export function recordLevelStars(code: LevelCode, stars: number) {
   }
 
   settings.levels[code] = { bestStars: clampedStars };
+  saveLocalSettings(settings);
+}
+
+export function getTouchSplitControls(defaultValue = false) {
+  return loadLocalSettings().preferences.touchSplitControls ?? defaultValue;
+}
+
+export function setTouchSplitControls(value: boolean) {
+  const settings = loadLocalSettings();
+  settings.preferences.touchSplitControls = value;
   saveLocalSettings(settings);
 }

@@ -5,7 +5,7 @@ body {
   margin: 0;
   overflow: hidden;
   font-family: Arial, Helvetica, sans-serif;
-  background: #111;
+  background: #10180c;
 }
 
 #renderCanvas {
@@ -13,6 +13,20 @@ body {
   height: 100vh;
   display: block;
   touch-action: none;
+  background: #10180c;
+}
+
+#hud,
+#hintToast,
+#menu,
+#celebration,
+#timeup,
+#loading,
+#touchPad,
+#touchSteer,
+#touchThrottle,
+#settings {
+  visibility: visible;
 }
 
 #hud {
@@ -477,7 +491,8 @@ body {
   left: 22px;
   bottom: 26px;
   width: min(46vw, 220px);
-  height: 76px;
+  height: min(52vh, 240px);
+  border-radius: 24px;
 }
 
 .touch-throttle {
@@ -527,7 +542,26 @@ body {
 }
 
 .touch-throttle .touch-split-knob {
-  width: 62px;
+  width: 46px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgb(240 255 200 / 76%);
+}
+
+.touch-steer-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 66px;
+  height: 66px;
+  opacity: 0.64;
+  filter: drop-shadow(0 3px 12px rgb(0 0 0 / 38%));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch-steer.active .touch-steer-icon {
+  opacity: 0.86;
 }
 
 @media (max-width: 620px) {
@@ -612,11 +646,13 @@ body {
   grid-auto-flow: row;
   place-content: center;
   justify-items: center;
-  gap: 14px;
-  color: #f7ffcf;
-  background: rgb(8 18 4 / 72%);
-  font-size: 18px;
+  gap: 12px;
+  color: rgb(216 245 176 / 56%);
+  background: #10180c;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 #loading[hidden] {
@@ -645,16 +681,16 @@ body {
 }
 
 #loadingSpinner {
-  width: 54px;
-  height: 54px;
-  border: 6px solid rgb(247 255 207 / 22%);
-  border-top-color: #d8f5b0;
+  width: 38px;
+  height: 38px;
+  border: 4px solid rgb(216 245 176 / 10%);
+  border-top-color: rgb(216 245 176 / 48%);
   border-radius: 999px;
-  animation: loading-spin 0.8s linear infinite;
+  animation: loading-spin 1s linear infinite;
 }
 
 #loadingText {
-  text-shadow: 0 2px 10px rgb(0 0 0 / 50%);
+  text-shadow: none;
 }
 
 @keyframes loading-spin {
@@ -1032,9 +1068,7 @@ body {
     translate(var(--accident-x, 0), var(--accident-y, 0))
     rotate(var(--accident-rotation, 0))
     scale(var(--accident-scale, 1));
-  transition:
-    color 160ms ease,
-    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 160ms ease;
 }
 
 .accident-slot::before {
@@ -1114,8 +1148,11 @@ body {
   inset: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  box-sizing: border-box;
+  padding-top: clamp(32px, 8vh, 72px);
+  overflow: auto;
   background: rgb(6 12 4 / 55%);
   backdrop-filter: blur(3px);
 }
@@ -1127,6 +1164,8 @@ body {
 #menuPanel {
   width: min(320px, calc(100vw - 40px));
   box-sizing: border-box;
+  flex: 0 0 auto;
+  margin-bottom: 24px;
   padding: 18px;
   border: 1px solid rgb(216 245 176 / 30%);
   border-radius: 8px;
@@ -1135,6 +1174,7 @@ body {
 }
 
 #menuTitle {
+  position: relative;
   margin-bottom: 14px;
   color: #eafbd2;
   font-size: 20px;
@@ -1148,6 +1188,39 @@ body {
   height: auto;
   margin: 0 auto;
   filter: invert(94%) sepia(16%) saturate(541%) hue-rotate(33deg) brightness(105%) contrast(96%);
+}
+
+#menuTitle::after {
+  position: absolute;
+  inset: 0;
+  width: min(230px, 78%);
+  margin: 0 auto;
+  background: linear-gradient(105deg, transparent 28%, rgb(255 216 96 / 0%) 40%, rgb(255 216 96 / 88%) 50%, rgb(255 248 180 / 78%) 56%, transparent 70%);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-70%);
+  -webkit-mask: url("/lamow.svg") center / contain no-repeat;
+  mask: url("/lamow.svg") center / contain no-repeat;
+}
+
+#menuTitle.logo-shimmer::after {
+  animation: logo-gold-wave 1700ms ease-out;
+}
+
+@keyframes logo-gold-wave {
+  0% {
+    opacity: 0;
+    transform: translateX(-80%);
+  }
+  16%,
+  68% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80%);
+  }
 }
 
 #menuOptions {

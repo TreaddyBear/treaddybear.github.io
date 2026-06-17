@@ -63,7 +63,7 @@ import {
   terrainHeightAt,
   updateBiomeGroundMaterialScale,
 } from "./world";
-import { getLevelBestStars, recordLevelStars } from "./localSettings";
+import { getLevelBestStars, getTouchSplitControls, recordLevelStars } from "./localSettings";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -132,6 +132,7 @@ const finishRunButtonEl = finishRunButtonElement;
 const resultStarsEl = resultStarsElement;
 const resultStatsEl = resultStatsElement;
 const resultCoachEl = resultCoachElement;
+settings.touchSplitControls = getTouchSplitControls(settings.touchSplitControls);
 const analogInput = createInputController(touchPadElement, touchKnobElement);
 
 const engine = new Engine(canvas, true);
@@ -1199,6 +1200,7 @@ document.addEventListener("fullscreenchange", () => {
 // (shown by createMenu) opens it. Opening pauses the sim (render loop checks
 // menu.isOpen) and clears held keys so the mower doesn't drift on resume.
 const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
+let syncGameplayInputVisibility = () => analogInput.setGameplayActive(false);
 const menu = createMenu({
   toggleFullscreen: () => fullscreenButtonEl.click(),
   getInputMode: () => settings.inputMode as InputMode,
@@ -1226,19 +1228,31 @@ const menu = createMenu({
   onOpen: () => {
     keys.clear();
     analogInput.cancelThrottle();
+    analogInput.setGameplayActive(false);
   },
   onClose: () => {
     if (gameStarted) {
+      syncGameplayInputVisibility();
       return;
     }
 
     gameStarted = true;
     menu.setStartMode(false);
+    syncGameplayInputVisibility();
     showIntroHints();
   },
 });
+syncGameplayInputVisibility = () => {
+  analogInput.setGameplayActive(
+    gameStarted
+    && !menu.isOpen()
+    && !hud.isCelebrationVisible()
+    && !hud.isTimeUpVisible(),
+  );
+};
 menu.setStartMode(true);
 menu.open();
+syncGameplayInputVisibility();
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
@@ -1314,6 +1328,7 @@ window.addEventListener("resize", () => {
 engine.runRenderLoop(() => {
   const deltaSeconds = engine.getDeltaTime() / 1000;
   const timeSeconds = performance.now() / 1000;
+  syncGameplayInputVisibility();
 
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   bumpPenaltyCooldown = Math.max(0, bumpPenaltyCooldown - deltaSeconds);
@@ -1397,6 +1412,7 @@ engine.runRenderLoop(() => {
   } else {
     analogInput.cancelThrottle(); // end card up: drop any held throttle so the mower stops
   }
+  syncGameplayInputVisibility();
 
   prototypeAudio.setCuttingActive(grass.isCutting());
   prototypeAudio.setReversingActive(driveSpeed < -0.01 || currentThrottle < -0.05);

@@ -59,8 +59,9 @@ const starMode: StarMode = 3;
 type AccidentOffset = { leftPercent: number; x: number; y: number; rotation: number; scale: number };
 
 const accidentSlotCount = 10;
-const maxVisibleAccidents = 14;
-const brokenAccidentPercents = [10, 20, 29.5, 38, 45, 55, 64, 70, 78, 85];
+const maxVisibleAccidents = 30;
+const brokenAccidentPercents = [2.4, 13.05, 23.65, 33.9, 44.2, 53.8, 63.1, 71.8, 78.9, 85.2];
+const brokenAccidentY = [0, 0, 0.05, -0.45, 0.9, -1.65, 2.8, -4.4, 6.5, -8];
 
 const formatTime = (seconds: number) => {
   const whole = Math.max(0, Math.floor(seconds));
@@ -242,23 +243,21 @@ const celebrationSeedCount = (reason: ResultReason, stars: number) => {
   return 150;
 };
 
-const randomSign = () => (Math.random() < 0.5 ? -1 : 1);
-
 const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentOffset => {
   if(index < accidentSlotCount) {
     const tension = Math.max(0, index - 2);
-    const jitter = tension <= 0 ? 0 : (Math.random() - 0.5) * Math.min(1.6, tension * 0.28);
-    const yAmount = tension <= 0
+    const flex = (tension / (accidentSlotCount - 3)) ** 2.25;
+    const jitter = index <= 2 ? 0 : (Math.random() - 0.5) * Math.min(0.95, flex * 1.1);
+    const yAmount = brokenAccidentY[index] + (index <= 2 ? 0 : (Math.random() - 0.5) * flex * 3.4);
+    const rotation = index <= 2
       ? 0
-      : index < 6
-        ? randomSign() * Math.min(3, tension)
-        : randomSign() * (4 + (Math.random() * 4));
+      : (index % 2 === 0 ? 1 : -1) * (flex * 21 + (Math.random() * flex * 5));
     return {
       leftPercent: brokenAccidentPercents[index] + jitter,
-      x: 0,
+      x: index <= 2 ? 0 : (index % 2 === 0 ? 1 : -1) * flex * 3.2,
       y: yAmount,
-      rotation: tension <= 0 ? 0 : randomSign() * (Math.min(18, tension * 3) + (Math.random() * 4)),
-      scale: index < 7 ? 1 : 1.02 + ((index - 7) * 0.02),
+      rotation,
+      scale: 1 + Math.max(0, index - 6) * 0.015,
     };
   }
 
@@ -270,15 +269,17 @@ const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentO
     scale: 1.08,
   };
   const previousPile = offsets[index - 1] ?? displacedTenth;
+  const pileIndex = index - accidentSlotCount;
   const rightwardPush = index === accidentSlotCount
-    ? 3.4 + (Math.random() * 0.9)
-    : 1 + (Math.random() * 2.2) - (Math.random() < 0.28 ? Math.random() * 1.2 : 0);
+    ? 2.7 + (Math.random() * 0.7)
+    : 0.6 + (Math.random() * 1.8) - (Math.random() < 0.32 ? Math.random() * 0.9 : 0);
+  const wander = Math.min(16, 6 + (pileIndex * 0.7));
   return {
-    leftPercent: Math.max(displacedTenth.leftPercent + 3.2, previousPile.leftPercent + rightwardPush),
-    x: (Math.random() - 0.5) * 4,
-    y: previousPile.y + ((Math.random() - 0.5) * 9),
-    rotation: previousPile.rotation + ((Math.random() - 0.5) * 34),
-    scale: 0.96 + (Math.random() * 0.18),
+    leftPercent: Math.max(displacedTenth.leftPercent + 2.6, previousPile.leftPercent + rightwardPush),
+    x: (Math.random() - 0.5) * (5 + Math.min(9, pileIndex)),
+    y: Math.sin(pileIndex * 1.37) * wander + ((Math.random() - 0.5) * 6),
+    rotation: previousPile.rotation + ((Math.random() - 0.5) * (44 + Math.min(22, pileIndex * 2))),
+    scale: 0.94 + (Math.random() * 0.24),
   };
 };
 

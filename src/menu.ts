@@ -1,5 +1,6 @@
 import type { InputMode } from "./input";
 import { settings } from "./config";
+import { setTouchSplitControls } from "./localSettings";
 
 export type MenuLevel = {
   code: string;
@@ -34,6 +35,7 @@ export function createMenu(deps: MenuDeps) {
   const menuButton = document.querySelector<HTMLButtonElement>("#menuButton");
   const fpsCheckbox = document.querySelector<HTMLInputElement>("#menuFps");
   const perfEl = document.querySelector<HTMLElement>("#perf");
+  const menuTitleEl = document.querySelector<HTMLElement>("#menuTitle");
   const resumeLabel = document.querySelector<HTMLSpanElement>("[data-resume-label]");
   const inputModesEl = document.querySelector<HTMLDivElement>("#menuInputModes");
   const inputSwapSlot = document.querySelector<HTMLDivElement>("#menuInputSwapSlot");
@@ -286,9 +288,19 @@ export function createMenu(deps: MenuDeps) {
     touchSplitCheckbox.checked = settings.touchSplitControls;
     touchSplitCheckbox.addEventListener("change", () => {
       settings.touchSplitControls = touchSplitCheckbox.checked;
+      setTouchSplitControls(settings.touchSplitControls);
       deps.onTouchControlsChange?.();
     });
   }
+
+  const scheduleLogoShimmer = () => {
+    window.setTimeout(() => {
+      menuTitleEl?.classList.add("logo-shimmer");
+      window.setTimeout(() => menuTitleEl?.classList.remove("logo-shimmer"), 1800);
+      scheduleLogoShimmer();
+    }, 20000 + (Math.random() * 100000));
+  };
+  scheduleLogoShimmer();
 
   menuEl?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;

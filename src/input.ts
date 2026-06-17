@@ -11,6 +11,8 @@ export type AnalogInput = {
   setMode: (mode: InputMode) => void;
   // Re-sync which touch widget shows (all-in-one vs split) after a settings change.
   syncTouchControls: () => void;
+  // Show touch widgets only while the level is actively playable.
+  setGameplayActive: (active: boolean) => void;
   // Clear the held split throttle (on menu open, end card, or a new level).
   cancelThrottle: () => void;
 };
@@ -51,9 +53,11 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     boost: false,
     setMode: () => {},
     syncTouchControls: () => {},
+    setGameplayActive: () => {},
     cancelThrottle: () => {},
   };
   let inputMode: InputMode = "auto";
+  let gameplayActive = false;
   const touch = {
     active: false,
     pointerId: -1,
@@ -70,8 +74,8 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
   const TOUCH_STEER_EXPONENT = 2.6;
   const touchSteer = () => shapedDeadzone(touch.x / touchRadius, TOUCH_STEER_DEADZONE, TOUCH_STEER_EXPONENT);
 
-  // --- Optional SPLIT touch controls: a steering strip (absolute position, the
-  // mower straightens when you let go) and a set-and-hold throttle (reverse /
+  // --- Optional SPLIT touch controls: a steering strip (trackpad-style swipe)
+  // that straightens when you let go, and a set-and-hold throttle (reverse /
   // idle / analog-forward zones that stay where you set them). Toggled live by
   // settings.touchSplitControls. ---
   const steerPad = document.querySelector<HTMLElement>("#touchSteer");
@@ -106,15 +110,14 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
       return;
     }
     steerPad?.classList.toggle("active", steer.active);
-    const half = ((steerPad?.clientWidth ?? 180) / 2) - 24;
-    steerKnob.style.transform = `translate(calc(-50% + ${steer.x * half}px), -50%)`;
+    steerKnob.style.transform = "translate(-50%, -50%)";
   };
   const updateThrottleKnob = () => {
     if (!throttleKnob) {
       return;
     }
     throttlePad?.classList.toggle("active", throttleCtl.active);
-    const half = ((throttlePad?.clientHeight ?? 230) / 2) - 26;
+    const half = (throttlePad?.clientHeight ?? 230) / 2;
     throttleKnob.style.transform = `translate(-50%, calc(-50% + ${-throttleCtl.p * half}px))`;
   };
 
@@ -200,7 +203,7 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
 
   const shouldUseTouch = () => inputMode === "auto" || inputMode === "touch";
   const shouldUseController = () => inputMode === "auto" || inputMode === "controller";
-  const shouldShowTouchPad = () => inputMode === "touch" || (inputMode === "auto" && matchMedia("(pointer: coarse)").matches);
+  const shouldShowTouchPad = () => gameplayActive && (inputMode === "touch" || (inputMode === "auto" && matchMedia("(pointer: coarse)").matches));
   const syncTouchControls = () => {
     const showTouch = shouldShowTouchPad();
     const split = showTouch && splitOn();
@@ -217,6 +220,13 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
       steer.x = 0;
       throttleCtl.active = false;
       throttleCtl.p = THROTTLE_REST;
+    }
+    if (!showTouch) {
+      touch.active = false;
+      touch.pointerId = -1;
+      touch.x = 0;
+      touch.y = 0;
+      updateTouchKnob();
     }
     updateSteerKnob();
     updateThrottleKnob();
@@ -324,6 +334,15 @@ export function createInputController(touchPad: HTMLElement, touchKnob: HTMLElem
     },
 
     syncTouchControls,
+
+    setGameplayActive(active: boolean) {
+      if (gameplayActive === active) {
+        return;
+      }
+
+      gameplayActive = active;
+      syncTouchControls();
+    },
 
     cancelThrottle() {
       if (throttleCtl.p === THROTTLE_REST && !throttleCtl.active) {
