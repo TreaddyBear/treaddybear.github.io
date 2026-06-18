@@ -64,7 +64,7 @@ import {
   terrainHeightAt,
   updateBiomeGroundMaterialScale,
 } from "./world";
-import { getLevelBestStars, getTouchSplitControls, recordLevelStars } from "./localSettings";
+import { getLevelBestStars, getMenuPreferences, recordLevelStars, setMenuPreference } from "./localSettings";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -133,8 +133,21 @@ const finishRunButtonEl = finishRunButtonElement;
 const resultStarsEl = resultStarsElement;
 const resultStatsEl = resultStatsElement;
 const resultCoachEl = resultCoachElement;
-settings.touchSplitControls = getTouchSplitControls(settings.touchSplitControls);
+const cinematicWipeEl = document.createElement("div");
+cinematicWipeEl.className = "cinematic-wipe-band";
+cinematicWipeEl.hidden = true;
+document.body.append(cinematicWipeEl);
+const savedMenuPreferences = getMenuPreferences();
+settings.inputMode = savedMenuPreferences.inputMode ?? settings.inputMode;
+settings.mapId = savedMenuPreferences.lastLevelCode ?? settings.mapId;
+settings.masterVolume = savedMenuPreferences.masterVolume ?? settings.masterVolume;
+settings.muteOnBlur = savedMenuPreferences.muteOnBlur ?? settings.muteOnBlur;
+settings.reverseSteerFlip = savedMenuPreferences.reverseSteerFlip ?? settings.reverseSteerFlip;
+settings.showFps = savedMenuPreferences.showFps ?? settings.showFps;
+settings.touchSplitControls = savedMenuPreferences.touchSplitControls ?? settings.touchSplitControls;
 const analogInput = createInputController(touchPadElement, touchKnobElement);
+
+window.addEventListener("dragstart", (event) => event.preventDefault());
 
 const engine = new Engine(canvas, true);
 const scene = new Scene(engine);
@@ -515,6 +528,194 @@ function groundHeightAt(x: number, z: number) {
   // Sit on the actual (coarse, linearly-interpolated) terrain mesh surface, not
   // the smooth analytic curve, so the mower and grass don't float on slopes.
   return sampledTerrainHeightAt(x, z) - 0.08;
+}
+
+type CinematicShot = {
+  position: Vector3;
+  target: Vector3;
+  fov: number;
+};
+
+type CinematicFrame = {
+  primary: CinematicShot;
+  secondary: CinematicShot;
+  mask: number;
+  direction: number;
+};
+
+type ActiveMapBounds = {
+  center: Vector3;
+  radius: number;
+  xMin: number;
+  xMax: number;
+  zMin: number;
+  zMax: number;
+};
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep01(value: number) {
+  const t = clamp01(value);
+  return t * t * (3 - (2 * t));
+}
+
+function mixNumber(a: number, b: number, amount: number) {
+  return a + ((b - a) * amount);
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function activeMapBounds(): ActiveMapBounds {
+  const map = getActiveMap();
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+
+  for (const segment of map.segments) {
+    xMin = Math.min(xMin, segment.xMin);
+    xMax = Math.max(xMax, segment.xMax);
+    zMin = Math.min(zMin, segment.zMin);
+    zMax = Math.max(zMax, segment.zMax);
+  }
+
+  if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || !Number.isFinite(zMin) || !Number.isFinite(zMax)) {
+    return {
+      center: map.spawn.clone(),
+      radius: 16,
+      xMin: map.spawn.x - 8,
+      xMax: map.spawn.x + 8,
+      zMin: map.spawn.z - 8,
+      zMax: map.spawn.z + 8,
+    };
+  }
+
+  const centerX = (xMin + xMax) / 2;
+  const centerZ = (zMin + zMax) / 2;
+  const width = Math.max(1, xMax - xMin);
+  const depth = Math.max(1, zMax - zMin);
+  const radius = Math.sqrt((width * width) + (depth * depth)) * 0.62;
+
+  return { center: new Vector3(centerX, 0.55, centerZ), radius, xMin, xMax, zMin, zMax };
+}
+
+function glideShot(bounds: ActiveMapBounds, progress: number, variant: number): CinematicShot {
+  const angles = [0.18, Math.PI * 0.76, -0.42, Math.PI * 1.18];
+  const angle = angles[variant % angles.length];
+  const directionX = Math.cos(angle);
+  const directionZ = Math.sin(angle);
+  const sideX = -directionZ;
+  const sideZ = directionX;
+  const travel = Math.max(7, bounds.radius * 0.62);
+  const sideOffset = Math.sin(variant * 1.7) * Math.min(2.2, bounds.radius * 0.1);
+  const margin = 1.7;
+  const rawX = bounds.center.x + (directionX * mixNumber(-travel, travel, progress)) + (sideX * sideOffset);
+  const rawZ = bounds.center.z + (directionZ * mixNumber(-travel, travel, progress)) + (sideZ * sideOffset);
+  const x = clampNumber(rawX, bounds.xMin + margin, bounds.xMax - margin);
+  const z = clampNumber(rawZ, bounds.zMin + margin, bounds.zMax - margin);
+  const groundY = groundHeightAt(x, z);
+  const bob = Math.sin((progress * Math.PI * 2) + variant) * 0.08;
+  const cameraY = Math.max(2.35, groundY + 2.05 + bob);
+  const target = new Vector3(
+    clampNumber(x + (directionX * 6) + (sideX * Math.sin(progress * Math.PI) * 0.7), bounds.xMin + margin, bounds.xMax - margin),
+    cameraY + 1.55,
+    clampNumber(z + (directionZ * 6) + (sideZ * Math.sin(progress * Math.PI) * 0.7), bounds.zMin + margin, bounds.zMax - margin),
+  );
+
+  return { position: new Vector3(x, cameraY, z), target, fov: 0.72 };
+}
+
+function droneShot(bounds: ActiveMapBounds, progress: number, variant: number): CinematicShot {
+  const orbit = Math.max(17, bounds.radius * 1.15);
+  const angle = (variant * 1.2) + (progress * 0.56);
+  const position = new Vector3(
+    bounds.center.x + (Math.cos(angle) * orbit),
+    Math.max(13.5, bounds.radius * 0.92),
+    bounds.center.z + (Math.sin(angle) * orbit),
+  );
+  const target = new Vector3(
+    bounds.center.x + (Math.sin(progress * Math.PI * 2) * 0.8),
+    0.4,
+    bounds.center.z + (Math.cos(progress * Math.PI * 2) * 0.8),
+  );
+
+  return { position, target, fov: 0.76 };
+}
+
+function orbitShot(bounds: ActiveMapBounds, progress: number, variant: number): CinematicShot {
+  const orbit = Math.max(10, bounds.radius * 0.72);
+  const angle = (variant * 1.6) - 0.8 + (progress * 0.72);
+  const position = new Vector3(
+    bounds.center.x + (Math.cos(angle) * orbit),
+    Math.max(6.8, bounds.radius * 0.42),
+    bounds.center.z + (Math.sin(angle) * orbit),
+  );
+  const target = new Vector3(bounds.center.x, 1.1, bounds.center.z);
+
+  return { position, target, fov: 0.82 };
+}
+
+function cinematicShotByIndex(index: number, bounds: ActiveMapBounds, progress: number, variant: number) {
+  switch (index % 3) {
+    case 1:
+      return droneShot(bounds, progress, variant);
+    case 2:
+      return orbitShot(bounds, progress, variant);
+    default:
+      return glideShot(bounds, progress, variant);
+  }
+}
+
+function activeMapCinematicFrame(timeSeconds: number): CinematicFrame {
+  const bounds = activeMapBounds();
+  const shotDuration = 10;
+  const transitionDuration = 2.25;
+  const segmentDuration = shotDuration + transitionDuration;
+  const segmentIndex = Math.floor(timeSeconds / segmentDuration);
+  const segmentTime = timeSeconds - (segmentIndex * segmentDuration);
+  const variant = segmentIndex % 4;
+  // A shot starts moving while it is still the hidden/revealed "next" camera
+  // during the previous wipe. Once it becomes current, keep that same timeline
+  // moving instead of snapping back to t=0.
+  const transitionLead = transitionDuration / shotDuration;
+  const currentProgress = (segmentTime / shotDuration) + (transitionLead * 2);
+  const nextProgress = Math.max(0, ((segmentTime - shotDuration) / shotDuration) + transitionLead);
+
+  if (segmentTime < shotDuration) {
+    return {
+      primary: cinematicShotByIndex(segmentIndex, bounds, currentProgress, variant),
+      secondary: cinematicShotByIndex(segmentIndex + 1, bounds, nextProgress, variant + 1),
+      mask: 1.2,
+      direction: 1,
+    };
+  }
+
+  const transitionProgress = smoothstep01((segmentTime - shotDuration) / transitionDuration);
+
+  return {
+    primary: cinematicShotByIndex(segmentIndex, bounds, currentProgress, variant),
+    secondary: cinematicShotByIndex(segmentIndex + 1, bounds, nextProgress, variant + 1),
+    mask: 1 - transitionProgress,
+    direction: 1,
+  };
+}
+
+function syncCinematicWipe(active: boolean, progress = 1) {
+  cinematicWipeEl.hidden = false;
+  cinematicWipeEl.style.setProperty("--wipe-x", `${Math.round(clamp01(progress) * window.innerWidth)}px`);
+  cinematicWipeEl.classList.toggle("is-active", active);
+
+  if (!active) {
+    window.setTimeout(() => {
+      if (!cinematicWipeEl.classList.contains("is-active")) {
+        cinematicWipeEl.hidden = true;
+      }
+    }, 220);
+  }
 }
 
 function snapPlayerToGround() {
@@ -1095,7 +1296,7 @@ const settingsUi = createSettingsUi({
 });
 
 settingsUi.setup();
-settingsUi.setInputMode(settingsUi.detectInitialInputMode());
+settingsUi.setInputMode(settings.inputMode as InputMode);
 refreshGroundColor();
 refreshTextureScales();
 resetGame();
@@ -1247,6 +1448,19 @@ document.addEventListener("fullscreenchange", () => {
 // menu.isOpen) and clears held keys so the mower doesn't drift on resume.
 const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
 let syncGameplayInputVisibility = () => analogInput.setGameplayActive(false);
+const loadSelectedLevel = (code: string) => {
+  const levelCode = normalizeLevelCode(code);
+  settings.mapId = levelCode;
+  setMenuPreference("lastLevelCode", levelCode);
+  const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
+
+  if (mapControl) {
+    mapControl.value = levelCode;
+  }
+
+  resetGame();
+};
+
 const menu = createMenu({
   toggleFullscreen: () => fullscreenButtonEl.click(),
   getInputMode: () => settings.inputMode as InputMode,
@@ -1259,15 +1473,13 @@ const menu = createMenu({
     index === 0 || levels[index - 1].bestStars > 0
   )),
   getCurrentLevelCode: () => getActiveLevelCode(),
-  onSelectLevel: (code) => {
-    settings.mapId = normalizeLevelCode(code);
-    const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
-
-    if (mapControl) {
-      mapControl.value = settings.mapId;
+  onPreviewLevel: (code) => {
+    if (!gameStarted) {
+      loadSelectedLevel(code);
     }
-
-    resetGame();
+  },
+  onSelectLevel: (code) => {
+    loadSelectedLevel(code);
   },
   isTouch: isTouchPrimary,
   onTouchControlsChange: () => analogInput.syncTouchControls(),
@@ -1428,9 +1640,18 @@ engine.runRenderLoop(() => {
   // instant the menu closes (timeSeconds keeps advancing while paused).
   if (menu.isOpen() || pausedByBlur) {
     grass.updateMotion(timeSeconds);
+    if (menu.isOpen() && !gameStarted) {
+      const frame = activeMapCinematicFrame(timeSeconds);
+      cameraRig.renderCinematicComposite(frame.primary, frame.secondary, frame.mask, frame.direction);
+      syncCinematicWipe(false);
+      return;
+    } else {
+      syncCinematicWipe(false);
+    }
     scene.render();
     return;
   }
+  syncCinematicWipe(false);
 
   cameraRig.updateInput(deltaSeconds);
   movePlayer(deltaSeconds);

@@ -1,5 +1,6 @@
 import type { AnalogInput, InputMode } from "./input";
 import { lawnLevels, normalizeLevelCode, settings } from "./config";
+import { setMenuPreference } from "./localSettings";
 
 export type SettingsUi = ReturnType<typeof createSettingsUi>;
 
@@ -70,6 +71,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
 
   const setInputMode = (mode: InputMode) => {
     settings.inputMode = mode;
+    setMenuPreference("inputMode", mode);
     applyActiveInputMode();
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
 

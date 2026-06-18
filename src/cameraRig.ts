@@ -1,5 +1,5 @@
-import { ArcRotateCamera, Camera, Vector3 } from "@babylonjs/core";
-import type { Engine, Scene } from "@babylonjs/core";
+import { ArcRotateCamera, Camera, Effect, FreeCamera, MeshBuilder, RenderTargetTexture, Scene, ShaderMaterial, Texture, Vector3, Viewport } from "@babylonjs/core";
+import type { Engine } from "@babylonjs/core";
 import { settings } from "./config";
 import type { AnalogInput, InputMode } from "./input";
 import { updateFollowCamera } from "./world";
@@ -38,6 +38,11 @@ type CameraRigState = {
   drag: DragState;
 };
 
+function lerpAngle(current: number, target: number, amount: number) {
+  const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + (wrappedDelta * amount);
+}
+
 // Owns the chase camera and everything that aims it: orbit/return-to-behind
 // state, right-drag and wheel control, portrait FOV/framing, and optional
 // adaptive resolution. The render loop calls updateInput/follow; canvas pointer
@@ -58,6 +63,102 @@ export function createCameraRig(deps: CameraRigDeps) {
   camera.detachControl();
   camera.lowerRadiusLimit = 8;
   camera.upperRadiusLimit = 24;
+  const cinematicCamera = new ArcRotateCamera("cinematic-camera", -Math.PI / 2, Math.PI / 3, 16, Vector3.Zero(), scene);
+  cinematicCamera.detachControl();
+  const primaryTarget = new RenderTargetTexture("cinematic-primary", { ratio: 1 }, scene, false, true);
+  const secondaryTarget = new RenderTargetTexture("cinematic-secondary", { ratio: 1 }, scene, false, true);
+  primaryTarget.renderListPredicate = () => true;
+  secondaryTarget.renderListPredicate = () => true;
+  primaryTarget.renderParticles = true;
+  secondaryTarget.renderParticles = true;
+  primaryTarget.wrapU = Texture.CLAMP_ADDRESSMODE;
+  primaryTarget.wrapV = Texture.CLAMP_ADDRESSMODE;
+  secondaryTarget.wrapU = Texture.CLAMP_ADDRESSMODE;
+  secondaryTarget.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  const compositorScene = new Scene(engine);
+  compositorScene.autoClear = true;
+  const compositorCamera = new FreeCamera("cinematic-compositor-camera", new Vector3(0, 0, -1), compositorScene);
+  compositorCamera.mode = Camera.ORTHOGRAPHIC_CAMERA;
+  compositorCamera.orthoLeft = -1;
+  compositorCamera.orthoRight = 1;
+  compositorCamera.orthoBottom = -1;
+  compositorCamera.orthoTop = 1;
+  compositorCamera.setTarget(Vector3.Zero());
+  compositorScene.activeCamera = compositorCamera;
+
+  if (!Effect.ShadersStore.cinematicCompositeVertexShader) {
+    Effect.ShadersStore.cinematicCompositeVertexShader = `
+      precision highp float;
+      attribute vec3 position;
+      attribute vec2 uv;
+      varying vec2 vUV;
+
+      void main(void) {
+        vUV = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `;
+  }
+
+  if (!Effect.ShadersStore.cinematicCompositeFragmentShader) {
+    Effect.ShadersStore.cinematicCompositeFragmentShader = `
+      precision highp float;
+      varying vec2 vUV;
+      uniform sampler2D primarySampler;
+      uniform sampler2D secondarySampler;
+      uniform float mask;
+      uniform float softness;
+      uniform float direction;
+      uniform float texelX;
+
+      vec4 blurMix(sampler2D sampler, vec2 uv) {
+        vec2 offset = vec2(texelX, 0.0);
+        return (
+          texture2D(sampler, uv - (offset * 8.0)) * 0.06
+          + texture2D(sampler, uv - (offset * 4.0)) * 0.18
+          + texture2D(sampler, uv) * 0.52
+          + texture2D(sampler, uv + (offset * 4.0)) * 0.18
+          + texture2D(sampler, uv + (offset * 8.0)) * 0.06
+        );
+      }
+
+      void main(void) {
+        vec4 primary = texture2D(primarySampler, vUV);
+        vec4 secondary = texture2D(secondarySampler, vUV);
+        if (mask >= 1.0) {
+          gl_FragColor = primary;
+          return;
+        }
+        if (mask <= 0.0) {
+          gl_FragColor = secondary;
+          return;
+        }
+        float edge = direction > 0.5 ? mask : 1.0 - mask;
+        float secondaryAmount = direction > 0.5
+          ? smoothstep(edge - softness, edge + softness, vUV.x)
+          : 1.0 - smoothstep(edge - softness, edge + softness, vUV.x);
+        float seam = 1.0 - smoothstep(0.0, softness * 1.45, abs(vUV.x - edge));
+        vec4 crisp = mix(primary, secondary, secondaryAmount);
+        vec4 blurred = mix(blurMix(primarySampler, vUV), blurMix(secondarySampler, vUV), secondaryAmount);
+        gl_FragColor = mix(crisp, blurred, seam * 0.85);
+      }
+    `;
+  }
+
+  const compositeMaterial = new ShaderMaterial("cinematic-composite-material", compositorScene, "cinematicComposite", {
+    attributes: ["position", "uv"],
+    uniforms: ["mask", "softness", "direction", "texelX"],
+    samplers: ["primarySampler", "secondarySampler"],
+  });
+  compositeMaterial.disableDepthWrite = true;
+  compositeMaterial.setTexture("primarySampler", primaryTarget);
+  compositeMaterial.setTexture("secondarySampler", secondaryTarget);
+  compositeMaterial.setFloat("softness", 0.1);
+  compositeMaterial.setFloat("direction", 1);
+
+  const compositePlane = MeshBuilder.CreatePlane("cinematic-composite-plane", { size: 2 }, compositorScene);
+  compositePlane.material = compositeMaterial;
 
   const cameraState: CameraRigState = {
     orbitYaw: 0,
@@ -225,9 +326,13 @@ export function createCameraRig(deps: CameraRigDeps) {
     },
 
     follow(deltaSeconds: number) {
+      scene.activeCameras = null;
+      scene.activeCamera = camera;
+      camera.viewport = new Viewport(0, 0, 1, 1);
       const baseDistance = cameraState.isPortrait ? settings.portraitDistance : 7.2;
       const baseHeight = cameraState.isPortrait ? settings.portraitHeight : 4.2;
       const lookAhead = cameraState.isPortrait ? settings.portraitLookAhead : 0;
+      camera.fov = cameraState.isPortrait ? settings.portraitFov : 0.8;
 
       updateFollowCamera(
         camera,
@@ -241,6 +346,81 @@ export function createCameraRig(deps: CameraRigDeps) {
         baseHeight,
         lookAhead,
       );
+    },
+
+    cinematicFlyby(timeSeconds: number, deltaSeconds: number, target: Vector3, radius: number) {
+      const orbitRadius = Math.max(12, Math.min(30, radius));
+      const targetAlpha = (timeSeconds * 0.12) - (Math.PI / 2);
+      const targetBeta = 0.88 + (Math.sin(timeSeconds * 0.17) * 0.08);
+      const targetRadius = orbitRadius + (Math.sin(timeSeconds * 0.09) * 1.4);
+      const ease = 1 - Math.exp(-deltaSeconds * 0.75);
+
+      camera.alpha = lerpAngle(camera.alpha, targetAlpha, ease);
+      camera.beta += (targetBeta - camera.beta) * ease;
+      camera.radius += (targetRadius - camera.radius) * ease;
+      camera.setTarget(Vector3.Lerp(camera.target, target, ease));
+    },
+
+    cinematicPose(position: Vector3, target: Vector3, fov: number, deltaSeconds: number) {
+      scene.activeCameras = null;
+      scene.activeCamera = camera;
+      camera.viewport = new Viewport(0, 0, 1, 1);
+      const ease = 1 - Math.exp(-deltaSeconds * 1.35);
+      camera.setPosition(Vector3.Lerp(camera.position, position, ease));
+      camera.setTarget(Vector3.Lerp(camera.target, target, ease));
+      camera.fov += (fov - camera.fov) * ease;
+    },
+
+    cinematicViewportPose(
+      primary: { position: Vector3; target: Vector3; fov: number },
+      secondary: { position: Vector3; target: Vector3; fov: number } | null,
+      wipeProgress: number,
+    ) {
+      camera.setPosition(primary.position);
+      camera.setTarget(primary.target);
+      camera.fov = primary.fov;
+      scene.activeCameras = null;
+      scene.activeCamera = camera;
+      camera.viewport = new Viewport(0, 0, 1, 1);
+
+      if (!secondary) {
+        return;
+      }
+
+      const wipe = Math.max(0.001, Math.min(0.999, wipeProgress));
+      cinematicCamera.setPosition(secondary.position);
+      cinematicCamera.setTarget(secondary.target);
+      cinematicCamera.fov = secondary.fov;
+      camera.viewport = new Viewport(0, 0, wipe, 1);
+      cinematicCamera.viewport = new Viewport(wipe, 0, 1 - wipe, 1);
+      scene.activeCameras = [cinematicCamera, camera];
+    },
+
+    renderCinematicComposite(
+      primary: { position: Vector3; target: Vector3; fov: number },
+      secondary: { position: Vector3; target: Vector3; fov: number },
+      mask: number,
+      direction = 1,
+    ) {
+      scene.activeCameras = null;
+      camera.viewport = new Viewport(0, 0, 1, 1);
+      cinematicCamera.viewport = new Viewport(0, 0, 1, 1);
+      camera.setPosition(primary.position);
+      camera.setTarget(primary.target);
+      camera.fov = primary.fov;
+      cinematicCamera.setPosition(secondary.position);
+      cinematicCamera.setTarget(secondary.target);
+      cinematicCamera.fov = secondary.fov;
+      primaryTarget.activeCamera = camera;
+      secondaryTarget.activeCamera = cinematicCamera;
+      primaryTarget.render(false);
+      secondaryTarget.render(false);
+      compositeMaterial.setTexture("primarySampler", primaryTarget);
+      compositeMaterial.setTexture("secondarySampler", secondaryTarget);
+      compositeMaterial.setFloat("mask", Math.max(-0.25, Math.min(1.25, mask)));
+      compositeMaterial.setFloat("direction", direction >= 0 ? 1 : 0);
+      compositeMaterial.setFloat("texelX", 1 / Math.max(1, engine.getRenderWidth()));
+      compositorScene.render();
     },
 
     // Optional adaptive resolution: sample FPS twice a second and nudge the

@@ -6,6 +6,21 @@ body {
   overflow: hidden;
   font-family: Arial, Helvetica, sans-serif;
   background: #10180c;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+* {
+  -webkit-user-select: inherit;
+  user-select: inherit;
+  -webkit-user-drag: none;
+}
+
+img,
+svg,
+canvas {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 #renderCanvas {
@@ -14,6 +29,36 @@ body {
   display: block;
   touch-action: none;
   background: #10180c;
+}
+
+.cinematic-wipe-band {
+  position: fixed;
+  top: 0;
+  left: calc(var(--wipe-x, 50vw) - 90px);
+  z-index: 19;
+  width: 180px;
+  height: 100vh;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(255 255 255 / 0%),
+      rgb(234 251 210 / 10%) 34%,
+      rgb(255 255 255 / 16%) 50%,
+      rgb(234 251 210 / 10%) 66%,
+      rgb(255 255 255 / 0%)
+    );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    -22px 0 34px rgb(255 255 255 / 5%),
+    22px 0 34px rgb(255 255 255 / 5%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.cinematic-wipe-band.is-active {
+  opacity: 1;
 }
 
 #hud,
@@ -1226,6 +1271,10 @@ body {
   filter: invert(94%) sepia(16%) saturate(541%) hue-rotate(33deg) brightness(105%) contrast(96%);
 }
 
+#menuTitle.logo-shimmer #menuLogo {
+  animation: logo-base-glow 2200ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+
 #menuTitle::after {
   position: absolute;
   inset: 0;
@@ -1233,43 +1282,92 @@ body {
   margin: 0 auto;
   content: "";
   pointer-events: none;
-  /* A rich gold ramp (white highlight -> yellow -> yellow-orange -> dark brown-
-     orange). The logo SHAPE is the mask and stays fixed; the gold band sweeps
-     through it by animating background-position, so it reads as gold catching
-     the light across the (still light-green) logo rather than a sliding cutout. */
+  /* Pale green -> white/gold shimmer -> white flash -> green. Keep the ramp in
+     yellow-gold and umber; no red/pink-orange stops. */
   background-image: linear-gradient(
     100deg,
-    transparent 44%,
-    #fffdf3 47.5%,
-    #ffe79c 49.5%,
-    #ffc24d 51.5%,
-    #a9651a 53.5%,
-    transparent 57%
+    transparent 0%,
+    rgb(255 255 244 / 0%) 18%,
+    rgb(255 255 244 / 58%) 23%,
+    rgb(246 224 132 / 46%) 27%,
+    rgb(111 79 25 / 34%) 31%,
+    rgb(235 202 82 / 48%) 35%,
+    rgb(255 252 218 / 68%) 39%,
+    rgb(184 147 48 / 38%) 43%,
+    rgb(83 61 20 / 30%) 47%,
+    rgb(242 214 101 / 44%) 51%,
+    rgb(255 255 246 / 78%) 56%,
+    rgb(214 177 58 / 32%) 61%,
+    transparent 72%,
+    transparent 100%
   );
-  background-size: 220% 100%;
+  background-size: 240% 100%;
   background-repeat: no-repeat;
-  background-position: -15% 0;
+  background-position: -85% 0;
   opacity: 0;
   -webkit-mask: url("/lamow.svg") center / contain no-repeat;
   mask: url("/lamow.svg") center / contain no-repeat;
 }
 
 #menuTitle.logo-shimmer::after {
-  animation: logo-gold-wave 1700ms ease-in-out;
+  animation: logo-gold-wave 2200ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+@keyframes logo-base-glow {
+  0%,
+  100% {
+    filter: invert(94%) sepia(16%) saturate(541%) hue-rotate(33deg) brightness(105%) contrast(96%);
+  }
+  16% {
+    filter: invert(95%) sepia(13%) saturate(430%) hue-rotate(33deg) brightness(108%) contrast(97%);
+  }
+  30% {
+    filter: invert(97%) sepia(8%) saturate(270%) hue-rotate(30deg) brightness(116%) contrast(99%);
+  }
+  44% {
+    filter: invert(100%) sepia(1%) saturate(180%) hue-rotate(20deg) brightness(126%) contrast(101%);
+  }
+  60% {
+    filter: invert(90%) sepia(34%) saturate(840%) hue-rotate(5deg) brightness(113%) contrast(96%);
+  }
+  76% {
+    filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(132%) contrast(103%);
+  }
+  90% {
+    filter: invert(96%) sepia(12%) saturate(360%) hue-rotate(33deg) brightness(113%) contrast(98%);
+  }
 }
 
 @keyframes logo-gold-wave {
   0% {
     opacity: 0;
-    background-position: -15% 0;
+    background-position: -85% 0;
   }
-  18%,
+  20% {
+    opacity: 0.08;
+  }
+  38% {
+    opacity: 0.42;
+    background-position: -20% 0;
+  }
+  56% {
+    opacity: 0.64;
+    background-position: 42% 0;
+  }
+  72% {
+    opacity: 0.46;
+    background-position: 78% 0;
+  }
   82% {
-    opacity: 1;
+    opacity: 0.7;
+    background-position: 95% 0;
+  }
+  92% {
+    opacity: 0.16;
   }
   100% {
     opacity: 0;
-    background-position: 115% 0;
+    background-position: 130% 0;
   }
 }
 

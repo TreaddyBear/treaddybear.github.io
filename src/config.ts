@@ -35,6 +35,7 @@ export const settings = {
   showFenceHealth: false,
   disableFenceCollision: false,
   seedPopRate: 0.001,
+  showFps: true,
   masterVolume: 0.5, // overall output level (0..1), tuned from the menu slider
   muteOnBlur: false, // mute all audio while the window/tab is not focused
   mowerVolume: 0.4,

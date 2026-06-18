@@ -1,6 +1,6 @@
 import type { InputMode } from "./input";
 import { settings } from "./config";
-import { setTouchSplitControls } from "./localSettings";
+import { setMenuPreference } from "./localSettings";
 
 export type MenuLevel = {
   code: string;
@@ -15,6 +15,7 @@ export type MenuDeps = {
   setInputMode: (mode: InputMode) => void;
   getLevels: () => MenuLevel[];
   getCurrentLevelCode: () => string;
+  onPreviewLevel?: (code: string) => void;
   onSelectLevel: (code: string) => void;
   // True on a touch-first device: show the hamburger; otherwise Esc opens it.
   isTouch: boolean;
@@ -254,14 +255,21 @@ export function createMenu(deps: MenuDeps) {
     }
   };
 
-  // FPS visibility is driven entirely by the checkbox (default on for now).
+  // FPS visibility is driven entirely by the menu checkbox.
   const syncFps = () => {
     if (perfEl) {
       perfEl.hidden = !(fpsCheckbox?.checked ?? false);
     }
   };
+  if (fpsCheckbox) {
+    fpsCheckbox.checked = settings.showFps;
+  }
   syncFps();
-  fpsCheckbox?.addEventListener("change", syncFps);
+  fpsCheckbox?.addEventListener("change", () => {
+    settings.showFps = fpsCheckbox.checked;
+    setMenuPreference("showFps", settings.showFps);
+    syncFps();
+  });
   closeExpanders();
   for (const entry of expanderEntries()) {
     entry.details.addEventListener("toggle", () => {
@@ -273,13 +281,13 @@ export function createMenu(deps: MenuDeps) {
   }
 
   // Reverse-steer flip: lets players who dislike the mirrored reverse restore the
-  // old un-mirrored feel. In-session for now (a proper input panel + persistence
-  // is the planned follow-up).
+  // old un-mirrored feel.
   const reverseFlipCheckbox = document.querySelector<HTMLInputElement>("#menuReverseFlip");
   if (reverseFlipCheckbox) {
     reverseFlipCheckbox.checked = settings.reverseSteerFlip;
     reverseFlipCheckbox.addEventListener("change", () => {
       settings.reverseSteerFlip = reverseFlipCheckbox.checked;
+      setMenuPreference("reverseSteerFlip", settings.reverseSteerFlip);
     });
   }
 
@@ -290,7 +298,7 @@ export function createMenu(deps: MenuDeps) {
     touchSplitCheckbox.checked = settings.touchSplitControls;
     touchSplitCheckbox.addEventListener("change", () => {
       settings.touchSplitControls = touchSplitCheckbox.checked;
-      setTouchSplitControls(settings.touchSplitControls);
+      setMenuPreference("touchSplitControls", settings.touchSplitControls);
       deps.onTouchControlsChange?.();
     });
   }
@@ -300,6 +308,7 @@ export function createMenu(deps: MenuDeps) {
     masterVolumeSlider.value = String(settings.masterVolume);
     masterVolumeSlider.addEventListener("input", () => {
       settings.masterVolume = Number(masterVolumeSlider.value);
+      setMenuPreference("masterVolume", settings.masterVolume);
       deps.onMasterVolume?.(settings.masterVolume);
     });
   }
@@ -309,13 +318,14 @@ export function createMenu(deps: MenuDeps) {
     muteBlurCheckbox.checked = settings.muteOnBlur;
     muteBlurCheckbox.addEventListener("change", () => {
       settings.muteOnBlur = muteBlurCheckbox.checked;
+      setMenuPreference("muteOnBlur", settings.muteOnBlur);
     });
   }
 
   const scheduleLogoShimmer = () => {
     window.setTimeout(() => {
       menuTitleEl?.classList.add("logo-shimmer");
-      window.setTimeout(() => menuTitleEl?.classList.remove("logo-shimmer"), 1800);
+      window.setTimeout(() => menuTitleEl?.classList.remove("logo-shimmer"), 2200);
       scheduleLogoShimmer();
     }, 20000 + (Math.random() * 100000));
   };
@@ -334,6 +344,7 @@ export function createMenu(deps: MenuDeps) {
 
     if (inputMode) {
       deps.setInputMode(inputMode);
+      setMenuPreference("inputMode", inputMode);
       syncInputModes();
       // Keep the submenu open — picking a mode shouldn't collapse it.
       return;
@@ -342,6 +353,7 @@ export function createMenu(deps: MenuDeps) {
     if (levelCode) {
       selectedLevelCode = levelCode;
       selectedLevelManual = true;
+      deps.onPreviewLevel?.(levelCode);
       renderLevelSelect();
       closeExpanders();
       return;
