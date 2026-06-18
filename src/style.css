@@ -1230,31 +1230,45 @@ body {
   inset: 0;
   width: min(230px, 78%);
   margin: 0 auto;
-  background: linear-gradient(105deg, transparent 28%, rgb(255 216 96 / 0%) 40%, rgb(255 216 96 / 88%) 50%, rgb(255 248 180 / 78%) 56%, transparent 70%);
   content: "";
-  opacity: 0;
   pointer-events: none;
-  transform: translateX(-70%);
+  /* A rich gold ramp (white highlight -> yellow -> yellow-orange -> dark brown-
+     orange). The logo SHAPE is the mask and stays fixed; the gold band sweeps
+     through it by animating background-position, so it reads as gold catching
+     the light across the (still light-green) logo rather than a sliding cutout. */
+  background-image: linear-gradient(
+    100deg,
+    transparent 44%,
+    #fffdf3 47.5%,
+    #ffe79c 49.5%,
+    #ffc24d 51.5%,
+    #a9651a 53.5%,
+    transparent 57%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: -15% 0;
+  opacity: 0;
   -webkit-mask: url("/lamow.svg") center / contain no-repeat;
   mask: url("/lamow.svg") center / contain no-repeat;
 }
 
 #menuTitle.logo-shimmer::after {
-  animation: logo-gold-wave 1700ms ease-out;
+  animation: logo-gold-wave 1700ms ease-in-out;
 }
 
 @keyframes logo-gold-wave {
   0% {
     opacity: 0;
-    transform: translateX(-80%);
+    background-position: -15% 0;
   }
-  16%,
-  68% {
-    opacity: 0.9;
+  18%,
+  82% {
+    opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateX(80%);
+    background-position: 115% 0;
   }
 }
 

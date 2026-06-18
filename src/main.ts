@@ -339,11 +339,17 @@ function showMistakeMark(world: Vector3) {
     return; // behind the camera / outside the view
   }
 
+  // Scatter the mark on a ring around the impact: a triangular spread over
+  // 0..20% of the viewport, peaking near 10% (rarely right on the point or out at
+  // the 20% edge).
+  const angle = Math.random() * Math.PI * 2;
+  const spread = ((Math.random() + Math.random()) / 2) * 0.2 * Math.min(window.innerWidth, window.innerHeight);
+
   const mark = document.createElement("div");
   mark.className = "mistake-x";
   mark.textContent = "×";
-  mark.style.left = `${projected.x}px`;
-  mark.style.top = `${projected.y}px`;
+  mark.style.left = `${projected.x + (Math.cos(angle) * spread)}px`;
+  mark.style.top = `${projected.y + (Math.sin(angle) * spread)}px`;
   document.body.appendChild(mark);
   mark.addEventListener("animationend", () => mark.remove(), { once: true });
 }
@@ -1441,8 +1447,13 @@ engine.runRenderLoop(() => {
   dandelions.mowAt(player.position.x, player.position.z, mowerCutRadius * mowerCutRadius);
   grass.updateHighlight(timeSeconds, deltaSeconds);
 
+  const flowerMistakesBefore = tulips.mistakeCount;
   if (tulips.update(player.position.x, player.position.z)) {
     hud.update();
+  }
+  if (tulips.mistakeCount > flowerMistakesBefore) {
+    // Mowed a flower — same big fading "x" as a fence bump, at the mower.
+    showMistakeMark(new Vector3(player.position.x, player.position.y + 0.5, player.position.z));
   }
 
   updateSecretGunPickup();
