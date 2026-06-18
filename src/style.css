@@ -1095,6 +1095,41 @@ body {
   pointer-events: none;
 }
 
+/* Big fading "x" popped at the world point of an accident (same red-orange as the
+   HUD accident marks). Positioned by JS; removed on animationend. */
+.mistake-x {
+  position: fixed;
+  z-index: 3;
+  color: #ff6a35;
+  font-size: 84px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter:
+    drop-shadow(0 0 12px rgb(255 106 53 / 60%))
+    drop-shadow(0 2px 4px rgb(0 0 0 / 70%));
+  animation: mistake-x-pop 0.85s ease-out forwards;
+}
+
+@keyframes mistake-x-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3) rotate(-12deg);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.18) rotate(5deg);
+  }
+  42% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.12) rotate(0deg);
+  }
+}
+
 #mistakes.accidents-overflowing {
   display: block;
   min-height: 14px;
@@ -1350,13 +1385,19 @@ body {
   gap: 6px;
 }
 
+/* Overflow ("sidecar") modes use the SAME column template as the primary row, so
+   the mouse/touch buttons match the auto/keyboard size and align under them. */
+.menu-mode-grid-advanced {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 34px;
+}
+
 .menu-mode {
   display: grid;
   place-items: center;
   min-width: 0;
-  min-height: 44px;
+  min-height: 36px;
   box-sizing: border-box;
-  padding: 4px;
+  padding: 0;
   border: 1px solid rgb(216 245 176 / 18%);
   border-radius: 8px;
   color: #eafbd2;
@@ -1370,12 +1411,19 @@ body {
 }
 
 .menu-mode-icon {
-  width: 40px;
-  height: 32px;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Render the SVG as a mask so the colour is set by background-color and can
+     change per state (light green normally, dark green when selected). Fills the
+     button (contain keeps the aspect), so there's no padding around the art. */
+  background-color: #eafbd2;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
 }
 
 .menu-mode[aria-pressed="true"] .menu-mode-icon {
-  filter: brightness(0.55) sepia(0.5) saturate(2.1) hue-rotate(35deg);
+  background-color: #10200d; /* dark green: contrast against the light selected button */
 }
 
 .menu-expander {

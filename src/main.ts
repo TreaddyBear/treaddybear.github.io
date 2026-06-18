@@ -3,6 +3,7 @@ import {
   DirectionalLight,
   Engine,
   HemisphericLight,
+  Matrix,
   Mesh,
   MeshBuilder,
   Quaternion,
@@ -322,6 +323,29 @@ function isInsideYard(x: number, z: number) {
 
 function isOnRoad(x: number) {
   return x > 11.8 && x < 17.2;
+}
+
+// Pop a big red-orange "x" (matching the accident HUD marks) at the world point
+// of an accident, then fade it out. Projected to the screen each time it fires.
+function showMistakeMark(world: Vector3) {
+  const projected = Vector3.Project(
+    world,
+    Matrix.Identity(),
+    scene.getTransformMatrix(),
+    camera.viewport.toGlobal(canvas.clientWidth, canvas.clientHeight),
+  );
+
+  if (projected.z < 0 || projected.z > 1) {
+    return; // behind the camera / outside the view
+  }
+
+  const mark = document.createElement("div");
+  mark.className = "mistake-x";
+  mark.textContent = "×";
+  mark.style.left = `${projected.x}px`;
+  mark.style.top = `${projected.y}px`;
+  document.body.appendChild(mark);
+  mark.addEventListener("animationend", () => mark.remove(), { once: true });
 }
 
 function showHintToast(message: string, duration = 3200) {
@@ -744,6 +768,9 @@ function movePlayer(deltaSeconds: number) {
           hud.setTime(elapsedRunSeconds);
           hud.update();
           bumpPenaltyCooldown = 1.5;
+          // Big fading "x" right where the mower hit.
+          const forward = new Vector3(Math.sin(playerYaw), 0, Math.cos(playerYaw));
+          showMistakeMark(player.position.add(new Vector3(forward.x * 0.6, 0.5, forward.z * 0.6)));
         }
       }
 
@@ -1243,8 +1270,11 @@ const menu = createMenu({
     keys.clear();
     analogInput.cancelThrottle();
     analogInput.setGameplayActive(false);
+    prototypeAudio.setMenuDucked(true);
   },
   onClose: () => {
+    prototypeAudio.setMenuDucked(false);
+
     if (gameStarted) {
       syncGameplayInputVisibility();
       return;

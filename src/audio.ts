@@ -59,6 +59,7 @@ function clamp01(value: number) {
 // Master output level (0..1) multiplied into every sound, plus a registry of the
 // per-sound AudioContexts so "mute on lost focus" can suspend/resume them all.
 let masterVolume = 0.5;
+let menuDuck = 1; // extra scale applied while the pause menu is open (quieter there)
 const audioContexts: AudioContext[] = [];
 
 function getAudioContext() {
@@ -171,15 +172,26 @@ function createLoopingTrack(sourceUrl: string) {
     fallbackAudio.pause();
   };
 
+  const applyGain = (response: number) => {
+    const out = volume * masterVolume * menuDuck;
+    fallbackAudio.volume = out;
+
+    if(gainNode && audioContext) {
+      gainNode.gain.setTargetAtTime(out, audioContext.currentTime, Math.max(0.001, response));
+    }
+  };
+
   return {
     setVolume(nextVolume: number, response = 0.035) {
       volume = clamp01(nextVolume);
-      const out = volume * masterVolume;
-      fallbackAudio.volume = out;
+      applyGain(response);
+    },
 
-      if(gainNode && audioContext) {
-        gainNode.gain.setTargetAtTime(out, audioContext.currentTime, Math.max(0.001, response));
-      }
+    // Re-apply the current volume with whatever master/menu-duck is now in effect.
+    // Lets the master slider and the menu duck take effect even while paused (when
+    // the per-frame update loop isn't running).
+    reapply() {
+      applyGain(0.02);
     },
 
     unlock() {
@@ -220,7 +232,7 @@ function createOneShotTrack(sourceUrl: string) {
     },
 
     play(volume: number) {
-      const safeVolume = clamp01(volume) * masterVolume;
+      const safeVolume = clamp01(volume) * masterVolume * menuDuck;
       loading ??= load().catch(() => null);
       loading.then((loadedBuffer) => {
         if(!loadedBuffer || !audioContext) {
@@ -272,6 +284,12 @@ export function createPrototypeAudio() {
   const wallBumpMedium = createOneShotTrack(wallBumpMediumUrl);
   const wallBumpHard = createOneShotTrack(wallBumpHardUrl);
   const gunShot = createOneShotTrack(gunShotUrl);
+  const loops = [mower, directionalBreeze, ambientBreeze, grassCutting, reverseBeep, completionLoop];
+  const reapplyLoops = () => {
+    for(const loop of loops) {
+      loop.reapply();
+    }
+  };
   let unlocked = false;
   let cuttingActive = false;
   let cuttingStartedAt = 0;
@@ -304,10 +322,18 @@ export function createPrototypeAudio() {
   window.addEventListener("keydown", unlock, { once: true });
 
   return {
-    // Master output level (0..1). Loops pick it up on their next per-frame
-    // setVolume; one-shots on their next play.
+    // Master output level (0..1), applied to playing loops immediately (so the
+    // menu slider is audible right away, even while the game is paused).
     setMasterVolume(value: number) {
       masterVolume = clamp01(value);
+      reapplyLoops();
+    },
+
+    // Duck the audio while the pause menu is open (~65% of normal), restored on
+    // close. Applied to live loops immediately.
+    setMenuDucked(ducked: boolean) {
+      menuDuck = ducked ? 0.65 : 1;
+      reapplyLoops();
     },
 
     // "Mute on lost focus": suspend/resume every audio context so the game goes
