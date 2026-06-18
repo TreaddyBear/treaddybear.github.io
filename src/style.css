@@ -86,6 +86,10 @@ canvas {
   background: rgb(0 0 0 / 70%);
 }
 
+body.cinematic-menu-mode #hud {
+  visibility: hidden;
+}
+
 #fullscreenButton {
   display: none;
   width: 100%;
