@@ -496,6 +496,7 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   vertexData.applyToMesh(mesh);
   mesh.position = new Vector3(ROAD_CENTER_X, 0.018, z);
   mesh.material = material;
+  return mesh;
 }
 
 export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeMaterial: StandardMaterial) {
@@ -512,13 +513,19 @@ export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeM
   stripeMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
   (stripeMaterial.opacityTexture as { getAlphaFromRGB?: boolean }).getAlphaFromRGB = true;
 
+  // Everything parented to a root so a map (e.g. the open showcase) can hide the
+  // whole road at once.
+  const root = new TransformNode("road-root", scene);
   const road = MeshBuilder.CreateGround("road", { width: ROAD_WIDTH, height: ROAD_LENGTH }, scene);
   road.position = new Vector3(ROAD_CENTER_X, 0.006, 0);
   road.material = roadMaterial;
+  road.parent = root;
 
   for (let z = (-ROAD_LENGTH / 2) + 8; z <= (ROAD_LENGTH / 2) - 8; z += ROAD_STRIPE_SPACING) {
-    createRoadStripe(scene, stripeMaterial, z);
+    createRoadStripe(scene, stripeMaterial, z).parent = root;
   }
+
+  return root;
 }
 
 const fenceDirtOverlayY = -0.072;

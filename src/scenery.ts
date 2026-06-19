@@ -101,7 +101,10 @@ function createTree(
   return root;
 }
 
+// Returns a root node parenting every tree, so a map (e.g. the open attract
+// showcase) can hide them all at once.
 export function createSimpleTrees(scene: Scene, materials: Materials, shadowGenerator: ShadowGenerator) {
+  const root = new TransformNode("simple-trees-root", scene);
   const trees = [
     { x: -52, z: -36, scale: 1.35, material: materials.treeLeafMaterials[0] },
     { x: -43, z: 42, scale: 0.9, material: materials.treeLeafMaterials[1] },
@@ -111,8 +114,11 @@ export function createSimpleTrees(scene: Scene, materials: Materials, shadowGene
   ];
 
   for (const tree of trees) {
-    createTree(scene, shadowGenerator, materials.treeTrunkMaterial, tree.material, tree.x, tree.z, tree.scale);
+    const treeRoot = createTree(scene, shadowGenerator, materials.treeTrunkMaterial, tree.material, tree.x, tree.z, tree.scale);
+    treeRoot.parent = root;
   }
+
+  return root;
 }
 
 // Three boulder-shaping methods we're comparing:
@@ -271,10 +277,12 @@ function createBoulder(
   shadowGenerator.addShadowCaster(rock);
 
   colliders.push({ x, z, radius: Math.max(scaleX, scaleZ) * 0.5 });
+  return rock;
 }
 
-export function createSceneryRocks(scene: Scene, materials: Materials, shadowGenerator: ShadowGenerator): RockCollider[] {
+export function createSceneryRocks(scene: Scene, materials: Materials, shadowGenerator: ShadowGenerator): { root: TransformNode; colliders: RockCollider[] } {
   const colliders: RockCollider[] = [];
+  const root = new TransformNode("scenery-rocks-root", scene);
 
   // The shaping methods all looked good, so the scenery mixes them for variety.
   const rocks: { x: number; z: number; scale: number; material: StandardMaterial; method: RockMethod }[] = [
@@ -288,8 +296,8 @@ export function createSceneryRocks(scene: Scene, materials: Materials, shadowGen
   ];
 
   for (const rock of rocks) {
-    createBoulder(scene, shadowGenerator, colliders, rock.material, rock.x, rock.z, rock.scale, rock.method);
+    createBoulder(scene, shadowGenerator, colliders, rock.material, rock.x, rock.z, rock.scale, rock.method).parent = root;
   }
 
-  return colliders;
+  return { root, colliders };
 }

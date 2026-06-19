@@ -448,8 +448,38 @@ export function createGrass(deps: GrassDeps) {
   // feathers across the irregular clover edge and leaves occasional full-density
   // tufts inside (see cloverField.ts). Total blade count is unchanged, so
   // completion scoring is unaffected.
-  const cloverGrassOpen = (x: number, z: number) => (
-    Math.random() < cloverGrassKeepAt(getActiveMap().cloverPatches, x, z)
+  // Open (fenceless) lawns have no fence to hide their boundary, so a hard square
+  // of dense blades would be glaringly visible. Feather the outer ring: keep-prob
+  // ramps from 0 at the edge to 1 a few metres in, so the blades thin out and
+  // blend into the surrounding medium grass with no discernible edge. Closed yards
+  // keep their hard edge (the fence is the boundary). Blades that fail relocate
+  // inward, so the interior just gets a touch denser — total count is unchanged.
+  const openFieldEdgeKeep = (x: number, z: number) => {
+    const map = getActiveMap();
+
+    if (map.fenceSegments.length > 0) {
+      return 1;
+    }
+
+    let xMin = Infinity;
+    let xMax = -Infinity;
+    let zMin = Infinity;
+    let zMax = -Infinity;
+    for (const segment of map.segments) {
+      xMin = Math.min(xMin, segment.xMin);
+      xMax = Math.max(xMax, segment.xMax);
+      zMin = Math.min(zMin, segment.zMin);
+      zMax = Math.max(zMax, segment.zMax);
+    }
+
+    const feather = 5;
+    const distInside = Math.min(x - xMin, xMax - x, z - zMin, zMax - z);
+    const t = Math.max(0, Math.min(1, distInside / feather));
+    return t * t * (3 - (2 * t)); // smoothstep
+  };
+
+  const grassDensityOpen = (x: number, z: number) => (
+    Math.random() < (cloverGrassKeepAt(getActiveMap().cloverPatches, x, z) * openFieldEdgeKeep(x, z))
   );
 
   const distanceToMainYard = (x: number, z: number) => {
@@ -530,19 +560,19 @@ export function createGrass(deps: GrassDeps) {
       let { x, z } = randomYardPoint();
       let fenceFalloff = fence.grassFalloff(x, z);
       let bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
-      let cloverOpen = cloverGrassOpen(x, z);
+      let densityOpen = grassDensityOpen(x, z);
 
-      for (let attempt = 0; attempt < 90 && (fenceFalloff < 0.98 || !bedOpen || !cloverOpen); attempt += 1) {
+      for (let attempt = 0; attempt < 90 && (fenceFalloff < 0.98 || !bedOpen || !densityOpen); attempt += 1) {
         ({ x, z } = randomYardPoint());
         fenceFalloff = fence.grassFalloff(x, z);
         bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
-        cloverOpen = cloverGrassOpen(x, z);
+        densityOpen = grassDensityOpen(x, z);
       }
 
       // If no legal spot was found, retire this blade instead of dropping it in
       // the fence margin or a flower bed where the mower can never reach it.
       // Count it as already mowed and hide it so it can't block 100% completion.
-      if (fenceFalloff < 0.98 || !bedOpen || !cloverOpen) {
+      if (fenceFalloff < 0.98 || !bedOpen || !densityOpen) {
         isMowed[i] = true;
         mowedCount += 1;
         writeMatrix(longGrassMatrices, i, hiddenMatrix);

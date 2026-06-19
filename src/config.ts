@@ -186,8 +186,14 @@ export type FlowerBed = RectLike & {
 // Level codes are durable save/tuning keys. Display names can change freely.
 // `bgrn` is the temporary Beta Green prefix while the first green-level roster
 // is still being shaped.
-export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole", "bgrnField"] as const;
+export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole", "bgrnField", "bgrnShowcase"] as const;
 export type LevelCode = (typeof levelCodes)[number];
+
+// The attract/flyby scene runs on its own dedicated showcase map. It is a valid
+// level code (so it can be the active map) but is NOT part of the playable
+// rotation: excluded from the level picker, progression, and "next level".
+export const showcaseLevelCode: LevelCode = "bgrnShowcase";
+export const playableLevelCodes: LevelCode[] = levelCodes.filter((code) => code !== showcaseLevelCode);
 
 // The saddle-petal field flower comes in a few colours. "warm" maps aren't a
 // thing — a yellow/red mix is just two fields (yellow + red) over one area.
@@ -243,6 +249,7 @@ export const lawnLevels: LawnLevels = {
       bgrnBed: 360,
       bgrnKeyhole: 420,
       bgrnField: 300,
+      bgrnShowcase: 300,
     },
   },
   bgrnEll: {
@@ -344,9 +351,36 @@ export const lawnLevels: LawnLevels = {
       { x: 4, z: -4, radius: 4, spacing: 0.18, grassKeep: 0.12 },
     ],
   },
+  // Attract-only showcase: a large open lawn (no fence) with broad, well-separated
+  // single-type flower areas and a couple of clover patches. The flyby director
+  // treats each flower-area centre and clover patch as a point of interest.
+  bgrnShowcase: {
+    code: "bgrnShowcase",
+    name: "Showcase",
+    spawn: new Vector3(0, 0.18, 0),
+    // Big grass yard so its (feathered) edge sits far outside where the camera
+    // ever goes; the flowers/clover are a CENTRAL cluster the camera stays over.
+    segments: [
+      { xMin: -16, xMax: 16, zMin: -16, zMax: 16, width: 32, height: 32, center: new Vector3(0, 0, 0) },
+    ],
+    fenceSegments: [],
+    flowerBeds: [],
+    dandelionCount: 10,
+    flowerFields: [
+      { variant: "blue", area: { xMin: -8, xMax: -1, zMin: -8, zMax: -1 }, spacing: 0.5 },
+      { variant: "white", area: { xMin: 1, xMax: 8, zMin: -8, zMax: -1 }, spacing: 0.5 },
+      { variant: "yellow", area: { xMin: -8, xMax: -1, zMin: 1, zMax: 8 }, spacing: 0.5 },
+      { variant: "red", area: { xMin: 1, xMax: 8, zMin: 1, zMax: 8 }, spacing: 0.6 },
+    ],
+    cloverPatches: [
+      { x: 0, z: 0, radius: 2.4, spacing: 0.18, grassKeep: 0.25 },
+      { x: -3.5, z: 3.5, radius: 1.6, spacing: 0.18, grassKeep: 0.25 },
+    ],
+  },
 };
 
-export const lawnMaps = levelCodes.map((code) => lawnLevels[code]);
+// Only the playable maps — the showcase is attract-only and never listed.
+export const lawnMaps = playableLevelCodes.map((code) => lawnLevels[code]);
 
 const legacyLevelCodes: Record<string, LevelCode> = {
   main: "bgrnEll",
@@ -369,8 +403,12 @@ export function getActiveLevelCode() {
 }
 
 export function getNextLevelCode(levelCode = getActiveLevelCode()) {
-  const index = levelCodes.indexOf(levelCode);
-  return levelCodes[(index + 1) % levelCodes.length];
+  // Advance within the playable rotation only (skip the attract-only showcase).
+  const index = playableLevelCodes.indexOf(levelCode);
+  if (index < 0) {
+    return playableLevelCodes[0];
+  }
+  return playableLevelCodes[(index + 1) % playableLevelCodes.length];
 }
 
 export function getActiveMap() {

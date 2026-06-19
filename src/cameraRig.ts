@@ -1,4 +1,4 @@
-import { ArcRotateCamera, Camera, Effect, FreeCamera, MeshBuilder, RenderTargetTexture, Scene, ShaderMaterial, Texture, Vector3, Viewport } from "@babylonjs/core";
+import { ArcRotateCamera, Camera, Effect, FreeCamera, MeshBuilder, Quaternion, RenderTargetTexture, Scene, ShaderMaterial, Texture, Vector3, Viewport } from "@babylonjs/core";
 import type { Engine } from "@babylonjs/core";
 import { settings } from "./config";
 import type { AnalogInput, InputMode } from "./input";
@@ -38,11 +38,6 @@ type CameraRigState = {
   drag: DragState;
 };
 
-function lerpAngle(current: number, target: number, amount: number) {
-  const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-  return current + (wrappedDelta * amount);
-}
-
 // Owns the chase camera and everything that aims it: orbit/return-to-behind
 // state, right-drag and wheel control, portrait FOV/framing, and optional
 // adaptive resolution. The render loop calls updateInput/follow; canvas pointer
@@ -63,8 +58,18 @@ export function createCameraRig(deps: CameraRigDeps) {
   camera.detachControl();
   camera.lowerRadiusLimit = 8;
   camera.upperRadiusLimit = 24;
-  const cinematicCamera = new ArcRotateCamera("cinematic-camera", -Math.PI / 2, Math.PI / 3, 16, Vector3.Zero(), scene);
-  cinematicCamera.detachControl();
+  // Two free cameras dedicated to the attract cinematic. The director drives
+  // their position and rotationQuaternion DIRECTLY from its physics state (never
+  // setTarget / look-at), so orientation carries its own angular inertia — a
+  // heavy head, not a weightless gimbal pinned to a subject.
+  const cinePrimaryCam = new FreeCamera("cine-primary-camera", Vector3.Zero(), scene);
+  const cineSecondaryCam = new FreeCamera("cine-secondary-camera", Vector3.Zero(), scene);
+  for (const cam of [cinePrimaryCam, cineSecondaryCam]) {
+    cam.detachControl();
+    cam.rotationQuaternion = Quaternion.Identity();
+    cam.minZ = 0.05;
+    cam.fovMode = Camera.FOVMODE_VERTICAL_FIXED;
+  }
   const primaryTarget = new RenderTargetTexture("cinematic-primary", { ratio: 1 }, scene, false, true);
   const secondaryTarget = new RenderTargetTexture("cinematic-secondary", { ratio: 1 }, scene, false, true);
   primaryTarget.renderListPredicate = () => true;
@@ -358,71 +363,29 @@ export function createCameraRig(deps: CameraRigDeps) {
       );
     },
 
-    cinematicFlyby(timeSeconds: number, deltaSeconds: number, target: Vector3, radius: number) {
-      const orbitRadius = Math.max(12, Math.min(30, radius));
-      const targetAlpha = (timeSeconds * 0.12) - (Math.PI / 2);
-      const targetBeta = 0.88 + (Math.sin(timeSeconds * 0.17) * 0.08);
-      const targetRadius = orbitRadius + (Math.sin(timeSeconds * 0.09) * 1.4);
-      const ease = 1 - Math.exp(-deltaSeconds * 0.75);
-
-      camera.alpha = lerpAngle(camera.alpha, targetAlpha, ease);
-      camera.beta += (targetBeta - camera.beta) * ease;
-      camera.radius += (targetRadius - camera.radius) * ease;
-      camera.setTarget(Vector3.Lerp(camera.target, target, ease));
-    },
-
-    cinematicPose(position: Vector3, target: Vector3, fov: number, deltaSeconds: number) {
-      scene.activeCameras = null;
-      scene.activeCamera = camera;
-      camera.viewport = new Viewport(0, 0, 1, 1);
-      const ease = 1 - Math.exp(-deltaSeconds * 1.35);
-      camera.setPosition(Vector3.Lerp(camera.position, position, ease));
-      camera.setTarget(Vector3.Lerp(camera.target, target, ease));
-      camera.fov += (fov - camera.fov) * ease;
-    },
-
-    cinematicViewportPose(
-      primary: { position: Vector3; target: Vector3; fov: number },
-      secondary: { position: Vector3; target: Vector3; fov: number } | null,
-      wipeProgress: number,
-    ) {
-      camera.setPosition(primary.position);
-      camera.setTarget(primary.target);
-      camera.fov = primary.fov;
-      scene.activeCameras = null;
-      scene.activeCamera = camera;
-      camera.viewport = new Viewport(0, 0, 1, 1);
-
-      if (!secondary) {
-        return;
-      }
-
-      const wipe = Math.max(0.001, Math.min(0.999, wipeProgress));
-      cinematicCamera.setPosition(secondary.position);
-      cinematicCamera.setTarget(secondary.target);
-      cinematicCamera.fov = secondary.fov;
-      camera.viewport = new Viewport(0, 0, wipe, 1);
-      cinematicCamera.viewport = new Viewport(wipe, 0, 1 - wipe, 1);
-      scene.activeCameras = [cinematicCamera, camera];
-    },
-
+    // Render the attract cinematic: two free cameras (primary = current shot,
+    // secondary = the next shot warming up) render to their own targets, then the
+    // wipe shader composites primary over secondary. Each pose is a world position
+    // + an absolute orientation quaternion (NOT a look-at target) + a vertical fov.
     renderCinematicComposite(
-      primary: { position: Vector3; target: Vector3; fov: number },
-      secondary: { position: Vector3; target: Vector3; fov: number },
+      primary: { position: Vector3; rotation: Quaternion; fov: number },
+      secondary: { position: Vector3; rotation: Quaternion; fov: number },
       mask: number,
       direction = 1,
     ) {
       scene.activeCameras = null;
-      camera.viewport = new Viewport(0, 0, 1, 1);
-      cinematicCamera.viewport = new Viewport(0, 0, 1, 1);
-      camera.setPosition(primary.position);
-      camera.setTarget(primary.target);
-      camera.fov = primary.fov;
-      cinematicCamera.setPosition(secondary.position);
-      cinematicCamera.setTarget(secondary.target);
-      cinematicCamera.fov = secondary.fov;
-      primaryTarget.activeCamera = camera;
-      secondaryTarget.activeCamera = cinematicCamera;
+
+      const applyPose = (cam: FreeCamera, pose: { position: Vector3; rotation: Quaternion; fov: number }) => {
+        cam.position.copyFrom(pose.position);
+        (cam.rotationQuaternion ??= Quaternion.Identity()).copyFrom(pose.rotation);
+        cam.fov = pose.fov;
+        cam.viewport = new Viewport(0, 0, 1, 1);
+      };
+
+      applyPose(cinePrimaryCam, primary);
+      applyPose(cineSecondaryCam, secondary);
+      primaryTarget.activeCamera = cinePrimaryCam;
+      secondaryTarget.activeCamera = cineSecondaryCam;
       primaryTarget.render(false);
       secondaryTarget.render(false);
       compositeMaterial.setTexture("primarySampler", primaryTarget);
