@@ -13,14 +13,26 @@ function patchCloverAmount(patch: CloverPatch, x: number, z: number) {
   const dz = z - patch.z;
   const dist = Math.hypot(dx, dz);
 
-  // Two octaves of value noise push the effective edge in and out around the
-  // ring, giving organic bulges and bays instead of a clean circle.
-  const wobble = ((valueNoise((x * 0.5) + patch.x, (z * 0.5) - patch.z) - 0.5) * patch.radius * 0.5)
-    + ((valueNoise((x * 1.1) - patch.z, (z * 1.1) + patch.x) - 0.5) * patch.radius * 0.22);
+  // Two octaves of value noise wobble the edge for an organic, lumpy outline —
+  // but kept MODEST so the patch stays roughly its nominal size (don't let it
+  // balloon to ~1.75x and merge with its neighbours).
+  const wobble = ((valueNoise((x * 0.4) + patch.x, (z * 0.4) - patch.z) - 0.5) * patch.radius * 0.45)
+    + ((valueNoise((x * 0.95) - patch.z, (z * 0.95) + patch.x) - 0.5) * patch.radius * 0.22);
   const effectiveRadius = patch.radius + wobble;
-  const feather = Math.max(0.7, patch.radius * 0.45); // width of the clover->grass blend
+  const feather = Math.max(0.6, patch.radius * 0.4); // width of the clover->grass blend
+  let amount = smoothstep(clamp01((effectiveRadius - dist) / feather));
 
-  return smoothstep(clamp01((effectiveRadius - dist) / feather));
+  // A soft "bite" out of one side turns the blob into crescent / kidney shapes —
+  // closer to how clover actually spreads than a circle. Seeded from the patch
+  // position so the placement and the grass-thinning carve the same bite.
+  const biteAngle = randomHash(patch.x * 1.31, patch.z * 0.77) * Math.PI * 2;
+  const biteX = patch.x + (Math.cos(biteAngle) * patch.radius * 0.95);
+  const biteZ = patch.z + (Math.sin(biteAngle) * patch.radius * 0.95);
+  const biteDist = Math.hypot(x - biteX, z - biteZ);
+  const bite = smoothstep(clamp01(((patch.radius * 0.75) - biteDist) / (patch.radius * 0.55)));
+  amount *= 1 - (bite * 0.8);
+
+  return amount;
 }
 
 // A patch's grass tufts: 1-2 small, deterministic spots inside the core where

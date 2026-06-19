@@ -366,15 +366,17 @@ export const lawnLevels: LawnLevels = {
     fenceSegments: [],
     flowerBeds: [],
     dandelionCount: 10,
+    // Colored flower fields in three quadrants; the fourth quadrant + centre are
+    // clover (amorphous, much less grass, with little white "clover flower"
+    // bunches). White is NOT a field here — white only appears as clover bunches.
     flowerFields: [
       { variant: "blue", area: { xMin: -8, xMax: -1, zMin: -8, zMax: -1 }, spacing: 0.5 },
-      { variant: "white", area: { xMin: 1, xMax: 8, zMin: -8, zMax: -1 }, spacing: 0.5 },
-      { variant: "yellow", area: { xMin: -8, xMax: -1, zMin: 1, zMax: 8 }, spacing: 0.5 },
-      { variant: "red", area: { xMin: 1, xMax: 8, zMin: 1, zMax: 8 }, spacing: 0.6 },
+      { variant: "yellow", area: { xMin: 1, xMax: 8, zMin: -8, zMax: -1 }, spacing: 0.5 },
+      { variant: "red", area: { xMin: -8, xMax: -1, zMin: 1, zMax: 8 }, spacing: 0.55 },
     ],
     cloverPatches: [
-      { x: 0, z: 0, radius: 2.4, spacing: 0.18, grassKeep: 0.25 },
-      { x: -3.5, z: 3.5, radius: 1.6, spacing: 0.18, grassKeep: 0.25 },
+      { x: 4.5, z: 4.5, radius: 3, grassKeep: 0.1 },
+      { x: 0.5, z: 0.5, radius: 2.4, grassKeep: 0.1 },
     ],
   },
 };

@@ -1,7 +1,9 @@
 import { Matrix, Mesh, MeshBuilder, Scene, VertexData } from "@babylonjs/core";
 import { getActiveMap } from "./config";
 import type { FlowerVariant } from "./config";
+import { cloverAmountAt } from "./cloverField";
 import type { Materials } from "./materials";
+import { valueNoise } from "./utils/noise";
 
 export type FieldFlowers = ReturnType<typeof createFieldFlowers>;
 
@@ -151,16 +153,17 @@ export function createFieldFlowers(
   };
 
   const buildFlowers = (): Flower[] => {
-    const fields = getActiveMap().flowerFields;
-    if (!fields || fields.length === 0) {
-      return [];
-    }
-
+    const map = getActiveMap();
+    const fields = map.flowerFields;
+    const cloverPatches = map.cloverPatches;
     const flowers: Flower[] = [];
 
-    for (const field of fields) {
+    for (const field of fields ?? []) {
       const { area, spacing, variant } = field;
       const jitter = spacing * 0.34;
+      // Density falls off over the outer `feather` metres of the field, so the
+      // patch dissolves into the grass instead of stopping at a hard rectangle.
+      const feather = 1.6;
 
       for (let x = area.xMin + (spacing / 2); x <= area.xMax; x += spacing) {
         for (let z = area.zMin + (spacing / 2); z <= area.zMax; z += spacing) {
@@ -168,6 +171,26 @@ export function createFieldFlowers(
           const fz = z + ((Math.random() - 0.5) * 2 * jitter);
 
           if (fx < area.xMin || fx > area.xMax || fz < area.zMin || fz > area.zMax) {
+            continue;
+          }
+
+          // Distance to the nearest field edge -> keep probability (smooth ramp).
+          const edgeDist = Math.min(fx - area.xMin, area.xMax - fx, fz - area.zMin, area.zMax - fz);
+          const edge = Math.max(0, Math.min(1, edgeDist / feather));
+          const edgeKeep = edge * edge * (3 - (2 * edge));
+          // Low-frequency noise gathers the flowers into soft clumps with thinner
+          // gaps between (a cloudy distribution), instead of an even carpet. A
+          // floor keeps the gaps from going fully bare.
+          const clump = valueNoise((fx * 0.55) + area.xMin, (fz * 0.55) + area.zMin);
+          const c = Math.max(0, Math.min(1, (clump - 0.34) / 0.4));
+          const clumpKeep = 0.32 + (0.68 * (c * c * (3 - (2 * c))));
+          if (Math.random() > (edgeKeep * clumpKeep)) {
+            continue;
+          }
+
+          // Keep the colored fields OUT of the clover — clover patches hold only
+          // their own little white bunches (added below).
+          if (cloverAmountAt(cloverPatches, fx, fz) > 0.3) {
             continue;
           }
 
@@ -183,7 +206,56 @@ export function createFieldFlowers(
       }
     }
 
+    // Little white "clover flower" bunches scattered through the clover patches.
+    addCloverFlowerBunches(cloverPatches, flowers);
+
     return flowers;
+  };
+
+  // A few tight clumps of white flowers per clover patch — they read as clover
+  // blossoms dotted through the patch (the only flowers allowed in the clover).
+  const addCloverFlowerBunches = (patches: ReturnType<typeof getActiveMap>["cloverPatches"], out: Flower[]) => {
+    if (!patches) {
+      return;
+    }
+    const TAU = Math.PI * 2;
+    for (const patch of patches) {
+      const bunches = 2 + Math.floor(Math.random() * 3); // 2..4 per patch
+      for (let b = 0; b < bunches; b += 1) {
+        // Find a bunch centre that actually sits in the clover.
+        let cx = patch.x;
+        let cz = patch.z;
+        let found = false;
+        for (let tries = 0; tries < 8; tries += 1) {
+          const a = Math.random() * TAU;
+          const r = Math.random() * patch.radius;
+          const px = patch.x + (Math.cos(a) * r);
+          const pz = patch.z + (Math.sin(a) * r);
+          if (cloverAmountAt([patch], px, pz) > 0.5) {
+            cx = px;
+            cz = pz;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          continue;
+        }
+        const count = 5 + Math.floor(Math.random() * 8); // 5..12 blossoms
+        for (let i = 0; i < count; i += 1) {
+          const a = Math.random() * TAU;
+          const r = Math.sqrt(Math.random()) * 0.28; // tight clump
+          out.push({
+            x: cx + (Math.cos(a) * r),
+            z: cz + (Math.sin(a) * r),
+            variant: "white",
+            yaw: Math.random() * TAU,
+            height: 0.08 + (Math.random() * 0.06), // short, like clover blossoms
+            petalCount: 5 + Math.floor(Math.random() * 4),
+          });
+        }
+      }
+    }
   };
 
   const place = () => {

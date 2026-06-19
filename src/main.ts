@@ -50,6 +50,7 @@ import { createHud } from "./hud";
 import { createSettingsUi } from "./settingsUi";
 import { createCameraRig } from "./cameraRig";
 import { createAttractDirector } from "./attractCamera";
+import { createCloudShadows } from "./cloudShadows";
 import { createMenu } from "./menu";
 import { createMowerControl } from "./mowerControl";
 import { renderingGroups } from "./renderOrder";
@@ -638,6 +639,7 @@ function resetGame() {
   roadRoot.setEnabled(!isShowcase);
   roadDirt.overlay.setEnabled(!isShowcase);
   player.setEnabled(!isShowcase);
+  cloudShadows.setEnabled(isShowcase);
   hud.resetCelebration();
   mapGroundRoot?.dispose(false, true);
   fenceRoot?.dispose(false, true);
@@ -994,6 +996,9 @@ const camera = cameraRig.camera;
 // The attract/flyby director: a heavy physics camera that frames points of
 // interest (flower fields, clover) with shot variety. See attractCamera.ts.
 const attract = createAttractDirector({ groundHeightAt });
+// Faint drifting cloud-shadow layer — enabled on the attract showcase to make the
+// higher/top-down shots pop. See cloudShadows.ts.
+const cloudShadows = createCloudShadows(scene);
 let ssaoPipeline: SSAO2RenderingPipeline | null = null;
 let ssaoPipelineScale = 0;
 let ssaoPipelineBlurScale = 0;
@@ -1460,6 +1465,7 @@ engine.runRenderLoop(() => {
   const deltaSeconds = engine.getDeltaTime() / 1000;
   const timeSeconds = performance.now() / 1000;
   syncGameplayInputVisibility();
+  cloudShadows.update(timeSeconds);
 
   bumpCooldown = Math.max(0, bumpCooldown - deltaSeconds);
   bumpPenaltyCooldown = Math.max(0, bumpPenaltyCooldown - deltaSeconds);
@@ -1510,6 +1516,11 @@ engine.runRenderLoop(() => {
   if (menu.isOpen() || pausedByBlur) {
     grass.updateMotion(timeSeconds);
     if (menu.isOpen() && !gameStarted) {
+      // Brighten the sun on the attract screen so the showcase doesn't read dreary
+      // behind the wipe blur. (updateCloudShadows isn't run on this path, so the
+      // boost stays put; gameplay resets it each frame.)
+      sun.intensity = baseSunIntensity * 2;
+      sun.specular = baseSunSpecular.scale(1.5);
       const frame = attract.frame(timeSeconds, deltaSeconds);
       cameraRig.renderCinematicComposite(frame.primary, frame.secondary, frame.mask, frame.direction);
       syncCinematicWipe(false);
