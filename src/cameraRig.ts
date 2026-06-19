@@ -112,36 +112,46 @@ export function createCameraRig(deps: CameraRigDeps) {
       uniform float direction;
       uniform float texelX;
 
-      vec4 blurMix(sampler2D sampler, vec2 uv) {
-        vec2 offset = vec2(texelX, 0.0);
+      vec4 directionBlur(sampler2D sampler, vec2 uv, float blurAmount) {
+        vec2 offset = vec2(texelX * blurAmount, 0.0);
         return (
-          texture2D(sampler, uv - (offset * 8.0)) * 0.06
-          + texture2D(sampler, uv - (offset * 4.0)) * 0.18
-          + texture2D(sampler, uv) * 0.52
-          + texture2D(sampler, uv + (offset * 4.0)) * 0.18
-          + texture2D(sampler, uv + (offset * 8.0)) * 0.06
+          texture2D(sampler, uv - (offset * 4.0)) * 0.06
+          + texture2D(sampler, uv - (offset * 3.0)) * 0.1
+          + texture2D(sampler, uv - (offset * 2.0)) * 0.14
+          + texture2D(sampler, uv - offset) * 0.18
+          + texture2D(sampler, uv) * 0.04
+          + texture2D(sampler, uv + offset) * 0.18
+          + texture2D(sampler, uv + (offset * 2.0)) * 0.14
+          + texture2D(sampler, uv + (offset * 3.0)) * 0.1
+          + texture2D(sampler, uv + (offset * 4.0)) * 0.06
         );
       }
 
       void main(void) {
-        vec4 primary = texture2D(primarySampler, vUV);
-        vec4 secondary = texture2D(secondarySampler, vUV);
-        if (mask >= 1.0) {
-          gl_FragColor = primary;
-          return;
-        }
-        if (mask <= 0.0) {
-          gl_FragColor = secondary;
-          return;
-        }
-        float edge = direction > 0.5 ? mask : 1.0 - mask;
-        float secondaryAmount = direction > 0.5
-          ? smoothstep(edge - softness, edge + softness, vUV.x)
-          : 1.0 - smoothstep(edge - softness, edge + softness, vUV.x);
-        float seam = 1.0 - smoothstep(0.0, softness * 1.45, abs(vUV.x - edge));
-        vec4 crisp = mix(primary, secondary, secondaryAmount);
-        vec4 blurred = mix(blurMix(primarySampler, vUV), blurMix(secondarySampler, vUV), secondaryAmount);
-        gl_FragColor = mix(crisp, blurred, seam * 0.85);
+        // The soft edge is ~10% of the viewport wide (edgeHalf each side of center).
+        // Its CENTER travels from fully off-screen right to fully off-screen left,
+        // so the blurred band never sits parked at a frame boundary (no snap).
+        float edgeHalf = max(softness, 0.0001);          // half-width of the soft edge (~0.05)
+        float margin = edgeHalf + 0.08;                  // start/end ~13% beyond the frame edge
+
+        // reveal: 1 = full primary visible, 0 = full secondary visible.
+        float reveal = direction > 0.5 ? mask : 1.0 - mask;
+        reveal = clamp(reveal, 0.0, 1.0);
+
+        // Edge center sweeps (1 + margin) -> (-margin) as reveal goes 1 -> 0.
+        float edgePos = mix(-margin, 1.0 + margin, reveal);
+
+        // Soft edge: 0 on the primary side, 1 on the secondary side.
+        float blurGradient = smoothstep(edgePos - edgeHalf, edgePos + edgeHalf, vUV.x);
+
+        // Directional blur peaks right at the moving edge, zero elsewhere.
+        float edgeProximity = 1.0 - clamp(abs(vUV.x - edgePos) / edgeHalf, 0.0, 1.0);
+        float blurAmount = edgeProximity * edgeProximity * 6.0;
+
+        vec4 blurredPrimary = directionBlur(primarySampler, vUV, blurAmount);
+        vec4 blurredSecondary = directionBlur(secondarySampler, vUV, blurAmount);
+
+        gl_FragColor = mix(blurredPrimary, blurredSecondary, blurGradient);
       }
     `;
   }
@@ -154,7 +164,7 @@ export function createCameraRig(deps: CameraRigDeps) {
   compositeMaterial.disableDepthWrite = true;
   compositeMaterial.setTexture("primarySampler", primaryTarget);
   compositeMaterial.setTexture("secondarySampler", secondaryTarget);
-  compositeMaterial.setFloat("softness", 0.1);
+  compositeMaterial.setFloat("softness", 0.05);
   compositeMaterial.setFloat("direction", 1);
 
   const compositePlane = MeshBuilder.CreatePlane("cinematic-composite-plane", { size: 2 }, compositorScene);

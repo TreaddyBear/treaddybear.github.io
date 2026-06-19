@@ -38,6 +38,8 @@ import { createMaterials } from "./materials";
 import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { createGunEffects } from "./gunEffects";
 import { createTulips } from "./tulips";
+import { createFieldFlowers } from "./fieldFlowers";
+import { createCloverPatch } from "./cloverPatch";
 import { createWind, windDirection } from "./wind";
 import { createDandelions } from "./dandelions";
 import { createFenceSystem } from "./fence";
@@ -274,6 +276,8 @@ const {
 
 const gunEffects = createGunEffects(scene);
 const tulips = createTulips(scene, materials, groundHeightAt);
+const fieldFlowers = createFieldFlowers(scene, materials, groundHeightAt);
+const cloverPatch = createCloverPatch(scene, materials, groundHeightAt);
 
 function createHiddenGunProp() {
   const root = new TransformNode("hidden-gun-cache", scene);
@@ -1139,6 +1143,8 @@ function resetGame() {
   grass.generate();
   dandelions.place();
   tulips.place();
+  fieldFlowers.place();
+  cloverPatch.place();
   analogInput.cancelThrottle(); // a fresh level starts stopped, never at a held throttle
   grass.mowUnderMower(0);
   // Prime the per-frame grass motion once so the blades are already in their
@@ -1790,13 +1796,19 @@ const menu = createMenu({
   toggleFullscreen: () => fullscreenButtonEl.click(),
   getInputMode: () => settings.inputMode as InputMode,
   setInputMode: (mode) => settingsUi.setInputMode(mode),
-  getLevels: () => lawnMaps.map((map) => ({
-    code: map.code,
-    name: map.name,
-    bestStars: getLevelBestStars(map.code),
-  })).filter((level, index, levels) => (
-    index === 0 || levels[index - 1].bestStars > 0
-  )),
+  getLevels: () => {
+    const levels = lawnMaps.map((map) => ({
+      code: map.code,
+      name: map.name,
+      bestStars: getLevelBestStars(map.code),
+    }));
+    // Show every level (so the full roster is visible), but a level only unlocks
+    // once the one before it has earned at least one star.
+    return levels.map((level, index) => ({
+      ...level,
+      unlocked: index === 0 || levels[index - 1].bestStars > 0,
+    }));
+  },
   getCurrentLevelCode: () => getActiveLevelCode(),
   onPreviewLevel: (code) => {
     if (!gameStarted) {
@@ -1992,6 +2004,10 @@ engine.runRenderLoop(() => {
   updateCloudShadows(timeSeconds);
   grass.mowUnderMower(deltaSeconds);
   dandelions.mowAt(player.position.x, player.position.z, mowerCutRadius * mowerCutRadius);
+  // Field flowers + clover mow away under the mower (decorative — no scoring).
+  const flowerMowRadiusSquared = (mowerCutRadius * 1.2) ** 2;
+  fieldFlowers.update(player.position.x, player.position.z, flowerMowRadiusSquared);
+  cloverPatch.update(player.position.x, player.position.z, flowerMowRadiusSquared);
   grass.updateHighlight(timeSeconds, deltaSeconds);
 
   const flowerMistakesBefore = tulips.mistakeCount;

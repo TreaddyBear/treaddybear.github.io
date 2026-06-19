@@ -186,8 +186,30 @@ export type FlowerBed = RectLike & {
 // Level codes are durable save/tuning keys. Display names can change freely.
 // `bgrn` is the temporary Beta Green prefix while the first green-level roster
 // is still being shaped.
-export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole"] as const;
+export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole", "bgrnField"] as const;
 export type LevelCode = (typeof levelCodes)[number];
+
+// The saddle-petal field flower comes in a few colours. "warm" maps aren't a
+// thing — a yellow/red mix is just two fields (yellow + red) over one area.
+export type FlowerVariant = "blue" | "white" | "yellow" | "red";
+
+// A carpet of field flowers of one colour, scattered on a jittered grid across
+// the given area at roughly `spacing` metres apart. A map can list several.
+export type FlowerField = {
+  variant: FlowerVariant;
+  area: RectLike;
+  spacing: number;
+};
+
+// A circular patch of dense clover. Inside it the normal lawn is thinned to a
+// fraction (`grassKeep`) of its usual density and clover fills the gap.
+export type CloverPatch = {
+  x: number;
+  z: number;
+  radius: number;
+  spacing?: number; // clover spacing in metres (default 0.22)
+  grassKeep?: number; // fraction of normal grass kept inside (default 0.25)
+};
 
 type LawnLevelSettings = {
   parSeconds: Record<LevelCode, number>;
@@ -201,6 +223,8 @@ export type LawnMap = {
   fenceSegments: FenceSegment[];
   flowerBeds: FlowerBed[];
   dandelionCount: number;
+  flowerFields?: FlowerField[];
+  cloverPatches?: CloverPatch[];
 };
 
 type LawnLevels = {
@@ -218,6 +242,7 @@ export const lawnLevels: LawnLevels = {
       bgrnEll: 360,
       bgrnBed: 360,
       bgrnKeyhole: 420,
+      bgrnField: 300,
     },
   },
   bgrnEll: {
@@ -235,6 +260,9 @@ export const lawnLevels: LawnLevels = {
     ],
     flowerBeds: [],
     dandelionCount: 18,
+    cloverPatches: [
+      { x: -5, z: -5, radius: 3 },
+    ],
   },
   bgrnBed: {
     code: "bgrnBed",
@@ -292,6 +320,29 @@ export const lawnLevels: LawnLevels = {
       { xMin: 4.9, xMax: 9.5, zMin: 3.6, zMax: 6.8, count: 30 },
     ],
     dandelionCount: 16,
+  },
+  bgrnField: {
+    code: "bgrnField",
+    name: "Blue Field",
+    spawn: new Vector3(0, 0.18, 0),
+    // A plain open square — no fence, just grass and a carpet of blue flowers.
+    segments: [
+      { xMin: -8, xMax: 8, zMin: -8, zMax: 8, width: 16, height: 16, center: new Vector3(0, 0, 0) },
+    ],
+    fenceSegments: [],
+    flowerBeds: [],
+    dandelionCount: 0,
+    // Four quadrants: blue flowers (bottom-left), white (top-left), a yellow/red
+    // mix (top-right, two overlaid fields), and clover (bottom-right).
+    flowerFields: [
+      { variant: "blue", area: { xMin: -8, xMax: 0, zMin: -8, zMax: 0 }, spacing: 0.5 },
+      { variant: "white", area: { xMin: -8, xMax: 0, zMin: 0, zMax: 8 }, spacing: 0.5 },
+      { variant: "yellow", area: { xMin: 0, xMax: 8, zMin: 0, zMax: 8 }, spacing: 0.7 },
+      { variant: "red", area: { xMin: 0, xMax: 8, zMin: 0, zMax: 8 }, spacing: 0.7 },
+    ],
+    cloverPatches: [
+      { x: 4, z: -4, radius: 4, spacing: 0.18, grassKeep: 0.12 },
+    ],
   },
 };
 

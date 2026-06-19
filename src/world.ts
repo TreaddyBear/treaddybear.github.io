@@ -579,6 +579,12 @@ export function fenceDirtAmountAt(x: number, z: number, segments: FenceSegment[]
 // the lawn shows through. This is the grass -> dirt texture swap, with
 // randomized, blended edges rather than straight strips.
 function createFenceDirtOverlay(scene: Scene, segments: FenceSegment[]) {
+  // A fenceless map has no dirt band to draw. Bail before the bounds math, which
+  // would otherwise leave xMin/xMax at +/-Infinity and build a degenerate texture.
+  if (segments.length === 0) {
+    return null;
+  }
+
   let xMin = Number.POSITIVE_INFINITY;
   let xMax = Number.NEGATIVE_INFINITY;
   let zMin = Number.POSITIVE_INFINITY;

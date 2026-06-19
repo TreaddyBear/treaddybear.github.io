@@ -63,6 +63,58 @@ export function createMaterials(scene: Scene) {
     return material;
   });
 
+  // Faint blue field flower (saddle-petalled, thin-instanced). Soft periwinkle
+  // with a touch of emissive so it stays readable in grass shade without glowing.
+  const blueFlowerPetalMaterial = new StandardMaterial("blueFlowerPetalMaterial", scene);
+  blueFlowerPetalMaterial.diffuseColor = new Color3(0.66, 0.78, 0.98);
+  // Emissive matches the albedo so the petals read as soft, lit flowers (and stay
+  // colourful in shade) instead of flat. Specular off — petals are matte, not plastic.
+  blueFlowerPetalMaterial.emissiveColor = new Color3(0.3, 0.37, 0.48);
+  blueFlowerPetalMaterial.specularColor = Color3.Black();
+  blueFlowerPetalMaterial.backFaceCulling = false;
+
+  const blueFlowerCenterMaterial = new StandardMaterial("blueFlowerCenterMaterial", scene);
+  blueFlowerCenterMaterial.diffuseColor = new Color3(0.97, 0.92, 0.6);
+  blueFlowerCenterMaterial.emissiveColor = new Color3(0.22, 0.18, 0.04);
+  blueFlowerCenterMaterial.specularColor = Color3.Black();
+
+  const blueFlowerStemMaterial = new StandardMaterial("blueFlowerStemMaterial", scene);
+  blueFlowerStemMaterial.diffuseColor = new Color3(0.2, 0.46, 0.16);
+  blueFlowerStemMaterial.specularColor = Color3.Black();
+
+  // Same saddle-petal flower in other colours (white, warm yellow, warm red).
+  // Share the blue flower's pale centre + green stem.
+  const whiteFlowerPetalMaterial = new StandardMaterial("whiteFlowerPetalMaterial", scene);
+  whiteFlowerPetalMaterial.diffuseColor = new Color3(0.95, 0.96, 0.99);
+  whiteFlowerPetalMaterial.emissiveColor = new Color3(0.42, 0.43, 0.46);
+  whiteFlowerPetalMaterial.specularColor = Color3.Black();
+  whiteFlowerPetalMaterial.backFaceCulling = false;
+
+  const yellowFlowerPetalMaterial = new StandardMaterial("yellowFlowerPetalMaterial", scene);
+  yellowFlowerPetalMaterial.diffuseColor = new Color3(0.99, 0.86, 0.22);
+  yellowFlowerPetalMaterial.emissiveColor = new Color3(0.46, 0.38, 0.07);
+  yellowFlowerPetalMaterial.specularColor = Color3.Black();
+  yellowFlowerPetalMaterial.backFaceCulling = false;
+
+  const redFlowerPetalMaterial = new StandardMaterial("redFlowerPetalMaterial", scene);
+  redFlowerPetalMaterial.diffuseColor = new Color3(0.92, 0.22, 0.19);
+  redFlowerPetalMaterial.emissiveColor = new Color3(0.47, 0.1, 0.08);
+  redFlowerPetalMaterial.specularColor = Color3.Black();
+  redFlowerPetalMaterial.backFaceCulling = false;
+
+  // Clover: a deep, saturated yellow-green — darker than the lawn so the patch
+  // reads as richer, more natural ground cover (not a bright lime blob).
+  // Leaflets are double-sided (canted discs get viewed from below).
+  const cloverLeafMaterial = new StandardMaterial("cloverLeafMaterial", scene);
+  cloverLeafMaterial.diffuseColor = new Color3(0.17, 0.27, 0.045);
+  cloverLeafMaterial.emissiveColor = new Color3(0.02, 0.04, 0.008);
+  cloverLeafMaterial.specularColor = new Color3(0.04, 0.05, 0.03);
+  cloverLeafMaterial.backFaceCulling = false;
+
+  const cloverStemMaterial = new StandardMaterial("cloverStemMaterial", scene);
+  cloverStemMaterial.diffuseColor = new Color3(0.13, 0.22, 0.04);
+  cloverStemMaterial.specularColor = Color3.Black();
+
   const roadMaterial = new StandardMaterial("roadMaterial", scene);
   roadMaterial.diffuseColor = new Color3(0.34, 0.34, 0.33);
   roadMaterial.specularColor = Color3.Black();
@@ -128,6 +180,14 @@ export function createMaterials(scene: Scene) {
     dandelionCenterMaterial,
     tulipStemMaterial,
     tulipHeadMaterials,
+    blueFlowerPetalMaterial,
+    blueFlowerCenterMaterial,
+    blueFlowerStemMaterial,
+    whiteFlowerPetalMaterial,
+    yellowFlowerPetalMaterial,
+    redFlowerPetalMaterial,
+    cloverLeafMaterial,
+    cloverStemMaterial,
     roadMaterial,
     stripeMaterial,
     fenceMaterial,

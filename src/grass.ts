@@ -17,6 +17,7 @@ import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
 import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
+import { cloverGrassKeepAt } from "./cloverField";
 import "./devSettings"; // dev-only: load saved setting overrides before anything reads them
 import { createMowField } from "./mowField";
 import { createGrassBake } from "./grassBake";
@@ -441,6 +442,16 @@ export function createGrass(deps: GrassDeps) {
     return true;
   };
 
+  // Clover patches thin the lawn: a blade landing inside one is usually rejected
+  // (the placement loop then relocates it elsewhere), so the patch keeps only a
+  // fraction of normal blade density and the clover fills in. The keep-fraction
+  // feathers across the irregular clover edge and leaves occasional full-density
+  // tufts inside (see cloverField.ts). Total blade count is unchanged, so
+  // completion scoring is unaffected.
+  const cloverGrassOpen = (x: number, z: number) => (
+    Math.random() < cloverGrassKeepAt(getActiveMap().cloverPatches, x, z)
+  );
+
   const distanceToMainYard = (x: number, z: number) => {
     let closest = Number.POSITIVE_INFINITY;
 
@@ -519,17 +530,19 @@ export function createGrass(deps: GrassDeps) {
       let { x, z } = randomYardPoint();
       let fenceFalloff = fence.grassFalloff(x, z);
       let bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
+      let cloverOpen = cloverGrassOpen(x, z);
 
-      for (let attempt = 0; attempt < 90 && (fenceFalloff < 0.98 || !bedOpen); attempt += 1) {
+      for (let attempt = 0; attempt < 90 && (fenceFalloff < 0.98 || !bedOpen || !cloverOpen); attempt += 1) {
         ({ x, z } = randomYardPoint());
         fenceFalloff = fence.grassFalloff(x, z);
         bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
+        cloverOpen = cloverGrassOpen(x, z);
       }
 
       // If no legal spot was found, retire this blade instead of dropping it in
       // the fence margin or a flower bed where the mower can never reach it.
       // Count it as already mowed and hide it so it can't block 100% completion.
-      if (fenceFalloff < 0.98 || !bedOpen) {
+      if (fenceFalloff < 0.98 || !bedOpen || !cloverOpen) {
         isMowed[i] = true;
         mowedCount += 1;
         writeMatrix(longGrassMatrices, i, hiddenMatrix);

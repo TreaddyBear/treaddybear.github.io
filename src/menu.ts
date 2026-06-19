@@ -6,6 +6,9 @@ export type MenuLevel = {
   code: string;
   name: string;
   bestStars: number;
+  // False until the previous level has been cleared; shown in the grid but not
+  // selectable.
+  unlocked: boolean;
 };
 
 export type MenuDeps = {
@@ -113,26 +116,30 @@ export function createMenu(deps: MenuDeps) {
       return deps.getCurrentLevelCode();
     }
 
+    // Only ever auto-select a playable (unlocked) level.
+    const playable = levels.filter((level) => level.unlocked);
+    const pool = playable.length > 0 ? playable : levels;
+
     if (!startMode) {
       const currentLevelCode = deps.getCurrentLevelCode();
-      return levels.some((level) => level.code === currentLevelCode)
+      return pool.some((level) => level.code === currentLevelCode)
         ? currentLevelCode
-        : levels[0].code;
+        : pool[0].code;
     }
 
     let newestZeroStarLevel: MenuLevel | null = null;
-    for (const level of levels) {
+    for (const level of pool) {
       if (level.bestStars <= 0) {
         newestZeroStarLevel = level;
       }
     }
 
-    return (newestZeroStarLevel ?? levels[levels.length - 1]).code;
+    return (newestZeroStarLevel ?? pool[pool.length - 1]).code;
   };
 
   const syncSelectedLevel = () => {
     const levels = deps.getLevels();
-    const selectedIsValid = levels.some((level) => level.code === selectedLevelCode);
+    const selectedIsValid = levels.some((level) => level.code === selectedLevelCode && level.unlocked);
 
     if (!selectedLevelManual || !selectedIsValid) {
       selectedLevelCode = automaticLevelCode(levels);
@@ -221,13 +228,20 @@ export function createMenu(deps: MenuDeps) {
       const stars = document.createElement("span");
 
       button.type = "button";
-      button.className = "menu-level";
+      button.className = level.unlocked ? "menu-level" : "menu-level locked";
       button.dataset.levelCode = level.code;
-      button.setAttribute("aria-current", String(level.code === selectedLevelCode));
+      button.disabled = !level.unlocked;
+      button.setAttribute("aria-current", String(level.unlocked && level.code === selectedLevelCode));
       name.className = "menu-level-name";
       name.textContent = level.name;
       stars.className = "menu-level-stars";
-      renderStars(stars, level.bestStars);
+
+      if (level.unlocked) {
+        renderStars(stars, level.bestStars);
+      } else {
+        stars.textContent = "🔒"; // lock
+      }
+
       button.append(name, stars);
       levelListEl.append(button);
     }
