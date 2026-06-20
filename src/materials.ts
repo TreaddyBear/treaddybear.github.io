@@ -106,11 +106,10 @@ export function createMaterials(scene: Scene) {
   // reads as richer, more natural ground cover (not a bright lime blob).
   // Leaflets are double-sided (canted discs get viewed from below).
   const cloverLeafMaterial = new StandardMaterial("cloverLeafMaterial", scene);
-  // Blended 75% toward the grass base colour (#0d2c02) so it reads as a subtle
-  // grass-like green, not eye-searing lime. Emissive glow cut 75% too.
-  cloverLeafMaterial.diffuseColor = new Color3(0.081, 0.197, 0.017);
-  cloverLeafMaterial.emissiveColor = new Color3(0.005, 0.01, 0.002);
-  cloverLeafMaterial.specularColor = new Color3(0.02, 0.025, 0.015);
+  // Dark enough to read as rich ground cover rather than a bright lime overlay.
+  cloverLeafMaterial.diffuseColor = new Color3(0.035, 0.105, 0.012);
+  cloverLeafMaterial.emissiveColor = new Color3(0.0015, 0.004, 0.0007);
+  cloverLeafMaterial.specularColor = new Color3(0.006, 0.01, 0.004);
   cloverLeafMaterial.backFaceCulling = false;
 
   const cloverStemMaterial = new StandardMaterial("cloverStemMaterial", scene);

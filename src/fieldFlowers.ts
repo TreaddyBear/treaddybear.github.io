@@ -1,5 +1,5 @@
 import { Matrix, Mesh, MeshBuilder, Scene, VertexData } from "@babylonjs/core";
-import { getActiveMap } from "./config";
+import { getActiveLevelCode, getActiveMap, showcaseLevelCode } from "./config";
 import type { FlowerVariant } from "./config";
 import { cloverAmountAt } from "./cloverField";
 import type { Materials } from "./materials";
@@ -153,6 +153,10 @@ export function createFieldFlowers(
   };
 
   const buildFlowers = (): Flower[] => {
+    if (getActiveLevelCode() === showcaseLevelCode) {
+      return [];
+    }
+
     const map = getActiveMap();
     const fields = map.flowerFields;
     const cloverPatches = map.cloverPatches;

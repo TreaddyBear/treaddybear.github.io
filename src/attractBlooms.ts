@@ -2,16 +2,29 @@ import { Matrix, Mesh, MeshBuilder, Scene, VertexData, Vector3 } from "@babylonj
 import type { FlowerVariant } from "./config";
 import { getActiveMap } from "./config";
 import type { Materials } from "./materials";
-import { randomHash, valueNoise } from "./utils/noise";
+import { randomHash, smoothstep, valueNoise } from "./utils/noise";
 import { isInsideSegments } from "./utils/yard";
 
 export type AttractBlooms = ReturnType<typeof createAttractBlooms>;
 
 const FLOWER_VARIANTS: FlowerVariant[] = ["blue", "white", "yellow", "red"];
-const FLOWERS_PER_SQUARE_METER = 1.75;
-const CLOVERS_PER_SQUARE_METER = 2.6;
+const WARM_FLOWERS_PER_SQUARE_METER = 0.34;
+const BLUE_FLOWERS_PER_SQUARE_METER = 0.26;
+const CLOVERS_PER_SQUARE_METER = 0.18;
 const TULIPS_PER_SQUARE_METER = 0.12;
-const DANDELIONS_PER_SQUARE_METER = 0.22;
+const DANDELIONS_PER_SQUARE_METER = 0.07;
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+type MaskedPoint = {
+  x: number;
+  z: number;
+  amount: number;
+};
+
+type FlowerPlacement = MaskedPoint & {
+  variant: FlowerVariant;
+  petalCount: number;
+};
 
 function buildSaddlePetal(scene: Scene): Mesh {
   const widthCols = 3;
@@ -117,27 +130,78 @@ function randomMapPoint() {
   };
 }
 
-function cloudyAmount(x: number, z: number, seed: number) {
-  const broad = valueNoise((x * 0.16) + seed, (z * 0.16) - seed);
-  const mid = valueNoise((x * 0.42) - (seed * 0.7), (z * 0.42) + (seed * 0.9));
-  const detail = valueNoise((x * 1.15) + (seed * 2.1), (z * 1.15) - (seed * 1.6));
-  return Math.max(0, Math.min(1, (broad * 0.62) + (mid * 0.28) + (detail * 0.1)));
+function fbm(x: number, z: number, seed: number) {
+  let sum = 0;
+  let amplitude = 0.5;
+  let frequency = 1;
+  let norm = 0;
+
+  for (let octave = 0; octave < 4; octave += 1) {
+    sum += valueNoise((x * frequency) + (seed * 7.13), (z * frequency) - (seed * 5.31)) * amplitude;
+    norm += amplitude;
+    amplitude *= 0.5;
+    frequency *= 2.03;
+  }
+
+  return sum / norm;
 }
 
-function pickCloudPoint(seed: number, threshold: number) {
-  let point = randomMapPoint();
+function focalLawnAmount(x: number, z: number) {
+  const radius = Math.hypot(x, z);
+  return 1 - smoothstep(clamp01((radius - 42) / 22));
+}
 
-  for (let attempt = 0; attempt < 32; attempt += 1) {
-    point = randomMapPoint();
-    const cloud = cloudyAmount(point.x, point.z, seed);
+function rampedNoiseAmount(x: number, z: number, seed: number, cutoff: number, power: number) {
+  const broad = fbm(x * 0.052, z * 0.052, seed);
+  const mid = fbm(x * 0.13, z * 0.13, seed + 19.7);
+  const veinRaw = valueNoise((x * 0.31) + (seed * 2.1), (z * 0.31) - (seed * 1.7));
+  const vein = 1 - (Math.abs(veinRaw - 0.5) * 2);
+  const composed = Math.max(
+    (broad * 0.82) + (mid * 0.18),
+    (broad * 0.55) + (mid * 0.1) + (vein * 0.35),
+  );
+  const ramp = smoothstep(clamp01((composed - cutoff) / (1 - cutoff)));
+  return (ramp ** power) * focalLawnAmount(x, z);
+}
+
+function warmFlowerAmount(x: number, z: number) {
+  return rampedNoiseAmount(x, z, 12.7, 0.6, 1.45);
+}
+
+function blueFlowerAmount(x: number, z: number) {
+  return rampedNoiseAmount(x, z, 31.2, 0.61, 1.5);
+}
+
+function dandelionAmount(x: number, z: number) {
+  return rampedNoiseAmount(x, z, 46.9, 0.66, 1.35);
+}
+
+function cloverAttractAmount(x: number, z: number) {
+  const flowerPressure = Math.max(warmFlowerAmount(x, z), blueFlowerAmount(x, z), dandelionAmount(x, z) * 0.8);
+  const leftover = clamp01(1 - (flowerPressure * 1.35));
+  const cloverNoise = rampedNoiseAmount(x, z, 72.4, 0.5, 1.9);
+  return (leftover ** 1.35) * cloverNoise;
+}
+
+function pickMaskedPoint(mask: (x: number, z: number) => number, seed: number, attempts = 96): MaskedPoint {
+  let best = randomMapPoint();
+  let bestAmount = mask(best.x, best.z);
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const point = randomMapPoint();
+    const amount = mask(point.x, point.z);
+    if (amount > bestAmount) {
+      best = point;
+      bestAmount = amount;
+    }
+
     const roll = randomHash((point.x * 3.1) + attempt + seed, (point.z * 2.7) - seed);
-
-    if (cloud > threshold && roll < cloud) {
-      return point;
+    if (amount > 0.035 && roll < amount) {
+      return { ...point, amount };
     }
   }
 
-  return point;
+  return { ...best, amount: bestAmount };
 }
 
 function writeMatrix(buffer: Float32Array, index: number, matrix: Matrix) {
@@ -245,42 +309,68 @@ export function createAttractBlooms(
 
   const place = () => {
     const area = mapArea();
-    const flowerCount = Math.min(950, Math.floor(area * FLOWERS_PER_SQUARE_METER));
-    const cloverCount = Math.min(1400, Math.floor(area * CLOVERS_PER_SQUARE_METER));
-    const tulipCount = Math.min(80, Math.floor(area * TULIPS_PER_SQUARE_METER));
-    const dandelionCount = Math.min(140, Math.floor(area * DANDELIONS_PER_SQUARE_METER));
+    const warmFlowerCount = Math.min(5200, Math.floor(area * WARM_FLOWERS_PER_SQUARE_METER));
+    const blueFlowerCount = Math.min(3900, Math.floor(area * BLUE_FLOWERS_PER_SQUARE_METER));
+    const cloverCount = Math.min(2800, Math.floor(area * CLOVERS_PER_SQUARE_METER));
+    const tulipCount = Math.min(90, Math.floor(area * TULIPS_PER_SQUARE_METER));
+    const dandelionCount = Math.min(920, Math.floor(area * DANDELIONS_PER_SQUARE_METER));
     const petalTotals = {} as Record<FlowerVariant, number>;
 
     for (const variant of FLOWER_VARIANTS) {
       petalTotals[variant] = 0;
     }
 
-    const flowers = Array.from({ length: flowerCount }, (_, index) => {
-      const point = pickCloudPoint(10 + (index % 4), 0.38);
-      const cloud = cloudyAmount(point.x, point.z, 10 + (index % 4));
-      const variant = FLOWER_VARIANTS[Math.min(FLOWER_VARIANTS.length - 1, Math.floor(cloud * FLOWER_VARIANTS.length))];
-      const petalCount = 5 + Math.floor(Math.random() * 4);
-      petalTotals[variant] += petalCount;
-      return { ...point, variant, petalCount };
-    });
+    const flowers: FlowerPlacement[] = [];
+    const addFlowerBatch = (
+      count: number,
+      mask: (x: number, z: number) => number,
+      pickVariant: (point: MaskedPoint, index: number) => FlowerVariant,
+      seed: number,
+    ) => {
+      for (let index = 0; index < count; index += 1) {
+        const point = pickMaskedPoint(mask, seed + (index % 31));
+        if (point.amount < 0.04) {
+          continue;
+        }
+        const variant = pickVariant(point, index);
+        const petalCount = 5 + Math.floor(randomHash((point.x * 1.9) + index, (point.z * 1.7) - seed) * 4);
+        flowers.push({ ...point, variant, petalCount });
+        petalTotals[variant] += petalCount;
+      }
+    };
+
+    addFlowerBatch(
+      warmFlowerCount,
+      warmFlowerAmount,
+      (point, index) => (randomHash((point.x * 0.7) + index, (point.z * 0.9) - 18.3) < 0.64 ? "yellow" : "red"),
+      101,
+    );
+    addFlowerBatch(blueFlowerCount, blueFlowerAmount, () => "blue", 202);
+
+    const clovers = Array.from({ length: cloverCount }, (_, index) => pickMaskedPoint(cloverAttractAmount, 303 + (index % 37), 80))
+      .filter((point) => point.amount > 0.035);
+    const tulips = Array.from({ length: tulipCount }, (_, index) => pickMaskedPoint(warmFlowerAmount, 404 + (index % 11), 80))
+      .filter((point) => point.amount > 0.08);
+    const dandelions = Array.from({ length: dandelionCount }, (_, index) => pickMaskedPoint(dandelionAmount, 505 + (index % 23), 88))
+      .filter((point) => point.amount > 0.045);
 
     for (const variant of FLOWER_VARIANTS) {
       flowerPetalBuffers[variant] = new Float32Array(petalTotals[variant] * 16);
     }
-    flowerStemBuffer = new Float32Array(flowerCount * 16);
-    flowerCenterBuffer = new Float32Array(flowerCount * 16);
-    cloverLeafBuffer = new Float32Array(cloverCount * 3 * 16);
-    cloverStemBuffer = new Float32Array(cloverCount * 16);
-    tulipStemBuffer = new Float32Array(tulipCount * 16);
-    const tulipHeadChoices = Array.from({ length: tulipCount }, () => Math.floor(Math.random() * materials.tulipHeadMaterials.length));
+    flowerStemBuffer = new Float32Array(flowers.length * 16);
+    flowerCenterBuffer = new Float32Array(flowers.length * 16);
+    cloverLeafBuffer = new Float32Array(clovers.length * 3 * 16);
+    cloverStemBuffer = new Float32Array(clovers.length * 16);
+    tulipStemBuffer = new Float32Array(tulips.length * 16);
+    const tulipHeadChoices = Array.from({ length: tulips.length }, () => Math.floor(Math.random() * materials.tulipHeadMaterials.length));
     const tulipHeadCounts = materials.tulipHeadMaterials.map(() => 0);
     for (const materialIndex of tulipHeadChoices) {
       tulipHeadCounts[materialIndex] += 1;
     }
     tulipHeadBuffers = tulipHeadCounts.map((count) => new Float32Array(count * 16));
-    dandelionStemBuffer = new Float32Array(dandelionCount * 16);
-    dandelionHeadBuffer = new Float32Array(dandelionCount * 16);
-    seedHeadBuffer = new Float32Array(dandelionCount * 16);
+    dandelionStemBuffer = new Float32Array(dandelions.length * 16);
+    dandelionHeadBuffer = new Float32Array(dandelions.length * 16);
+    seedHeadBuffer = new Float32Array(dandelions.length * 16);
 
     const petalCursor = {} as Record<FlowerVariant, number>;
     for (const variant of FLOWER_VARIANTS) {
@@ -320,10 +410,11 @@ export function createAttractBlooms(
       }
     }
 
-    for (let i = 0; i < cloverCount; i += 1) {
-      const point = pickCloudPoint(22, 0.34);
+    for (let i = 0; i < clovers.length; i += 1) {
+      const point = clovers[i];
       const groundY = groundHeightAt(point.x, point.z) + 0.008;
-      const height = 0.045 + (Math.random() * 0.18);
+      const cloverDensity = smoothstep(clamp01(point.amount));
+      const height = 0.035 + (Math.random() * (0.08 + (cloverDensity * 0.1)));
       const world = Matrix.Translation(point.x, groundY, point.z);
       const tilt = Matrix.RotationX((Math.random() - 0.5) * 0.22).multiply(Matrix.RotationZ((Math.random() - 0.5) * 0.22));
       const phase = Math.random() * Math.PI * 2;
@@ -331,7 +422,7 @@ export function createAttractBlooms(
       writeMatrix(cloverStemBuffer, i, Matrix.Scaling(0.008, height, 0.008).multiply(tilt).multiply(world));
       for (let leaf = 0; leaf < 3; leaf += 1) {
         const theta = phase + (leaf * Math.PI * 2 / 3);
-        const radius = 0.042 + (Math.random() * 0.027);
+        const radius = (0.034 + (Math.random() * 0.023)) * (0.72 + (cloverDensity * 0.42));
         writeMatrix(
           cloverLeafBuffer,
           (i * 3) + leaf,
@@ -346,8 +437,8 @@ export function createAttractBlooms(
     }
 
     const tulipHeadCursor = materials.tulipHeadMaterials.map(() => 0);
-    for (let i = 0; i < tulipCount; i += 1) {
-      const point = pickCloudPoint(33, 0.52);
+    for (let i = 0; i < tulips.length; i += 1) {
+      const point = tulips[i];
       const groundY = groundHeightAt(point.x, point.z) + 0.02;
       const height = 0.32 + (Math.random() * 0.22);
       const world = Matrix.Translation(point.x, groundY, point.z);
@@ -365,8 +456,8 @@ export function createAttractBlooms(
 
     let yellowCursor = 0;
     let seedCursor = 0;
-    for (let i = 0; i < dandelionCount; i += 1) {
-      const point = pickCloudPoint(44, 0.44);
+    for (let i = 0; i < dandelions.length; i += 1) {
+      const point = dandelions[i];
       const groundY = groundHeightAt(point.x, point.z) + 0.018;
       const height = 0.35 + (Math.random() * 0.42);
       const world = Matrix.Translation(point.x, groundY, point.z);

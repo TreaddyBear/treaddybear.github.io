@@ -358,10 +358,11 @@ export const lawnLevels: LawnLevels = {
     code: "bgrnShowcase",
     name: "Showcase",
     spawn: new Vector3(0, 0.18, 0),
-    // Big grass yard so its (feathered) edge sits far outside where the camera
-    // ever goes; the flowers/clover are a CENTRAL cluster the camera stays over.
+    // Broad attract-only field so the flyby feels like a real lawn, not a small
+    // playable arena. The flower/clover POIs stay in a central focal zone while
+    // the LOD grass carries the larger surrounding lawn.
     segments: [
-      { xMin: -16, xMax: 16, zMin: -16, zMax: 16, width: 32, height: 32, center: new Vector3(0, 0, 0) },
+      { xMin: -60, xMax: 60, zMin: -60, zMax: 60, width: 120, height: 120, center: new Vector3(0, 0, 0) },
     ],
     fenceSegments: [],
     flowerBeds: [],
@@ -370,13 +371,13 @@ export const lawnLevels: LawnLevels = {
     // clover (amorphous, much less grass, with little white "clover flower"
     // bunches). White is NOT a field here — white only appears as clover bunches.
     flowerFields: [
-      { variant: "blue", area: { xMin: -8, xMax: -1, zMin: -8, zMax: -1 }, spacing: 0.5 },
-      { variant: "yellow", area: { xMin: 1, xMax: 8, zMin: -8, zMax: -1 }, spacing: 0.5 },
-      { variant: "red", area: { xMin: -8, xMax: -1, zMin: 1, zMax: 8 }, spacing: 0.55 },
+      { variant: "blue", area: { xMin: -24, xMax: -4, zMin: -24, zMax: -4 }, spacing: 0.72 },
+      { variant: "yellow", area: { xMin: 4, xMax: 24, zMin: -24, zMax: -4 }, spacing: 0.72 },
+      { variant: "red", area: { xMin: -24, xMax: -4, zMin: 4, zMax: 24 }, spacing: 0.78 },
     ],
     cloverPatches: [
-      { x: 4.5, z: 4.5, radius: 3, grassKeep: 0 },
-      { x: 0.5, z: 1.5, radius: 2.2, grassKeep: 0 },
+      { x: 13, z: 13, radius: 8, grassKeep: 0 },
+      { x: 1.5, z: 4.5, radius: 5.8, grassKeep: 0 },
     ],
   },
 };

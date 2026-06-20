@@ -22,8 +22,8 @@ const TAU = Math.PI * 2;
 // Sized to the game's (large) visual scale, not real-world cm: leaves are ~10-18
 // cm so they read next to the ~1 m+ mower. Density is correspondingly low — at
 // ~45/m2 with ~14 cm leaves they still overlap into a solid mat (~70% coverage).
-const SMALL_PER_SQM = 45;
-const LARGE_PER_SQM = 10;
+const SMALL_PER_SQM = 32;
+const LARGE_PER_SQM = 6;
 
 function meshFrom(scene: Scene, name: string, positions: number[], indices: number[]): Mesh {
   const normals: number[] = [];
@@ -119,7 +119,9 @@ export function createCloverPatch(
           for (let z = patch.z - reach; z <= patch.z + reach; z += spacing) {
             const cx = x + ((Math.random() - 0.5) * 2 * jitter);
             const cz = z + ((Math.random() - 0.5) * 2 * jitter);
-            if (Math.random() > cloverAmountAt([patch], cx, cz)) {
+            const amount = cloverAmountAt([patch], cx, cz);
+            const keep = (amount ** 1.35) * (isLarge ? 0.72 : 1);
+            if (Math.random() > keep) {
               continue;
             }
 

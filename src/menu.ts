@@ -339,7 +339,7 @@ export function createMenu(deps: MenuDeps) {
   const scheduleLogoShimmer = () => {
     window.setTimeout(() => {
       menuTitleEl?.classList.add("logo-shimmer");
-      window.setTimeout(() => menuTitleEl?.classList.remove("logo-shimmer"), 2200);
+      window.setTimeout(() => menuTitleEl?.classList.remove("logo-shimmer"), 3200);
       scheduleLogoShimmer();
     }, 20000 + (Math.random() * 100000));
   };

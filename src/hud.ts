@@ -1,4 +1,4 @@
-import { bladeCount, getNextLevelCode, settings } from "./config";
+import { getNextLevelCode, settings } from "./config";
 import { createStarMeter } from "./starMeter";
 import { earnedStarsForRun, limitingFactor, nextStarOutOfReach } from "./scoring";
 import type { LimitingFactor, StarMode } from "./scoring";
@@ -25,6 +25,7 @@ export type HudDeps = {
   loading: HTMLDivElement | null;
   settingsRoot: HTMLDetailsElement;
   getMowed: () => number;
+  getBladeCount: () => number;
   getMistakes: () => number;
   getFlowerMistakes: () => number;
   getFenceMistakes: () => number;
@@ -457,6 +458,7 @@ export function createHud(deps: HudDeps) {
     deps.celebrationSeeds.replaceChildren();
     deps.setCompletionLoop(false);
     const mowed = deps.getMowed();
+    const bladeCount = deps.getBladeCount();
     const grassPercent = (mowed / bladeCount) * 100;
     const elapsedSeconds = deps.getElapsedSeconds();
     const mistakes = deps.getMistakes();
@@ -575,6 +577,7 @@ export function createHud(deps: HudDeps) {
 
     update() {
       const mowed = deps.getMowed();
+      const bladeCount = deps.getBladeCount();
       const grassPercent = (mowed / bladeCount) * 100;
       const percentage = mowed === bladeCount ? 100 : Math.floor(grassPercent);
       const elapsedSeconds = deps.getElapsedSeconds();

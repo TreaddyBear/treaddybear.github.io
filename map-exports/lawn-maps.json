@@ -1,0 +1,700 @@
+{
+  "version": 1,
+  "maps": [
+    {
+      "code": "bgrnEll",
+      "name": "Main",
+      "parSeconds": 360,
+      "spawn": {
+        "x": 0,
+        "y": 0.18,
+        "z": 0
+      },
+      "segments": [
+        {
+          "xMin": -9,
+          "xMax": 9,
+          "zMin": -9,
+          "zMax": 2,
+          "width": 18,
+          "height": 11,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": -3.5
+          }
+        },
+        {
+          "xMin": -9,
+          "xMax": 0,
+          "zMin": 2,
+          "zMax": 9,
+          "width": 9,
+          "height": 7,
+          "center": {
+            "x": -4.5,
+            "y": 0,
+            "z": 5.5
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -9.25,
+            "y": 0,
+            "z": -9.25
+          },
+          "end": {
+            "x": 9.25,
+            "y": 0,
+            "z": -9.25
+          }
+        },
+        {
+          "start": {
+            "x": 9.25,
+            "y": 0,
+            "z": -9.25
+          },
+          "end": {
+            "x": 9.25,
+            "y": 0,
+            "z": 2.25
+          }
+        },
+        {
+          "start": {
+            "x": 9.25,
+            "y": 0,
+            "z": 2.25
+          },
+          "end": {
+            "x": 0.25,
+            "y": 0,
+            "z": 2.25
+          }
+        },
+        {
+          "start": {
+            "x": 0.25,
+            "y": 0,
+            "z": 2.25
+          },
+          "end": {
+            "x": 0.25,
+            "y": 0,
+            "z": 9.25
+          }
+        },
+        {
+          "start": {
+            "x": 0.25,
+            "y": 0,
+            "z": 9.25
+          },
+          "end": {
+            "x": -9.25,
+            "y": 0,
+            "z": 9.25
+          }
+        },
+        {
+          "start": {
+            "x": -9.25,
+            "y": 0,
+            "z": 9.25
+          },
+          "end": {
+            "x": -9.25,
+            "y": 0,
+            "z": -9.25
+          }
+        }
+      ],
+      "flowerBeds": [],
+      "dandelionCount": 18,
+      "cloverPatches": [
+        {
+          "x": -5,
+          "z": -5,
+          "radius": 2,
+          "grassKeep": 0
+        }
+      ]
+    },
+    {
+      "code": "bgrnBed",
+      "name": "Flower Bed",
+      "parSeconds": 360,
+      "spawn": {
+        "x": 0,
+        "y": 0.18,
+        "z": -7
+      },
+      "segments": [
+        {
+          "xMin": -10,
+          "xMax": 10,
+          "zMin": -10,
+          "zMax": 10,
+          "width": 20,
+          "height": 20,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": -15,
+          "xMax": -10,
+          "zMin": -4,
+          "zMax": 4,
+          "width": 5,
+          "height": 8,
+          "center": {
+            "x": -12.5,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": 10,
+          "xMax": 15,
+          "zMin": -4,
+          "zMax": 4,
+          "width": 5,
+          "height": 8,
+          "center": {
+            "x": 12.5,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": -10.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": 15.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": 15.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": 15.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": 15.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": -15.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": -15.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": -15.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": -15.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": -10.25
+          }
+        }
+      ],
+      "flowerBeds": [
+        {
+          "xMin": -3.8,
+          "xMax": 3.8,
+          "zMin": -2.2,
+          "zMax": 2.2,
+          "count": 52
+        }
+      ],
+      "dandelionCount": 12
+    },
+    {
+      "code": "bgrnKeyhole",
+      "name": "Keyhole Gardens",
+      "parSeconds": 420,
+      "spawn": {
+        "x": -2,
+        "y": 0.18,
+        "z": 0
+      },
+      "segments": [
+        {
+          "xMin": -16,
+          "xMax": -6,
+          "zMin": -10,
+          "zMax": 8,
+          "width": 10,
+          "height": 18,
+          "center": {
+            "x": -11,
+            "y": 0,
+            "z": -1
+          }
+        },
+        {
+          "xMin": -6,
+          "xMax": 2,
+          "zMin": -3,
+          "zMax": 3,
+          "width": 8,
+          "height": 6,
+          "center": {
+            "x": -2,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": 2,
+          "xMax": 11.2,
+          "zMin": -8,
+          "zMax": 10,
+          "width": 9.2,
+          "height": 18,
+          "center": {
+            "x": 6.6,
+            "y": 0,
+            "z": 1
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -16.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": -10.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": -3.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": -3.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": -3.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": -3.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": -8.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": -8.25
+          },
+          "end": {
+            "x": 11.45,
+            "y": 0,
+            "z": -8.25
+          }
+        },
+        {
+          "start": {
+            "x": 11.45,
+            "y": 0,
+            "z": -8.25
+          },
+          "end": {
+            "x": 11.45,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 11.45,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": 3.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": 3.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": 3.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": 3.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": 8.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": 8.25
+          },
+          "end": {
+            "x": -16.25,
+            "y": 0,
+            "z": 8.25
+          }
+        },
+        {
+          "start": {
+            "x": -16.25,
+            "y": 0,
+            "z": 8.25
+          },
+          "end": {
+            "x": -16.25,
+            "y": 0,
+            "z": -10.25
+          }
+        }
+      ],
+      "flowerBeds": [
+        {
+          "xMin": -14.1,
+          "xMax": -11.1,
+          "zMin": -4.2,
+          "zMax": 3.8,
+          "count": 34
+        },
+        {
+          "xMin": 4.9,
+          "xMax": 9.5,
+          "zMin": 3.6,
+          "zMax": 6.8,
+          "count": 30
+        }
+      ],
+      "dandelionCount": 16
+    },
+    {
+      "code": "bgrnField",
+      "name": "Blue Field",
+      "parSeconds": 300,
+      "spawn": {
+        "x": 0,
+        "y": 0.18,
+        "z": 0
+      },
+      "segments": [
+        {
+          "xMin": -8,
+          "xMax": 8,
+          "zMin": -8,
+          "zMax": 8,
+          "width": 16,
+          "height": 16,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [],
+      "flowerBeds": [],
+      "dandelionCount": 0,
+      "flowerFields": [
+        {
+          "variant": "blue",
+          "area": {
+            "xMin": -8,
+            "xMax": 0,
+            "zMin": -8,
+            "zMax": 0
+          },
+          "spacing": 0.5
+        },
+        {
+          "variant": "white",
+          "area": {
+            "xMin": -8,
+            "xMax": 0,
+            "zMin": 0,
+            "zMax": 8
+          },
+          "spacing": 0.5
+        },
+        {
+          "variant": "yellow",
+          "area": {
+            "xMin": 0,
+            "xMax": 8,
+            "zMin": 0,
+            "zMax": 8
+          },
+          "spacing": 0.7
+        },
+        {
+          "variant": "red",
+          "area": {
+            "xMin": 0,
+            "xMax": 8,
+            "zMin": 0,
+            "zMax": 8
+          },
+          "spacing": 0.7
+        }
+      ],
+      "cloverPatches": [
+        {
+          "x": 4,
+          "z": -4,
+          "radius": 2.5,
+          "grassKeep": 0
+        }
+      ]
+    },
+    {
+      "code": "bgrnShowcase",
+      "name": "Showcase",
+      "parSeconds": 300,
+      "spawn": {
+        "x": 0,
+        "y": 0.18,
+        "z": 0
+      },
+      "segments": [
+        {
+          "xMin": -60,
+          "xMax": 60,
+          "zMin": -60,
+          "zMax": 60,
+          "width": 120,
+          "height": 120,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [],
+      "flowerBeds": [],
+      "dandelionCount": 10,
+      "flowerFields": [
+        {
+          "variant": "blue",
+          "area": {
+            "xMin": -24,
+            "xMax": -4,
+            "zMin": -24,
+            "zMax": -4
+          },
+          "spacing": 0.72
+        },
+        {
+          "variant": "yellow",
+          "area": {
+            "xMin": 4,
+            "xMax": 24,
+            "zMin": -24,
+            "zMax": -4
+          },
+          "spacing": 0.72
+        },
+        {
+          "variant": "red",
+          "area": {
+            "xMin": -24,
+            "xMax": -4,
+            "zMin": 4,
+            "zMax": 24
+          },
+          "spacing": 0.78
+        }
+      ],
+      "cloverPatches": [
+        {
+          "x": 13,
+          "z": 13,
+          "radius": 8,
+          "grassKeep": 0
+        },
+        {
+          "x": 1.5,
+          "z": 4.5,
+          "radius": 5.8,
+          "grassKeep": 0
+        }
+      ]
+    }
+  ]
+}

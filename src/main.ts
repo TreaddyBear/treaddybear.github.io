@@ -19,7 +19,6 @@ import { createPrototypeAudio } from "./audio";
 import { createInputController } from "./input";
 import type { InputMode } from "./input";
 import {
-  bladeCount,
   applyActiveMap,
   getActiveLevelCode,
   getActiveMap,
@@ -1130,6 +1129,7 @@ const hud = createHud({
   loading: loadingEl,
   settingsRoot: settingsEl,
   getMowed: () => grass.mowedCount,
+  getBladeCount: () => grass.bladeCount,
   getMistakes: () => tulips.mistakeCount + fenceMistakeCount,
   getFlowerMistakes: () => tulips.mistakeCount,
   getFenceMistakes: () => fenceMistakeCount,

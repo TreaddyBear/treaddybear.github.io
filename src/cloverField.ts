@@ -23,7 +23,7 @@ function fbm(x: number, z: number) {
 }
 
 // Country-shaped clover coverage: 1 across a solid interior, fading to 0 over a
-// ~0.5 m edge. The OUTLINE is a per-direction radius built from a few angular
+// wider soft edge. The OUTLINE is a per-direction radius built from a few angular
 // harmonics (smooth lobed shape — never a circle) with per-patch random phases,
 // plus fine fbm noise for a wiggly coastline. The interior is always inside the
 // outline (solid), and the radius is bounded so the shape stays confined.
@@ -48,7 +48,7 @@ function patchCloverAmount(patch: CloverPatch, x: number, z: number) {
   r += (fbm((x * 1.0) + patch.x, (z * 1.0) - patch.z) - 0.5) * 0.4;
 
   const reach = patch.radius * Math.max(0.12, r);
-  return smoothstep(clamp01((reach - dist) / 0.5)); // ~0.5 m clover->grass edge
+  return smoothstep(clamp01((reach - dist) / 1.35)); // broad clover->grass edge
 }
 
 // Max clover coverage over all patches (0..1).
@@ -66,7 +66,7 @@ export function cloverAmountAt(patches: CloverPatch[] | undefined, x: number, z:
 }
 
 // Fraction of normal lawn density to keep at (x, z): 1 outside any clover, down
-// toward the patch's `grassKeep` across the ~0.5 m edge. With grassKeep 0 the
+// toward the patch's `grassKeep` across the soft edge. With grassKeep 0 the
 // interior is fully clear of grass (clover only).
 export function cloverGrassKeepAt(patches: CloverPatch[] | undefined, x: number, z: number) {
   if (!patches || patches.length === 0) {

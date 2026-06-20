@@ -1,13 +1,15 @@
 import { Color3, Matrix, Mesh, Quaternion, Vector3, VertexBuffer, VertexData } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import {
-  bladeCount,
+  bladeCount as baseBladeCount,
   cellSize,
+  getActiveLevelCode,
   getActiveMap,
-  mediumGrassCount,
+  mediumGrassCount as baseMediumGrassCount,
   mowerCutRadius,
   settings,
-  wheatGrassCount,
+  showcaseLevelCode,
+  wheatGrassCount as baseWheatGrassCount,
   yardSegments,
 } from "./config";
 import type { FenceSystem } from "./fence";
@@ -95,6 +97,10 @@ export function createGrass(deps: GrassDeps) {
   let cutTiltX = new Float32Array(0);
   let cutTiltZ = new Float32Array(0);
   let isMowed: boolean[] = [];
+  let currentBladeCount = baseBladeCount;
+  let currentMediumGrassCount = baseMediumGrassCount;
+  let currentWheatGrassCount = baseWheatGrassCount;
+  let currentSlatDensityScale = 1;
   let mowedCount = 0;
   let lastMowSeconds = 0;
   let remainingHighlightActive = false;
@@ -112,6 +118,31 @@ export function createGrass(deps: GrassDeps) {
   // time, then shorter on every later stall.
   const highlightFirstDelay = 10;
   const highlightRepeatDelay = 5;
+
+  const activeMapArea = () => getActiveMap().segments.reduce(
+    (sum, segment) => sum + ((segment.xMax - segment.xMin) * (segment.zMax - segment.zMin)),
+    0,
+  );
+
+  const refreshGrassBudgets = () => {
+    const area = activeMapArea();
+
+    if (getActiveLevelCode() === showcaseLevelCode) {
+      currentBladeCount = Math.max(baseBladeCount, Math.round(area * 16.75));
+      currentMediumGrassCount = Math.max(baseMediumGrassCount, Math.round(area * 12.5));
+      currentWheatGrassCount = Math.max(baseWheatGrassCount, Math.round(area * 0.85));
+      currentSlatDensityScale = 5;
+      return;
+    }
+
+    // Current playable maps are all below this area, so they keep the original
+    // shipped budgets. Future large maps can grow without using the showcase max.
+    const playableScale = Math.max(1, area / 512);
+    currentBladeCount = Math.round(baseBladeCount * playableScale);
+    currentMediumGrassCount = Math.round(baseMediumGrassCount * playableScale);
+    currentWheatGrassCount = Math.round(baseWheatGrassCount * playableScale);
+    currentSlatDensityScale = 1;
+  };
 
   const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
   // Grass blades stop at the SAME irregular dirt->grass edge the slats and the
@@ -535,25 +566,25 @@ export function createGrass(deps: GrassDeps) {
   const placeGrass = () => {
     grassGrid.clear();
     mowedCount = 0;
-    grassX = new Float32Array(bladeCount);
-    grassZ = new Float32Array(bladeCount);
-    grassRotation = new Float32Array(bladeCount);
-    grassScale = new Float32Array(bladeCount);
-    grassNoise = new Float32Array(bladeCount);
-    grassPhase = new Float32Array(bladeCount);
-    grassPressure = new Float32Array(bladeCount);
-    grassPressureYaw = new Float32Array(bladeCount);
-    cutTiltX = new Float32Array(bladeCount);
-    cutTiltZ = new Float32Array(bladeCount);
-    isMowed = Array.from({ length: bladeCount }, () => false);
-    longGrassMatrices = new Float32Array(bladeCount * 16);
-    longGrassColors = new Float32Array(bladeCount * 4);
+    grassX = new Float32Array(currentBladeCount);
+    grassZ = new Float32Array(currentBladeCount);
+    grassRotation = new Float32Array(currentBladeCount);
+    grassScale = new Float32Array(currentBladeCount);
+    grassNoise = new Float32Array(currentBladeCount);
+    grassPhase = new Float32Array(currentBladeCount);
+    grassPressure = new Float32Array(currentBladeCount);
+    grassPressureYaw = new Float32Array(currentBladeCount);
+    cutTiltX = new Float32Array(currentBladeCount);
+    cutTiltZ = new Float32Array(currentBladeCount);
+    isMowed = Array.from({ length: currentBladeCount }, () => false);
+    longGrassMatrices = new Float32Array(currentBladeCount * 16);
+    longGrassColors = new Float32Array(currentBladeCount * 4);
     const hiddenMatrix = emptyMatrix();
 
-    cutVariant = new Uint8Array(bladeCount);
-    cutLocalIndex = new Int32Array(bladeCount);
+    cutVariant = new Uint8Array(currentBladeCount);
+    cutLocalIndex = new Int32Array(currentBladeCount);
     const cutCounts = [0, 0, 0, 0];
-    for (let i = 0; i < bladeCount; i += 1) {
+    for (let i = 0; i < currentBladeCount; i += 1) {
       const v = pickCutVariant();
       cutVariant[i] = v;
       cutLocalIndex[i] = cutCounts[v];
@@ -562,7 +593,7 @@ export function createGrass(deps: GrassDeps) {
     cutVariantMatrices = cutCounts.map((count) => new Float32Array(count * 16));
     cutVariantColors = cutCounts.map((count) => new Float32Array(count * 4));
 
-    for (let i = 0; i < bladeCount; i += 1) {
+    for (let i = 0; i < currentBladeCount; i += 1) {
       let { x, z } = randomYardPoint();
       let fenceFalloff = fence.grassFalloff(x, z);
       let bedOpen = shouldPlaceGrassNearFlowerBed(x, z);
@@ -636,15 +667,15 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const placeMediumGrass = () => {
-    mediumGrassMatrices = new Float32Array(mediumGrassCount * 16);
-    mediumGrassColors = new Float32Array(mediumGrassCount * 4);
+    mediumGrassMatrices = new Float32Array(currentMediumGrassCount * 16);
+    mediumGrassColors = new Float32Array(currentMediumGrassCount * 4);
     const base = hexToColor3(settings.grassBaseColor);
     const smooth01 = (value: number) => {
       const t = Math.max(0, Math.min(1, value));
       return t * t * (3 - (2 * t));
     };
 
-    for (let i = 0; i < mediumGrassCount; i += 1) {
+    for (let i = 0; i < currentMediumGrassCount; i += 1) {
       let x = 0;
       let z = 0;
       let distance = 0;
@@ -702,10 +733,10 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const placeWheatGrass = () => {
-    wheatVariant = new Uint8Array(wheatGrassCount);
-    wheatLocalIndex = new Int32Array(wheatGrassCount);
+    wheatVariant = new Uint8Array(currentWheatGrassCount);
+    wheatLocalIndex = new Int32Array(currentWheatGrassCount);
     const variantCounts = [0, 0, 0, 0];
-    for (let i = 0; i < wheatGrassCount; i += 1) {
+    for (let i = 0; i < currentWheatGrassCount; i += 1) {
       const v = pickWheatVariant();
       wheatVariant[i] = v;
       wheatLocalIndex[i] = variantCounts[v];
@@ -721,7 +752,7 @@ export function createGrass(deps: GrassDeps) {
       strength: 0.35 + (Math.random() * 0.8),
     })).filter((clump) => !isInsideYard(clump.x, clump.z) && isGrassHere(clump.x, clump.z) && distanceToMainYard(clump.x, clump.z) > 14);
 
-    for (let i = 0; i < wheatGrassCount; i += 1) {
+    for (let i = 0; i < currentWheatGrassCount; i += 1) {
       let x = 0;
       let z = 0;
       let patchNoise = 0;
@@ -779,7 +810,7 @@ export function createGrass(deps: GrassDeps) {
 
     refreshCutBladeVertexColors();
 
-    for (let i = 0; i < bladeCount; i += 1) {
+    for (let i = 0; i < currentBladeCount; i += 1) {
       writeColor(longGrassColors, i, colorForBlade(i, false));
       writeColor(cutVariantColors[cutVariant[i]], cutLocalIndex[i], colorForBlade(i, true));
     }
@@ -851,7 +882,7 @@ export function createGrass(deps: GrassDeps) {
     const isolated: number[] = [];
     let remainingBefore = 0;
 
-    for (let i = 0; i < bladeCount; i += 1) {
+    for (let i = 0; i < currentBladeCount; i += 1) {
       if (isMowed[i]) {
         continue;
       }
@@ -888,6 +919,10 @@ export function createGrass(deps: GrassDeps) {
       return mowedCount;
     },
 
+    get bladeCount() {
+      return currentBladeCount;
+    },
+
     isCutting() {
       return grassCuttingAudioTimer > 0;
     },
@@ -919,6 +954,8 @@ export function createGrass(deps: GrassDeps) {
     },
 
     generate() {
+      refreshGrassBudgets();
+      grassSlats.rebuildDensity(currentSlatDensityScale);
       lastMowSeconds = performance.now() / 1000;
       remainingHighlightActive = false;
       highlightStrength = 0;
@@ -1086,7 +1123,7 @@ export function createGrass(deps: GrassDeps) {
       const nearRadiusSq = 1.7 * 1.7;
       let changed = false;
 
-      for (let i = 0; i < bladeCount; i += 1) {
+      for (let i = 0; i < currentBladeCount; i += 1) {
         if (isMowed[i]) {
           continue;
         }
@@ -1145,9 +1182,9 @@ export function createGrass(deps: GrassDeps) {
     // finding the last blades, glow the survivors gold so they stand out. The
     // glow eases in, and eases back out when a blade is cut, rather than blinking.
     updateHighlight(timeSeconds: number, deltaSeconds: number) {
-      const remaining = bladeCount - mowedCount;
-      const threshold = Math.max(1, Math.ceil(bladeCount * 0.01));
-      const helpThreshold = Math.max(1, Math.ceil(bladeCount * 0.2));
+      const remaining = currentBladeCount - mowedCount;
+      const threshold = Math.max(1, Math.ceil(currentBladeCount * 0.01));
+      const helpThreshold = Math.max(1, Math.ceil(currentBladeCount * 0.2));
       const delay = highlightHasShown ? highlightRepeatDelay : highlightFirstDelay;
       const helpEligible = helpRequested && remaining > 0 && remaining <= helpThreshold;
 
@@ -1172,7 +1209,7 @@ export function createGrass(deps: GrassDeps) {
         const pulse = 0.5 + (0.5 * Math.sin(timeSeconds * 4.5));
         const amount = highlightStrength * (0.55 + (pulse * 0.45));
 
-        for (let i = 0; i < bladeCount; i += 1) {
+        for (let i = 0; i < currentBladeCount; i += 1) {
           if (isMowed[i]) {
             continue;
           }

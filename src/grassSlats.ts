@@ -11,7 +11,7 @@ import type { GrassBake } from "./grassBake";
 // the shader computes normals from the bent ribbon surface so light responds to
 // the visible motion instead of to a fabricated sky-facing normal.
 
-const SPACING = 0.5; // strip spacing + segment length in world units
+const BASE_SPACING = 0.5; // strip spacing + segment length in world units at normal playable density
 const slatWindDirection = new Vector2(windDirection.x, windDirection.z).normalize();
 
 // The slat MESH spans far more than the playable mow field: the far grass runs
@@ -24,6 +24,8 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   // Mow-field bounds drive the `bounds` uniform (where cutting is sampled).
   const mowWidth = MOW_FIELD.maxX - MOW_FIELD.minX;
   const mowDepth = MOW_FIELD.maxZ - MOW_FIELD.minZ;
+  const mesh = new Mesh("grassSlats", scene);
+  let currentSpacing = BASE_SPACING;
 
   const positions: number[] = []; // x, topFlag/heightFactor, z
   const normals: number[] = []; // horizontal slat face normal
@@ -41,15 +43,15 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     const normalX = alongX ? 0 : 1;
     const normalZ = alongX ? 1 : 0;
 
-    for (let cross = crossMin + (SPACING * 0.5); cross < crossMax; cross += SPACING) {
-      const jitteredCross = cross + ((Math.random() - 0.5) * SPACING * 0.85);
+    for (let cross = crossMin + (currentSpacing * 0.5); cross < crossMax; cross += currentSpacing) {
+      const jitteredCross = cross + ((Math.random() - 0.5) * currentSpacing * 0.85);
       const heightFactor = 0.5 + (Math.random() * 0.9);
       let previousBottom = -1;
       let previousTop = -1;
       let runDistance = 0;
 
-      for (let run = runMin; run <= runMax + 1e-3; run += SPACING) {
-        const perpendicularJitter = (Math.random() - 0.5) * SPACING * 0.5;
+      for (let run = runMin; run <= runMax + 1e-3; run += currentSpacing) {
+        const perpendicularJitter = (Math.random() - 0.5) * currentSpacing * 0.5;
         const x = (alongX ? run : jitteredCross) + (alongX ? 0 : perpendicularJitter);
         const z = (alongX ? jitteredCross : run) + (alongX ? perpendicularJitter : 0);
 
@@ -78,23 +80,34 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
 
         previousBottom = bottom;
         previousTop = top;
-        runDistance += SPACING;
+        runDistance += currentSpacing;
       }
     }
   };
 
-  addStrips(true);
-  addStrips(false);
+  const rebuildGeometry = () => {
+    positions.length = 0;
+    normals.length = 0;
+    uvs.length = 0;
+    groundYs.length = 0;
+    covers.length = 0;
+    indices.length = 0;
+    vertexIndex = 0;
+    addStrips(true);
+    addStrips(false);
 
-  const mesh = new Mesh("grassSlats", scene);
-  const data = new VertexData();
-  data.positions = positions;
-  data.normals = normals;
-  data.uvs = uvs;
-  data.indices = indices;
-  data.applyToMesh(mesh);
-  mesh.setVerticesData("groundY", groundYs, false, 1);
-  mesh.setVerticesData("cover", covers, false, 1);
+    const data = new VertexData();
+    data.positions = positions;
+    data.normals = normals;
+    data.uvs = uvs;
+    data.indices = indices;
+    data.applyToMesh(mesh, true);
+    mesh.setVerticesData("groundY", groundYs, true, 1);
+    mesh.setVerticesData("cover", covers, true, 1);
+    mesh.refreshBoundingInfo();
+  };
+
+  rebuildGeometry();
 
   if (!Effect.ShadersStore.grassSlatsVertexShader) {
     Effect.ShadersStore.grassSlatsVertexShader = `
@@ -397,6 +410,15 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     setCenter(x: number, z: number) {
       center.set(x, z);
       material.setVector2("lodCenter", center);
+    },
+    rebuildDensity(densityScale: number) {
+      const nextSpacing = BASE_SPACING / Math.sqrt(Math.max(0.1, densityScale));
+      if (Math.abs(nextSpacing - currentSpacing) < 0.001) {
+        return;
+      }
+
+      currentSpacing = nextSpacing;
+      rebuildGeometry();
     },
     // Recompute the grass/dirt coverage from the existing vertex positions (no
     // re-jitter) when the road verge width changes, so slats follow the new edge.
