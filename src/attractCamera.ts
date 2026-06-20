@@ -50,6 +50,8 @@ export type AttractFrame = {
   secondary: AttractPose;
   mask: number;
   direction: number;
+  wipeMode: number;
+  wipeSeed: number;
 };
 
 export type AttractDeps = {
@@ -59,7 +61,7 @@ export type AttractDeps = {
 // Timing. SEGMENT = one shot's slot; the wipe occupies its final TRANSITION.
 const WARM_UP = 4.5; // seconds a carrier glides before its cut (principle 3)
 const LIVE = 11; // seconds the shot is the on-screen primary
-const TRANSITION = 2.25; // wipe duration (must match the wipe band feel)
+const TRANSITION = 6.75; // slowed 3x; shader shape stays unchanged in normal mode
 const SEGMENT = LIVE + TRANSITION;
 
 // ---- small math helpers ----------------------------------------------------
@@ -528,7 +530,7 @@ export function createAttractDirector(deps: AttractDeps) {
   const createCarrier = (segmentIndex: number, timeSeconds: number): Carrier => {
     const shot = buildShot(segmentIndex);
     const spawnTime = (segmentIndex * SEGMENT) - WARM_UP;
-    const t0 = Math.max(0, timeSeconds - spawnTime);
+    const t0 = timeSeconds - spawnTime;
     const pos0 = shot.positionGoal(t0);
     // Initial velocity = path derivative, so the carrier is already in motion the
     // instant it appears (principle 3: the shot begins before the shot begins).
@@ -609,7 +611,7 @@ export function createAttractDirector(deps: AttractDeps) {
 
     const segmentIndex = Math.floor(timeSeconds / SEGMENT);
     const segmentTime = timeSeconds - (segmentIndex * SEGMENT);
-    const nextSpawn = ((segmentIndex + 1) * SEGMENT) - WARM_UP;
+    const nextSpawn = (segmentIndex * SEGMENT) + LIVE;
 
     // Promote / create the current carrier.
     if (!current || current.segmentIndex !== segmentIndex) {
@@ -644,7 +646,18 @@ export function createAttractDirector(deps: AttractDeps) {
       ? 1.2
       : 1 - smootherstep01((segmentTime - LIVE) / TRANSITION);
 
-    return { primary: primaryPose, secondary: secondaryPose, mask, direction: 1 };
+    const transitionOrdinal = Math.max(0, segmentIndex);
+    const wipeCycle = transitionOrdinal % 4;
+    const wipeMode = wipeCycle === 0 ? 0 : wipeCycle === 2 ? 2 : 1; // normal, eraser, grass pile, eraser
+
+    return {
+      primary: primaryPose,
+      secondary: secondaryPose,
+      mask,
+      direction: 1,
+      wipeMode,
+      wipeSeed: (hashInt(levelSeed ^ Math.imul(segmentIndex + 1, 0x27d4eb2d)) % 1000) / 1000,
+    };
   };
 
   return {

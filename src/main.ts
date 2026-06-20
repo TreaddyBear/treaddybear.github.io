@@ -1522,7 +1522,7 @@ engine.runRenderLoop(() => {
       sun.intensity = baseSunIntensity * 2;
       sun.specular = baseSunSpecular.scale(1.5);
       const frame = attract.frame(timeSeconds, deltaSeconds);
-      cameraRig.renderCinematicComposite(frame.primary, frame.secondary, frame.mask, frame.direction);
+      cameraRig.renderCinematicComposite(frame.primary, frame.secondary, frame.mask, frame.direction, frame.wipeMode, frame.wipeSeed);
       syncCinematicWipe(false);
       return;
     } else {
