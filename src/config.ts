@@ -268,7 +268,7 @@ export const lawnLevels: LawnLevels = {
     flowerBeds: [],
     dandelionCount: 18,
     cloverPatches: [
-      { x: -5, z: -5, radius: 3 },
+      { x: -5, z: -5, radius: 2, grassKeep: 0 },
     ],
   },
   bgrnBed: {
@@ -348,7 +348,7 @@ export const lawnLevels: LawnLevels = {
       { variant: "red", area: { xMin: 0, xMax: 8, zMin: 0, zMax: 8 }, spacing: 0.7 },
     ],
     cloverPatches: [
-      { x: 4, z: -4, radius: 4, spacing: 0.18, grassKeep: 0.12 },
+      { x: 4, z: -4, radius: 2.5, grassKeep: 0 },
     ],
   },
   // Attract-only showcase: a large open lawn (no fence) with broad, well-separated
@@ -375,8 +375,8 @@ export const lawnLevels: LawnLevels = {
       { variant: "red", area: { xMin: -8, xMax: -1, zMin: 1, zMax: 8 }, spacing: 0.55 },
     ],
     cloverPatches: [
-      { x: 4.5, z: 4.5, radius: 3, grassKeep: 0.1 },
-      { x: 0.5, z: 0.5, radius: 2.4, grassKeep: 0.1 },
+      { x: 4.5, z: 4.5, radius: 3, grassKeep: 0 },
+      { x: 0.5, z: 1.5, radius: 2.2, grassKeep: 0 },
     ],
   },
 };

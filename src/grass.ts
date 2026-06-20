@@ -454,7 +454,11 @@ export function createGrass(deps: GrassDeps) {
   // blend into the surrounding medium grass with no discernible edge. Closed yards
   // keep their hard edge (the fence is the boundary). Blades that fail relocate
   // inward, so the interior just gets a touch denser — total count is unchanged.
-  const openFieldEdgeKeep = (x: number, z: number) => {
+  // Soft fade of an open field's lawn toward its rectangular boundary: 0 right at
+  // the edge, 1 deep inside (always 1 on fenced maps, where the fence is the
+  // boundary). Used to BOTH thin and SHORTEN the blades near the edge so the tall
+  // lawn lies down into the surrounding grass instead of ending in a hard wall.
+  const openFieldEdge = (x: number, z: number) => {
     const map = getActiveMap();
 
     if (map.fenceSegments.length > 0) {
@@ -472,14 +476,16 @@ export function createGrass(deps: GrassDeps) {
       zMax = Math.max(zMax, segment.zMax);
     }
 
-    const feather = 5;
+    const band = 9; // wide, gradual taper
     const distInside = Math.min(x - xMin, xMax - x, z - zMin, zMax - z);
-    const t = Math.max(0, Math.min(1, distInside / feather));
+    const t = Math.max(0, Math.min(1, distInside / band));
     return t * t * (3 - (2 * t)); // smoothstep
   };
 
   const grassDensityOpen = (x: number, z: number) => (
-    Math.random() < (cloverGrassKeepAt(getActiveMap().cloverPatches, x, z) * openFieldEdgeKeep(x, z))
+    // Only a gentle density thinning toward the edge (floor 0.5) — the real blend
+    // is the height taper applied at placement (grassScale *= openFieldEdge).
+    Math.random() < (cloverGrassKeepAt(getActiveMap().cloverPatches, x, z) * (0.5 + (0.5 * openFieldEdge(x, z))))
   );
 
   const distanceToMainYard = (x: number, z: number) => {
@@ -592,6 +598,9 @@ export function createGrass(deps: GrassDeps) {
       grassRotation[i] = Math.random() * Math.PI;
       grassNoise[i] = clumpNoise;
       grassScale[i] = settings.minHeight + ((settings.maxHeight - settings.minHeight) * normalizedHeight);
+      // Taper height toward an open field's edge so the tall lawn lies down into
+      // the surrounding grass instead of ending in a wall. No-op on fenced maps.
+      grassScale[i] *= 0.18 + (0.82 * openFieldEdge(x, z));
       grassPhase[i] = Math.random() * Math.PI * 2;
       // The one main bend in a cut blade, varied per blade: most stay close to
       // upright (a 180-degree "bend"), a few fold right over toward the ground

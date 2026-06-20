@@ -19,8 +19,11 @@ export type CloverPatch = ReturnType<typeof createCloverPatch>;
 // clover under the mower collapses (mowable).
 
 const TAU = Math.PI * 2;
-const SMALL_PER_SQM = 300;
-const LARGE_PER_SQM = 70;
+// Sized to the game's (large) visual scale, not real-world cm: leaves are ~10-18
+// cm so they read next to the ~1 m+ mower. Density is correspondingly low — at
+// ~45/m2 with ~14 cm leaves they still overlap into a solid mat (~70% coverage).
+const SMALL_PER_SQM = 45;
+const LARGE_PER_SQM = 10;
 
 function meshFrom(scene: Scene, name: string, positions: number[], indices: number[]): Mesh {
   const normals: number[] = [];
@@ -109,7 +112,7 @@ export function createCloverPatch(
         return;
       }
       const spacing = 1 / Math.sqrt(perSqm);
-      const jitter = spacing * 0.5;
+      const jitter = spacing * 0.85; // organic, less grid-like
       for (const patch of patches) {
         const reach = patch.radius * 1.5; // covers the noise-wobbled bulges
         for (let x = patch.x - reach; x <= patch.x + reach; x += spacing) {
@@ -123,8 +126,8 @@ export function createCloverPatch(
             const groundY = groundHeightAt(cx, cz);
             // Small: hug the ground at subtly different heights. Large: a separate
             // higher air space (~3.5-5.5 cm) at random heights within it.
-            const y = groundY + (isLarge ? 0.035 + (Math.random() * 0.02) : Math.random() * 0.015);
-            const radius = isLarge ? 0.007 + (Math.random() * 0.006) : 0.004 + (Math.random() * 0.004);
+            const y = groundY + (isLarge ? 0.05 + (Math.random() * 0.07) : Math.random() * 0.025);
+            const radius = isLarge ? 0.09 + (Math.random() * 0.07) : 0.05 + (Math.random() * 0.04);
             const yaw = Math.random() * TAU;
             const tiltX = (Math.random() - 0.5) * 0.3;
             const tiltZ = (Math.random() - 0.5) * 0.3;

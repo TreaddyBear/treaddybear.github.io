@@ -220,18 +220,19 @@ export function createFieldFlowers(
     }
     const TAU = Math.PI * 2;
     for (const patch of patches) {
-      const bunches = 2 + Math.floor(Math.random() * 3); // 2..4 per patch
+      const bunches = 5 + Math.floor(Math.random() * 5); // 5..9, spread across the patch
       for (let b = 0; b < bunches; b += 1) {
-        // Find a bunch centre that actually sits in the clover.
+        // Find a bunch centre anywhere in the clover (area-weighted, so they don't
+        // pile up in the middle).
         let cx = patch.x;
         let cz = patch.z;
         let found = false;
-        for (let tries = 0; tries < 8; tries += 1) {
+        for (let tries = 0; tries < 14; tries += 1) {
           const a = Math.random() * TAU;
-          const r = Math.random() * patch.radius;
+          const r = Math.sqrt(Math.random()) * patch.radius * 1.5;
           const px = patch.x + (Math.cos(a) * r);
           const pz = patch.z + (Math.sin(a) * r);
-          if (cloverAmountAt([patch], px, pz) > 0.5) {
+          if (cloverAmountAt([patch], px, pz) > 0.45) {
             cx = px;
             cz = pz;
             found = true;
@@ -241,10 +242,10 @@ export function createFieldFlowers(
         if (!found) {
           continue;
         }
-        const count = 5 + Math.floor(Math.random() * 8); // 5..12 blossoms
+        const count = 3 + Math.floor(Math.random() * 4); // 3..6, small bunches
         for (let i = 0; i < count; i += 1) {
           const a = Math.random() * TAU;
-          const r = Math.sqrt(Math.random()) * 0.28; // tight clump
+          const r = Math.sqrt(Math.random()) * 0.18; // tight little clump
           out.push({
             x: cx + (Math.cos(a) * r),
             z: cz + (Math.sin(a) * r),
