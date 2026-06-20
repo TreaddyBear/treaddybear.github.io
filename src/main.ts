@@ -40,6 +40,7 @@ import { createSceneryRocks, createSimpleTrees } from "./scenery";
 import { createGunEffects } from "./gunEffects";
 import { createTulips } from "./tulips";
 import { createAttractBlooms } from "./attractBlooms";
+import { createFallenLeaves } from "./fallenLeaves";
 import { createFieldFlowers } from "./fieldFlowers";
 import { createCloverPatch } from "./cloverPatch";
 import { createWind, windDirection } from "./wind";
@@ -287,6 +288,7 @@ const tulips = createTulips(scene, materials, groundHeightAt);
 const fieldFlowers = createFieldFlowers(scene, materials, groundHeightAt);
 const cloverPatch = createCloverPatch(scene, materials, groundHeightAt);
 const attractBlooms = createAttractBlooms(scene, materials, groundHeightAt);
+const fallenLeaves = createFallenLeaves(scene, groundHeightAt);
 
 function createHiddenGunProp() {
   const root = new TransformNode("hidden-gun-cache", scene);
@@ -672,6 +674,7 @@ function resetGame() {
   fieldFlowers.place();
   cloverPatch.place();
   attractBlooms.place();
+  fallenLeaves.place();
   analogInput.cancelThrottle(); // a fresh level starts stopped, never at a held throttle
   grass.mowUnderMower(0);
   // Prime the per-frame grass motion once so the blades are already in their
@@ -1385,6 +1388,7 @@ syncGameplayInputVisibility = () => {
   );
   document.body.classList.toggle("cinematic-menu-mode", menu.isOpen() && !gameStarted);
   attractBlooms.setActive(menu.isOpen() && !gameStarted);
+  fallenLeaves.setActive(menu.isOpen() && !gameStarted);
 };
 menu.setStartMode(true);
 menu.open();
