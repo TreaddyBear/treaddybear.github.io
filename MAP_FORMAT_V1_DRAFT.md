@@ -1,14 +1,29 @@
 # LaMow Map Format v1 Draft
 
-## Core Rule
+## Purpose
 
-This is the target for the first supported map format. The current editor format is a prototype and should be changed freely until it emits this v1 shape.
+This document defines the first supported LaMow map file format. The current
+map editor format is a prototype and should be changed freely until it emits
+this v1 shape.
 
-Forward/backward compatibility intent: a later v2 is a superset — all v1 files are valid v2 files, v2 engines (editor + game) read both v1 and v2, and v1 engines may reject v2 files. New foliage types, new distribution types, new object kinds, etc. are added this way, NOT by reinterpreting v1 fields.
+This document defines v1 only. It does not promise that future versions are
+supersets of v1, and it does not document future compatibility. When a later
+version is drafted, that versioning work is responsible for creating a migration
+plan from exactly one prior supported version, normally the immediately previous
+version. That migration plan should document automatic conversions, deprecated
+fields, manual review needs, and any possible loss.
+
+A future version that only adds optional fields may simply be a superset that
+newer engines and editors read directly with no conversion. That is allowed and
+even preferred when it fits, but it is not promised in advance. The aim is fewer
+versions without constrictive thinking, not a forward-compatibility guarantee.
+
+v1 has no required migration from older map files.
 
 ## Coordinates
 
-All distances are meters. Most authored positions are 2D ground-plane points. 3D points are only for objects that intentionally need height.
+All distances are meters. Most authored positions are 2D ground-plane points.
+3D points are only for objects that intentionally need height.
 
 ```json
 {
@@ -21,77 +36,242 @@ All distances are meters. Most authored positions are 2D ground-plane points. 3D
     "angles": {
       "unit": "degrees",
       "zero": "+x (east)",
-      "positive": "counter-clockwise in the XZ plane (from +x toward +z)",
+      "positive": "counter-clockwise in the XZ plane, from +x toward +z",
       "direction": "heading T maps to ground vector (x, z) = (cos T, sin T)"
     }
   }
 }
 ```
 
-`point2` values are numeric tuples like `[12, -4]`.
-`point3` values are numeric tuples like `[12, 2.5, -4]`.
+`Point2` values are numeric tuples like `[12, -4]`.
+`Point3` values are numeric tuples like `[12, 2.5, -4]`.
 
-Angles are mathematical, not compass: `0deg` = +x (east), `90deg` = +z (north), increasing counter-clockwise. A heading `T` is exactly `(cos T, sin T)`. `rectangle.rotationDegrees` and `spawn.headingDegrees` both use this. The importer converts to whatever the engine's internal yaw convention is — the *file* is unambiguous.
+Angles are mathematical, not compass:
+
+- `0deg` is +x/east.
+- `90deg` is +z/north.
+- Increasing angles rotate counter-clockwise in the XZ plane.
+- A heading `T` maps exactly to `(x, z) = (cos T, sin T)`.
+
+`rectangle.rotationDegrees` and `spawn.headingDegrees` both use this convention.
+Importers convert this file convention into whatever yaw convention the engine
+uses internally.
+
+## Canonical Type Sketch
+
+This sketch is the canonical v1 shape. Examples later in the document are
+illustrative, but this section is the source of truth for field names.
+
+```ts
+type Point2 = [x: number, z: number];
+type Point3 = [x: number, y: number, z: number];
+
+type MapPackV1 = {
+  version: 1;
+  units: "meters";
+  coordinates?: CoordinateMetadata;
+  pack: PackInfo;
+  levels: LevelV1[];
+};
+
+type CoordinateMetadata = {
+  axes: { x: "east"; y: "up"; z: "north" };
+  point2: ["x", "z"];
+  point3: ["x", "y", "z"];
+  angles: {
+    unit: "degrees";
+    zero: "+x (east)";
+    positive: string;
+    direction: string;
+  };
+};
+
+type PackInfo = {
+  prefix: string;
+  name: string;
+};
+
+type LevelV1 = {
+  code: string;
+  name: string;
+  parSeconds: number;
+  spawn: Spawn;
+  areas: Area[];
+  roads: Road[];
+  dirtPaths: DirtPath[];
+  fences: Fence[];
+  terrain: Terrain;
+  objects: unknown[];
+  tags?: string[];
+};
+
+type Spawn = {
+  position: Point2;
+  headingDegrees: number;
+};
+
+type AuthoredItem = {
+  id: string;
+  name?: string;
+  tags?: string[];
+  editor?: {
+    locked?: boolean;
+    layer?: string;
+  };
+};
+```
+
+`editor` fields are editor hints only. They are not gameplay state. Do not add
+editor visibility fields until the exact behavior is known, because "visible" is
+too ambiguous: tree visibility, viewport visibility, runtime rendering, and
+gameplay visibility are different concepts.
 
 ## IDs and Level Codes
 
-Every authored item inside a level has an `id`, unique within that level. Stable IDs matter for patch files, editor diffs, upgrades, and targeted changes.
+Every authored item in a level — areas, vegetation layers, roads, dirt paths,
+fences, height features — has an `id` that is unique across the WHOLE level (the
+map), not merely within its parent area. Stable IDs matter for editor selection,
+diffs, migrations, targeted changes, and future tooling.
 
-Level codes are globally unique **by construction**, and stored as a single source of truth (never hand-typed as a full string):
+All name, code, prefix, and id collision checks are case-insensitive: compare
+lowercased values, so `fence01` and `Fence01` are the same id. Do not rely on
+capitalization to disambiguate anything.
 
-- Each pack has a unique `prefix` (e.g. `bgrn`).
-- Each level has a short `code`, unique within its pack (e.g. `ell`).
-- The full, globally-unique level code is **derived**: `prefix + Capitalize(code)` → `bgrnEll`.
+Level codes are globally unique by construction and stored as one source of
+truth:
 
-Because prefixes are unique across all packs and short codes are unique within a pack, full codes can never collide. Global identity for any item is `{fullLevelCode}:{itemId}`.
+- Each pack has a unique `prefix`, for example `bgrn`.
+- Each level has a short `code`, unique within its pack, for example `ell`.
+- The full global level code is derived: `prefix + Capitalize(code)`, for
+  example `bgrnEll`. `Capitalize` upper-cases the first character only.
 
-## Packs and Patching
+An item's authored `id` is the short local form (for example `fence01`). Its
+global identity is derived by combining the full level code with the id (for
+example `bgrnEllFence01`, or `{fullLevelCode}:{itemId}`) for diffing and
+cross-level identity. Neither the full level code nor the combined global id is
+hand-authored in the level data. Moving an item to another level may force a
+rename if its id already exists there. Whether ids are author-chosen or
+editor-assigned is open; they only must end up unique within the level.
 
-A file is a pack (or a patch against a pack). There is no `complete`/`modified` flag — patching is expressed per item via `op`.
+## Files, Packs, and Patching
+
+A normal v1 map file is canonical pack state. It describes the pack contents
+directly.
 
 ```json
 {
   "version": 1,
+  "units": "meters",
   "pack": { "prefix": "bgrn", "name": "Beta Green" },
   "levels": []
 }
 ```
 
-Every patchable item (a level, an area, a vegetation layer, a road, etc.) may carry an `op`:
+Inline patch operations such as `op: "merge"` or `op: "remove"` are not part of
+normal v1 map data.
 
-| `op` | meaning when an item with this `id` is imported |
-| --- | --- |
-| `add` | add a new item; error if the id already exists |
-| `replace` | replace the existing item wholesale (default when an id matches) |
-| `merge` | shallow-merge the provided fields over the existing item (children/layers merge by their own `id` + `op`) |
-| `remove` | delete the existing item **and all of its children** |
+Patch files may be designed later as a separate document shape. If patch files
+are introduced, they should include target identity and ideally a base hash so
+tools can tell whether the patch is being applied to the same source state it
+was created from. Destructive patching should produce a diff and require user
+confirmation in editor tooling.
 
-Default with no `op`: `add` if new, `replace` if the id exists. `op` cascades — a `merge` on an area lets you `add`/`replace`/`remove`/`merge` individual children or vegetation layers by their ids, so you can patch at any depth.
-
-Tooling note (out of band, but required for safety): a destructive import (`replace` / `remove`) of existing, committed map content should be **confirmed and diffed** by the importing tool — ideally a visual before/after (split map view or fly-over), not a silent overwrite.
+Migration between schema versions is also separate from v1 map data. A future
+v2 migration document should describe how to migrate from v1 to v2 and what, if
+anything, is deprecated or lossy.
 
 ## Foliage Registry
 
-Foliage `type` keys are **not** engine-private. The registry is shared by the editor and the game and lives with the spec, so a designer picks from human-readable names instead of guessing a developer's casing. The registry is a shared, versioned list; **adding entries does not bump the map format version** (it is data, like the meaning of "full" density below).
+Foliage `type` keys are shared by the editor and game. A designer chooses from
+human-readable registry entries instead of guessing engine-private names. Adding
+registry entries is data growth and does not, by itself, require a map format
+version bump.
 
 v1 registry:
 
-| key | display name | category | mowable |
-| --- | --- | --- | --- |
-| `grass` | Grass | groundcover | yes |
-| `clover` | Clover | groundcover | yes |
-| `leaf` | Leaf | groundcover | yes |
-| `dandelion` | Dandelion | flower | yes |
-| `flowerBlue` | Blue Flower | flower | yes |
-| `flowerWhite` | White Flower | flower | yes |
-| `flowerYellow` | Yellow Flower | flower | yes |
-| `flowerRed` | Red Flower | flower | yes |
+| key | display name | category |
+| --- | --- | --- |
+| `grass` | Grass | groundcover |
+| `clover` | Clover | groundcover |
+| `leaf` | Leaf | groundcover |
+| `dandelion` | Dandelion | wildflower |
+| `flowerBlue` | Blue Flower | wildflower |
+| `flowerWhite` | White Flower | wildflower |
+| `flowerYellow` | Yellow Flower | wildflower |
+| `flowerRed` | Red Flower | wildflower |
+| `tulip` | Tulip | prizeFlower |
 
-Each registry entry owns its mesh/behavior on the engine side (e.g. `dandelion`'s seed-puff, petal counts, mow animation) — the map file only references the `key`. Flower colors are distinct entries rather than a `flower` + `variant` pair, because some flowers (dandelion) are not simple color swaps. `leaf` behaves like a groundcover similar to clover but with its own look.
+Each registry entry owns its mesh and behavior on the engine side. The map file
+only references the registry key. Flower colors are distinct entries rather than a
+`flower` plus `variant` pair, because not every flower is a simple color swap.
+
+Category sets intent by WHERE the foliage is placed, not a per-foliage score:
+
+- `groundcover` and `wildflower` belong in mowable `lawn` areas. The player mows
+  everything in the lawn that is not explicitly special — grass, clover, and the
+  small wildflowers (blue/white/yellow/red) and dandelions all count. These are
+  the weeds and wildflowers of the lawn.
+- `prizeFlower` belongs in `bed` areas (dirt, not mowable). Prize flowers are
+  large, beautiful, and admired, not mowed — mowing one is a mistake. Tulips are
+  the first; more will be added.
+
+The differentiation is enforced by level-design convention, not by scoring fields:
+wildflowers/weeds go in the lawn, prize flowers go in beds, and the two are not
+mixed. v1 does not encode per-foliage scoring; completion is "mow the lawn's
+vegetation", scored against `parSeconds`.
 
 ## Distribution
 
-A distribution describes how dense a vegetation layer is across its area.
+A distribution describes how dense a vegetation layer is across its shape.
+
+```ts
+type Distribution = UniformDistribution | PerlinDistribution;
+
+type UniformDistribution = {
+  type: "uniform";
+  density: number;
+  edgeFalloff?: number;
+};
+
+type PerlinDistribution = {
+  type: "perlin";
+  density: number;
+  edgeFalloff?: number;
+  noise: {
+    seed: number;
+    octaves: { frequency: number; weight: number }[];
+    domainWarp?: number;
+    threshold: number;
+    softness: number;
+  };
+};
+```
+
+`density` is a DESIRED coverage, not a capacity or budget. `1.0` means the tuned,
+desirable amount of that foliage — the point at which the bare lawn texture
+beneath no longer draws the eye, with just barely enough above it to not read as a
+lone game asset. Nothing competes for or subtracts from a `1.0` total.
+
+- Aim for `1.0` almost everywhere; it is the tuned target and keeps things simple.
+- Above `1.0` is fine for lusher areas as long as performance allows (3.0 is okay
+  if it does not cost frames).
+- Below about `0.75` should be rare — sparse decorative cover, or a foliage whose
+  `1.0` is not tuned yet.
+
+Each foliage type is tuned on the engine side so that `1.0` is good, desirable
+coverage. What `1.0` renders as (instance counts per square meter) is owned by the
+engine and may change with the art; it is not part of the file format and does not
+require a version bump.
+
+`edgeFalloff` is in meters and cuts inward from the shape edge; it never expands
+outside the shape. The edge falloff and the perlin mask combine MULTIPLICATIVELY,
+each in `[0, 1]`: the perlin makes the coverage organic and the falloff trims it
+near the edge. (If the falloff ever makes a blob read as an obvious circle, the
+combination is wrong — multiplicative blending is meant to prevent that. Exact
+behavior is provisional until validated in-engine.) Runtime/editor may clamp
+impossible falloffs instead of doing heavy validation geometry.
+
+### Uniform Distribution
 
 ```json
 {
@@ -101,19 +281,10 @@ A distribution describes how dense a vegetation layer is across its area.
 }
 ```
 
-`density` is normalized coverage, where `1.0` = the engine's reference "full" for that foliage type.
+### Perlin Distribution
 
-- `1.0` is the ideal/default for mowable lawn areas (and the editor should treat it as the normal full value).
-- `> 1.0` is allowed for intentionally overfilled areas.
-- `< 1.0` is fine but should generally be reserved for sparse, decorative, or non-mowable cover (scattered flowers, light leaf litter).
-
-What "full" (`1.0`) renders as — 300 instances/m², 800/m², whatever looks right for the current mesh — is **owned by the engine** and may change with the art at any time. It is not part of the format and never triggers a format version bump. The editor only needs the normalized number; it does not need to know what full looks like (until/unless it gains a shared 3D renderer, which is a separate concern).
-
-`edgeFalloff` is in meters and cuts inward from the shape edge. It never expands outside the shape. Runtime/editor may clamp impossible falloffs rather than doing heavy validation.
-
-### Perlin distribution (organic blobs)
-
-v1 supports a noise distribution so the editor can paint organic, blobby cover (clover patches, flower clumps, leaf drifts) instead of only even fills. This is a first-class v1 feature.
+Perlin distribution supports organic, blobby cover such as clover patches,
+flower clumps, and leaf drifts.
 
 ```json
 {
@@ -124,8 +295,8 @@ v1 supports a noise distribution so the editor can paint organic, blobby cover (
     "seed": 1337,
     "octaves": [
       { "frequency": 0.35, "weight": 1.0 },
-      { "frequency": 0.8,  "weight": 0.45 },
-      { "frequency": 1.7,  "weight": 0.2 }
+      { "frequency": 0.8, "weight": 0.45 },
+      { "frequency": 1.7, "weight": 0.2 }
     ],
     "domainWarp": 0.3,
     "threshold": 0.45,
@@ -134,17 +305,17 @@ v1 supports a noise distribution so the editor can paint organic, blobby cover (
 }
 ```
 
-- `octaves` — the weighted perlin layers (frequency in cycles/m, plus weight). This is the live-tunable part in the editor.
-- `domainWarp` — warps the sample coordinates so blobs aren't round (the "country / amoeba" look).
-- `threshold` — how much of the area the blobs cover (raise → smaller, sparser islands).
-- `softness` — organic feathering of the blob edge, in noise units.
-- `seed` — determinism; the editor can randomize or lock it.
-
-The engine evaluates a coverage mask roughly as `mask(p) = smoothstep((fbm(warp(p)) - threshold) / softness)`, then multiplies by `density` and clamps inside the shape via `edgeFalloff`. (`uniform` is just this with a flat mask of `1`.)
+- `seed` controls deterministic variation.
+- `octaves` are weighted Perlin layers. Frequency is cycles per meter.
+- `domainWarp` distorts sample coordinates so blobs are less circular.
+- `threshold` controls how much of the area is covered. Higher values make
+  smaller, sparser islands.
+- `softness` feathers the blob edge in noise units.
 
 ## Shapes
 
-Area (filled) shapes — used for lawns, beds, dirt patches, clover/leaf zones, hills:
+Filled area shapes are used for lawns, beds, dirt patches, vegetation zones,
+background ground, and terrain height features.
 
 ```ts
 type AreaShape =
@@ -153,7 +324,7 @@ type AreaShape =
   | { type: "polygon"; points: Point2[] };
 ```
 
-Path shapes — used by roads, dirt paths, and fences:
+Path shapes are used by roads, dirt paths, and fences.
 
 ```ts
 type PathShape =
@@ -162,37 +333,94 @@ type PathShape =
   | { type: "cubicBezierPath"; start: Point2; curves: { c1: Point2; c2: Point2; end: Point2 }[] };
 ```
 
-Prefer the simplest shape that fits. A straight road must use `line`, not a near-zero-curvature bezier — see Roads, Paths, Fences.
+Prefer the simplest shape that fits. A straight road, dirt path, or fence should
+use `line` or `polyline`, not a near-zero-curvature Bezier.
+
+### Polygon Rules
+
+Polygons must be simple, non-self-intersecting, implicitly closed shapes with at
+least three points.
+
+- The final edge is from the last point back to the first point.
+- The first point should not be repeated as the final point in file data.
+- Importers may tolerate a repeated final point and remove it with a warning.
+- Edges may not cross other non-adjacent edges.
+- Holes are not represented inside polygon data.
+- Winding has no semantic meaning in v1. Tools should preserve authored point
+  order when practical, but importers may normalize winding internally.
+
+Holes or cutouts are represented with child `replace` areas, not polygon holes.
+The inner area is its own authored area with its own contents; it does not
+magically inherit later changes from the outer area.
 
 ## Areas
 
-Areas are the heart of a level. They form a **tree**, and there are two modes:
-
-- **`replace`** (default) — a partitioning region. It defines the base ground, surface, role (mowable?), and base vegetation for everything inside it. Replace areas **must be contained within their parent** and **must not overlap their replace-siblings**. At any ground point, the **deepest** replace area that contains it wins.
-- **`add`** — a supplementary overlay. It **adds** its vegetation on top of whatever is already there, without removing or changing the base. Add areas may overlap anything (the base, each other, replace boundaries) and are not bound by containment. They do not change surface, role, or mowability of the ground beneath.
+Areas are the heart of a level. They form a tree. Each child area composes with
+the resolved result of its immediate parent.
 
 ```ts
-type Area = {
-  id: string;
+type Area = AuthoredItem & {
   kind: "area";
-  mode?: "replace" | "add";        // default "replace"
-  role?: "background" | "lawn" | "bed";  // semantic; sets defaults below
-  mowable?: boolean;               // override; default from role
-  surface?: "grass" | "dirt";      // override; default from role
+  composition?: "replace" | "additive"; // default "replace"
+  role?: "background" | "lawn" | "bed";
+  mowable?: boolean;
+  surface?: "grass" | "dirt";
   shape: AreaShape;
+  edgeFalloff?: number; // metres; for a replace area, the band over which the
+                        // parent's vegetation fades back in at the edge
   vegetation: VegetationLayer[];
   children?: Area[];
-  op?: PatchOp;
 };
 
 type VegetationLayer = {
-  id?: string;                     // needed only for patching
-  type: string;                    // foliage registry key
-  priority: number;                // higher consumes coverage first (replace areas)
+  id: string;
+  type: string;
   distribution: Distribution;
-  op?: PatchOp;
 };
 ```
+
+There is no `priority` and no coverage budget — see Coverage below.
+
+### Containment and Overlap
+
+Every area must be FULLY CONTAINED within its parent. No part of a child's shape
+may extend outside its parent. (Top-level areas are contained by the level.)
+
+`replace` siblings — replace areas sharing one parent — must not overlap each
+other; their partition must be unambiguous. `additive` areas may overlap their
+parent and other areas freely; overlapping is their entire purpose.
+
+The game engine trusts authored maps and does not validate containment at
+runtime. The EDITOR enforces it:
+
+- Checking one item against its single parent is cheap and may run in real time
+  while dragging.
+- Checking an item against its children must be throttled and ASYNCHRONOUS. A
+  parent may have thousands of children with complex boundaries; a naive
+  every-item-against-every-item pass is worst-case quadratic and can stall or
+  crash the editor. Never run the full check synchronously on every edit.
+- A full validation MUST run before save.
+
+A violating area should not raise stacking modal errors. Mark it inline instead:
+a tasteful red outline with red diagonal hatching and a faint red glow — "fix me,
+I'm swollen and injured" — so the author sees exactly which area is wrong without
+being interrupted.
+
+### Composition
+
+`composition` is local to the immediate parent (a grandchild composes with its
+parent, not the grandparent):
+
+- `replace`: inside this shape, this area's surface, role, mowability, and
+  vegetation replace the parent's resolved result. Across the area's `edgeFalloff`
+  band (inset from the shape edge) the two CROSS-FADE: this area's vegetation ramps
+  from full in the interior to zero at the edge while the parent's vegetation ramps
+  back from zero to full. So a clover field that replaces grass shows grass
+  returning along its edges instead of a hard cut. (Exact falloff math is
+  provisional until validated in-engine.)
+- `additive`: inside this shape, this area's vegetation is ADDED on top of the
+  parent's resolved result. It does not change the parent's surface, role, or
+  mowability.
 
 Role defaults:
 
@@ -202,111 +430,279 @@ Role defaults:
 | `lawn` | yes | grass | yes |
 | `bed` | no | dirt | no |
 
-A typical level is a level-wide `background` area (decorative, fills out to the horizon so there is no visible "lawn island" edge) with at least one `lawn` child (mowable, scored). Beds, dirt patches, etc. are deeper `replace` children; cute extra scatter is `add` overlays.
+`mowable` and `surface` may override the role defaults.
 
-### Coverage resolution
+A typical level is a level-wide `background` area that fills enough visible space
+to avoid a hard island edge, with one or more `lawn` descendants that are mowable
+and scored. Beds and dirt patches are deeper `replace` children. Decorative flower
+scatter, clover accents, and leaf drifts are usually `additive` areas.
 
-For any ground point:
+### Coverage
 
-1. **Base:** find the deepest `replace` area containing the point. That area gives the surface, role/mowable, and the base vegetation. Its layers compete for a coverage budget that starts at `1.0`: sort by `priority` descending; each layer claims `min(density * mask(point), remaining budget)`; `grass` at `priority 0` naturally fills the remainder. (So clover at priority 100 / density 0.9 leaves ~0.1 for grass beneath it — the clover thins the grass, organically, via its perlin mask.)
-2. **Overlays:** for every `add` area containing the point, **sum** each of its layers' `density * mask(point)` on top of the base result. Overlays do not compete and are not capped — totals may exceed `1.0` (overfill is allowed).
+There is NO coverage budget and nothing competes. Each vegetation layer's
+`density` is independent and means "how much of this foliage, where `1.0` is the
+tuned desirable amount" (see Distribution). Layers never subtract from one another.
 
-The engine converts the resulting per-type densities into actual instance counts using its private "full" reference.
+To clear grass where clover sits you do NOT rely on competition: author a
+`replace` area whose vegetation is just clover. "Replace" means the parent's grass
+is simply absent inside it, and the `edgeFalloff` cross-fade brings grass back at
+the edges. To sprinkle a few flowers without touching the grass, use an `additive`
+area.
+
+The engine converts each final per-type density into instance counts using its
+private foliage "full" reference.
 
 ## Examples
 
-### Lawn with organic clover (clover as a competing layer, not a sub-area)
+### Lawn With Organic Clover
+
+The lawn carries grass. A `replace` child holds the clover; inside it the grass is
+simply absent, and the area's `edgeFalloff` brings grass back along the edge.
 
 ```json
 {
   "id": "front-lawn",
   "kind": "area",
   "role": "lawn",
-  "shape": { "type": "polygon", "points": [[-9,-7],[9,-7],[9,2],[0,2],[0,9],[-9,9]] },
+  "shape": {
+    "type": "polygon",
+    "points": [[-9, -7], [9, -7], [9, 2], [0, 2], [0, 9], [-9, 9]]
+  },
   "vegetation": [
-    { "id": "grass",  "type": "grass",  "priority": 0,   "distribution": { "type": "uniform", "density": 1.0 } },
-    { "id": "clover", "type": "clover", "priority": 100, "distribution": {
-        "type": "perlin", "density": 0.95, "edgeFalloff": 0.4,
-        "noise": { "seed": 7, "octaves": [{ "frequency": 0.4, "weight": 1 }, { "frequency": 0.9, "weight": 0.4 }], "domainWarp": 0.3, "threshold": 0.5, "softness": 0.12 }
-    } }
+    { "id": "grass", "type": "grass", "distribution": { "type": "uniform", "density": 1.0 } }
+  ],
+  "children": [
+    {
+      "id": "clover-patch",
+      "kind": "area",
+      "composition": "replace",
+      "shape": { "type": "circle", "center": [-4, -2], "radius": 3 },
+      "edgeFalloff": 0.6,
+      "vegetation": [
+        {
+          "id": "clover",
+          "type": "clover",
+          "distribution": {
+            "type": "perlin",
+            "density": 1.0,
+            "edgeFalloff": 0.4,
+            "noise": {
+              "seed": 7,
+              "octaves": [
+                { "frequency": 0.4, "weight": 1 },
+                { "frequency": 0.9, "weight": 0.4 }
+              ],
+              "domainWarp": 0.3,
+              "threshold": 0.5,
+              "softness": 0.12
+            }
+          }
+        }
+      ]
+    }
   ]
 }
 ```
 
-### Supplementary flower scatter (does not disturb the grass/clover beneath)
+### Additive Flower Scatter
 
-A 1x2 m `add` overlay: a soft perlin band of red + yellow flowers, capped low, that just sprinkles a few cute flowers on top of the existing lawn.
+This area adds red and yellow flowers to its parent result without thinning or
+replacing the grass/clover beneath.
 
 ```json
 {
   "id": "roadside-sprinkle",
   "kind": "area",
-  "mode": "add",
+  "composition": "additive",
   "shape": { "type": "rectangle", "center": [6, -1], "size": [1, 2] },
   "vegetation": [
-    { "type": "flowerRed",    "priority": 0, "distribution": { "type": "perlin", "density": 0.2, "edgeFalloff": 0.4, "noise": { "seed": 21, "octaves": [{ "frequency": 0.9, "weight": 1 }], "threshold": 0.55, "softness": 0.2 } } },
-    { "type": "flowerYellow", "priority": 0, "distribution": { "type": "perlin", "density": 0.2, "edgeFalloff": 0.4, "noise": { "seed": 99, "octaves": [{ "frequency": 0.9, "weight": 1 }], "threshold": 0.55, "softness": 0.2 } } }
+    {
+      "id": "red",
+      "type": "flowerRed",
+      "distribution": {
+        "type": "perlin",
+        "density": 0.2,
+        "edgeFalloff": 0.4,
+        "noise": {
+          "seed": 21,
+          "octaves": [{ "frequency": 0.9, "weight": 1 }],
+          "threshold": 0.55,
+          "softness": 0.2
+        }
+      }
+    },
+    {
+      "id": "yellow",
+      "type": "flowerYellow",
+      "distribution": {
+        "type": "perlin",
+        "density": 0.2,
+        "edgeFalloff": 0.4,
+        "noise": {
+          "seed": 99,
+          "octaves": [{ "frequency": 0.9, "weight": 1 }],
+          "threshold": 0.55,
+          "softness": 0.2
+        }
+      }
+    }
   ]
 }
 ```
 
-### Background + lawn + bed (the partition tree)
+### Background, Lawn, and Bed
 
 ```json
 {
   "id": "yard",
   "kind": "area",
   "role": "background",
-  "shape": { "type": "rectangle", "center": [0,0], "size": [120,120] },
-  "vegetation": [{ "type": "grass", "priority": 0, "distribution": { "type": "uniform", "density": 1.0 } }],
+  "shape": { "type": "rectangle", "center": [0, 0], "size": [120, 120] },
+  "vegetation": [
+    { "id": "grass", "type": "grass", "distribution": { "type": "uniform", "density": 1.0 } }
+  ],
   "children": [
-    { "id": "front-lawn", "kind": "area", "role": "lawn", "shape": { "type": "rectangle", "center": [0,0], "size": [18,14] },
-      "vegetation": [{ "type": "grass", "priority": 0, "distribution": { "type": "uniform", "density": 1.0 } }],
+    {
+      "id": "front-lawn",
+      "kind": "area",
+      "role": "lawn",
+      "shape": { "type": "rectangle", "center": [0, 0], "size": [18, 14] },
+      "vegetation": [
+        { "id": "grass", "type": "grass", "distribution": { "type": "uniform", "density": 1.0 } }
+      ],
       "children": [
-        { "id": "rose-bed", "kind": "area", "role": "bed", "shape": { "type": "circle", "center": [4,-3], "radius": 1.4 },
-          "vegetation": [{ "type": "flowerRed", "priority": 0, "distribution": { "type": "uniform", "density": 0.35, "edgeFalloff": 0.3 } }] }
-      ] }
+        {
+          "id": "rose-bed",
+          "kind": "area",
+          "role": "bed",
+          "shape": { "type": "circle", "center": [4, -3], "radius": 1.4 },
+          "vegetation": [
+            { "id": "tulips", "type": "tulip", "distribution": { "type": "uniform", "density": 0.35, "edgeFalloff": 0.3 } }
+          ]
+        }
+      ]
+    }
   ]
 }
 ```
 
-## Roads, Paths, Fences
+## Roads, Dirt Paths, and Fences
 
-Three distinct top-level kinds (not areas, not the same "path" thing):
+Roads, dirt paths, and fences are distinct top-level kinds. They are not areas.
 
-- **`road`** — a drivable/paved strip. Surface override (asphalt etc.) with optional stripes.
-- **`dirtPath`** — a path that turns the ground to **dirt** along its run (this is the "path" people actually mean).
-- **`fence`** — a vertical **collision barrier** with height and posts.
+```ts
+type Road = AuthoredItem & {
+  kind: "road";
+  width: number;
+  shape: PathShape;
+};
 
-```json
-{ "id": "main-road", "kind": "road",     "width": 3.2, "shape": { "type": "line", "start": [12, -40], "end": [12, 40] } }
-{ "id": "garden",    "kind": "dirtPath", "width": 1.1, "shape": { "type": "cubicBezierPath", "start": [-8,2], "curves": [{ "c1": [-4,4], "c2": [2,3], "end": [8,8] }] } }
-{ "id": "west-fence","kind": "fence",    "height": 1.0, "postSpacing": 2.0, "shape": { "type": "polyline", "points": [[-9,-9],[9,-9],[9,9]] } }
+type DirtPath = AuthoredItem & {
+  kind: "dirtPath";
+  width: number;
+  shape: PathShape;
+};
+
+type Fence = AuthoredItem & {
+  kind: "fence";
+  height: number;
+  postSpacing?: number;
+  shape: PathShape;
+};
 ```
 
-Straight-by-default: a straight road/path/fence must use `line` (or `polyline`), **not** a bezier with near-zero curvature. Splines are only for genuinely curved runs — a low-curvature spline with far-apart control points produces tessellation glitches (torn stripes, kinks), so the format keeps straight runs as straight segments.
+Examples:
+
+```json
+{
+  "id": "main-road",
+  "kind": "road",
+  "width": 3.2,
+  "shape": { "type": "line", "start": [12, -40], "end": [12, 40] }
+}
+```
+
+```json
+{
+  "id": "garden-path",
+  "kind": "dirtPath",
+  "width": 1.1,
+  "shape": {
+    "type": "cubicBezierPath",
+    "start": [-8, 2],
+    "curves": [{ "c1": [-4, 4], "c2": [2, 3], "end": [8, 8] }]
+  }
+}
+```
+
+```json
+{
+  "id": "west-fence",
+  "kind": "fence",
+  "height": 1.0,
+  "postSpacing": 2.0,
+  "shape": { "type": "polyline", "points": [[-9, -9], [9, -9], [9, 9]] }
+}
+```
+
+Straight runs should use `line` or `polyline`. Beziers are for genuinely curved
+runs.
+
+Fences are assumed to carry collision (bounding the lawn is their gameplay
+purpose). A later version may allow collision-less decorative fences — for example
+a neighborhood of many non-playable yards where hundreds of fence segments would
+otherwise burden the physics engine. Roads carry their lane stripes and markings
+as an engine concern; the exact styling may change in a later version. These are
+engine decisions, noted here only for context.
 
 ## Terrain
 
-The lawn is a 2D domain projected onto a terrain surface. It can have hills/displacement but should not fold over itself. Height features live under the level's `terrain.heightFeatures`.
+The lawn is a 2D domain projected onto a terrain surface. Terrain can have
+height features, but it should not fold over itself.
+
+```ts
+type Terrain = {
+  heightFeatures: HeightFeature[];
+};
+
+type HeightFeature = AuthoredItem & {
+  type: "hill";
+  shape: AreaShape;
+  height: number;
+  falloff: number;
+};
+```
+
+Height features are not additive in v1. At any point, the terrain height
+contribution is the maximum contribution from all height features containing
+that point. Overlapping hills may look odd, but they do not stack into a larger
+mountain.
+
+Example:
 
 ```json
 {
   "terrain": {
     "heightFeatures": [
-      { "id": "soft-hill-a", "type": "hill", "shape": { "type": "circle", "center": [-20,-12], "radius": 8 }, "height": 3.5, "falloff": 1.0 }
+      {
+        "id": "soft-hill-a",
+        "type": "hill",
+        "shape": { "type": "circle", "center": [-20, -12], "radius": 8 },
+        "height": 3.5,
+        "falloff": 1.0
+      }
     ]
   }
 }
 ```
 
-(Hill semantics — additive vs absolute height, overlap behavior — are still open; we'll refine when this folds back in.)
-
 ## Objects
 
-Trees, rocks/boulders (with collision), props like the hidden gun, etc. v1 **reserves** an `objects: []` array on each level so files stay structurally valid, but the object schema itself is a planned **v2 addendum** — v1 engines simply ignore unknown object contents, v2 adds full support. Defining it later does not break any v1 file.
+v1 reserves an `objects: []` array on each level, but the object schema is not
+defined in v1. v1 files should keep this array empty unless a separate addendum
+defines a supported object entry.
 
-## Level Shape
+## Complete Level Example
 
 ```json
 {
@@ -319,16 +715,37 @@ Trees, rocks/boulders (with collision), props like the hidden gun, etc. v1 **res
   "dirtPaths": [],
   "fences": [],
   "terrain": { "heightFeatures": [] },
-  "objects": []
+  "objects": [],
+  "tags": []
 }
 ```
 
-`code` is the pack-local short code; the global code is derived (`prefix + Capitalize(code)`). Spawn is 2D plus a heading (math angle); the game places the mower at the correct surface height.
+`code` is the pack-local short code. The global code is derived from the pack
+prefix and level code. Spawn is 2D plus a mathematical heading. The game places
+the mower at the correct terrain height.
 
 ## Engine Work Implied
 
-The game adds a v1 importer that converts this JSON into a runtime map. Engine helpers move from rectangles to generic shapes and the area tree: bounds, area, contains-point, random-point-in-shape, edge-distance, path sampling, and per-point coverage resolution (deepest replace area + within-area priority budget + additive overlays).
+The game needs a v1 importer that converts this JSON into a runtime map.
 
-The mow field, grass placement, flowers, dandelions, clover, leaves, dirt, roads, dirt paths, fences, and the attract camera should consume the runtime map (areas, vegetation layers, distributions) instead of reading old `xMin/xMax/zMin/zMax` and ad-hoc `cloverPatches`/`flowerFields` data directly. The perlin distribution should be the shared implementation behind today's hand-coded organic clover/flower shaping.
+Engine/editor helpers should move from rectangle-only logic to generic shapes:
 
-The foliage registry is a shared module both the game and the editor import, so type keys and their display names stay in sync from a single source.
+- bounds
+- area
+- contains point
+- random point in shape
+- edge distance
+- path sampling
+- terrain height sampling
+- area tree resolution
+- vegetation coverage resolution
+
+The mow field, grass placement, flowers, dandelions, clover, leaves, dirt,
+roads, dirt paths, fences, and attract camera should consume the runtime v1 map
+instead of reading old `xMin`/`xMax`/`zMin`/`zMax` and ad-hoc
+`cloverPatches`/`flowerFields` data directly.
+
+The Perlin distribution should be the shared implementation behind organic
+clover, flower, and leaf shaping. The foliage registry should be a shared module
+imported by both the game and editor so type keys and display names remain in
+sync.
