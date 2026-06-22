@@ -15,10 +15,32 @@ fields, manual review needs, and any possible loss.
 
 A future version that only adds optional fields may simply be a superset that
 newer engines and editors read directly with no conversion. That is allowed and
-even preferred when it fits, but it is not promised in advance. The aim is fewer
+preferred when it fits, but it is not promised in advance. The aim is fewer
 versions without constrictive thinking, not a forward-compatibility guarantee.
 
 v1 has no required migration from older map files.
+
+Because v1 is the first supported version, this document also records the
+versioning policy used to draft it. Later releases may split process/versioning
+guidance from the schema document itself.
+
+## Scope and Non-Goals
+
+This document defines a LEVEL FILE: the data an editor emits and an importer
+reads to build one playable level. That is all it defines.
+
+It deliberately does NOT define, and reviewers should not expand it to cover:
+
+- The world beyond the authored level: skyboxes, distant terrain, mountains,
+  scenery, traffic, or what a road, fence, or path does once it leaves the level.
+- Rendering, art, themes, seasons, or color. The game decides how anything looks.
+  The grass could be red; this format does not care.
+- What `1.0` coverage renders as (instance counts, meshes, density tuning).
+- The level editor's UI, tooling internals, or runtime engine behavior, except
+  the few places this document explicitly calls out an editor or engine duty.
+
+When a question is about the game world or how things look, it is out of scope by
+design, not a hole in this spec.
 
 ## Coordinates
 
@@ -122,20 +144,34 @@ type AuthoredItem = {
 ```
 
 `editor` fields are editor hints only. They are not gameplay state. Do not add
-editor visibility fields until the exact behavior is known, because "visible" is
+editor visibility fields until the exact behavior is known, because `visible` is
 too ambiguous: tree visibility, viewport visibility, runtime rendering, and
 gameplay visibility are different concepts.
 
+`editor.locked` means "locked in editor tooling" only. It is saved authoring
+state, not a runtime promise that the game can never move, hide, alter, or
+destroy the thing represented by the item.
+
 ## IDs and Level Codes
 
-Every authored item in a level — areas, vegetation layers, roads, dirt paths,
-fences, height features — has an `id` that is unique across the WHOLE level (the
-map), not merely within its parent area. Stable IDs matter for editor selection,
-diffs, migrations, targeted changes, and future tooling.
+Every authored item in a level - areas, vegetation layers, roads, dirt paths,
+fences, height features - has an `id` that is unique within that level. Stable
+IDs matter for editor selection, diffs, migrations, targeted changes, and future
+tooling.
 
-All name, code, prefix, and id collision checks are case-insensitive: compare
-lowercased values, so `fence01` and `Fence01` are the same id. Do not rely on
-capitalization to disambiguate anything.
+Pack prefixes are globally reserved forever once used. The only reserved prefix
+at the start of v1 is `bgrn`, for the beta green pack. Prefix collision checks
+are case-insensitive.
+
+Level codes are unique within their pack/context. If two imported levels have
+the same pack prefix and level code after case-insensitive comparison, they are
+treated as the same level identity rather than two different levels. Display
+names are not identifiers; uniqueness of names is an editor preference, not a
+format requirement.
+
+Prefixes, level codes, and item ids must start with a simple US English/Latin
+alphabetic character so derived capitalization is unambiguous. Prefer camelCase
+after that. v1 does not otherwise pin these strings to a formal regex.
 
 Level codes are globally unique by construction and stored as one source of
 truth:
@@ -145,9 +181,9 @@ truth:
 - The full global level code is derived: `prefix + Capitalize(code)`, for
   example `bgrnEll`. `Capitalize` upper-cases the first character only.
 
-An item's authored `id` is the short local form (for example `fence01`). Its
-global identity is derived by combining the full level code with the id (for
-example `bgrnEllFence01`, or `{fullLevelCode}:{itemId}`) for diffing and
+An item's authored `id` is the short local form, for example `fence01`. Its
+global identity is derived by combining the full level code with the id, for
+example `bgrnEllFence01`, or `{fullLevelCode}:{itemId}`, for diffing and
 cross-level identity. Neither the full level code nor the combined global id is
 hand-authored in the level data. Moving an item to another level may force a
 rename if its id already exists there. Whether ids are author-chosen or
@@ -193,7 +229,7 @@ v1 registry:
 | --- | --- | --- |
 | `grass` | Grass | groundcover |
 | `clover` | Clover | groundcover |
-| `leaf` | Leaf | groundcover |
+| `leaf` | Leaf | decor |
 | `dandelion` | Dandelion | wildflower |
 | `flowerBlue` | Blue Flower | wildflower |
 | `flowerWhite` | White Flower | wildflower |
@@ -202,23 +238,25 @@ v1 registry:
 | `tulip` | Tulip | prizeFlower |
 
 Each registry entry owns its mesh and behavior on the engine side. The map file
-only references the registry key. Flower colors are distinct entries rather than a
-`flower` plus `variant` pair, because not every flower is a simple color swap.
+only references the registry key. Flower colors are distinct entries rather than
+a `flower` plus `variant` pair, because not every flower is a simple color swap.
 
-Category sets intent by WHERE the foliage is placed, not a per-foliage score:
+Category sets intent by where the foliage is placed, not a per-foliage score:
 
 - `groundcover` and `wildflower` belong in mowable `lawn` areas. The player mows
-  everything in the lawn that is not explicitly special — grass, clover, and the
-  small wildflowers (blue/white/yellow/red) and dandelions all count. These are
-  the weeds and wildflowers of the lawn.
-- `prizeFlower` belongs in `bed` areas (dirt, not mowable). Prize flowers are
-  large, beautiful, and admired, not mowed — mowing one is a mistake. Tulips are
-  the first; more will be added.
+  everything in the lawn that is not explicitly special - grass, clover,
+  dandelions, and the small wildflowers (blue/white/yellow/red) all count.
+  These are the weeds and wildflowers of the lawn.
+- `prizeFlower` belongs in `bed` areas, which are dirt and not mowable. Prize
+  flowers are large, beautiful, and admired, not mowed. Mowing one is a mistake.
+  Tulips are the first; more will be added.
+- `decor` is decorative scatter (leaf drifts and similar), not a mow target and
+  not required for completion. Usually placed as `additive` cover.
 
-The differentiation is enforced by level-design convention, not by scoring fields:
-wildflowers/weeds go in the lawn, prize flowers go in beds, and the two are not
-mixed. v1 does not encode per-foliage scoring; completion is "mow the lawn's
-vegetation", scored against `parSeconds`.
+The differentiation is enforced by level-design convention, not by scoring
+fields: wildflowers/weeds go in the lawn, prize flowers go in beds, and the two
+are not mixed. v1 does not encode per-foliage scoring; completion is "mow the
+lawn's vegetation", scored against `parSeconds`.
 
 ## Distribution
 
@@ -230,13 +268,11 @@ type Distribution = UniformDistribution | PerlinDistribution;
 type UniformDistribution = {
   type: "uniform";
   density: number;
-  edgeFalloff?: number;
 };
 
 type PerlinDistribution = {
   type: "perlin";
   density: number;
-  edgeFalloff?: number;
   noise: {
     seed: number;
     octaves: { frequency: number; weight: number }[];
@@ -247,37 +283,35 @@ type PerlinDistribution = {
 };
 ```
 
-`density` is a DESIRED coverage, not a capacity or budget. `1.0` means the tuned,
-desirable amount of that foliage — the point at which the bare lawn texture
-beneath no longer draws the eye, with just barely enough above it to not read as a
-lone game asset. Nothing competes for or subtracts from a `1.0` total.
+`density` is a desired coverage, not a capacity or budget. `1.0` means the
+tuned, desirable amount of that foliage: the point at which the bare lawn texture
+beneath no longer draws the eye, with just barely enough above it to not read as
+a lone game asset. Nothing competes for or subtracts from a `1.0` total.
 
 - Aim for `1.0` almost everywhere; it is the tuned target and keeps things simple.
-- Above `1.0` is fine for lusher areas as long as performance allows (3.0 is okay
-  if it does not cost frames).
-- Below about `0.75` should be rare — sparse decorative cover, or a foliage whose
+- Above `1.0` is fine for lusher areas as long as performance allows.
+- Below about `0.75` should be rare: sparse decorative cover, or a foliage whose
   `1.0` is not tuned yet.
 
 Each foliage type is tuned on the engine side so that `1.0` is good, desirable
-coverage. What `1.0` renders as (instance counts per square meter) is owned by the
-engine and may change with the art; it is not part of the file format and does not
-require a version bump.
+coverage. What `1.0` renders as, such as instance counts per square meter, is
+owned by the engine and may change with the art; it is not part of the file
+format and does not require a version bump.
 
-`edgeFalloff` is in meters and cuts inward from the shape edge; it never expands
-outside the shape. The edge falloff and the perlin mask combine MULTIPLICATIVELY,
-each in `[0, 1]`: the perlin makes the coverage organic and the falloff trims it
-near the edge. (If the falloff ever makes a blob read as an obvious circle, the
-combination is wrong — multiplicative blending is meant to prevent that. Exact
-behavior is provisional until validated in-engine.) Runtime/editor may clamp
-impossible falloffs instead of doing heavy validation geometry.
+Distributions do not own edge falloff. Edge falloff belongs to the area, because
+falloff is part of how an area replaces or adds to its parent. The distribution
+mask and the area falloff combine multiplicatively at the area level, each in
+`[0, 1]`: the distribution makes coverage organic, and the area falloff trims
+that contribution near the area edge. Exact falloff math is provisional until
+validated in-engine. Runtime/editor may clamp impossible falloffs instead of
+doing heavy validation geometry.
 
 ### Uniform Distribution
 
 ```json
 {
   "type": "uniform",
-  "density": 1.0,
-  "edgeFalloff": 0.75
+  "density": 1.0
 }
 ```
 
@@ -290,7 +324,6 @@ flower clumps, and leaf drifts.
 {
   "type": "perlin",
   "density": 0.9,
-  "edgeFalloff": 0.5,
   "noise": {
     "seed": 1337,
     "octaves": [
@@ -366,8 +399,8 @@ type Area = AuthoredItem & {
   mowable?: boolean;
   surface?: "grass" | "dirt";
   shape: AreaShape;
-  edgeFalloff?: number; // metres; for a replace area, the band over which the
-                        // parent's vegetation fades back in at the edge
+  edgeFalloff?: number; // meters; for replace, cross-fades with the parent at the
+                        // edge; for additive, fades this area's added contribution
   vegetation: VegetationLayer[];
   children?: Area[];
 };
@@ -379,46 +412,59 @@ type VegetationLayer = {
 };
 ```
 
-There is no `priority` and no coverage budget — see Coverage below.
+There is no `priority` and no coverage budget; see Coverage below.
+
+One area has exactly one shape. v1 does not support boolean/composite area
+shapes made from multiple overlapping shapes. If the authored shape needs to be
+complex, use a polygon.
 
 ### Containment and Overlap
 
-Every area must be FULLY CONTAINED within its parent. No part of a child's shape
-may extend outside its parent. (Top-level areas are contained by the level.)
+Every area must be fully contained within its parent. No part of a child's shape
+may extend outside its parent. Top-level areas are contained by the level.
 
-`replace` siblings — replace areas sharing one parent — must not overlap each
-other; their partition must be unambiguous. `additive` areas may overlap their
-parent and other areas freely; overlapping is their entire purpose.
+Sibling areas sharing the same parent must not overlap each other, regardless of
+whether they are `replace` or `additive`. Their spatial relationship must be
+unambiguous. To put multiple vegetation types over the same footprint, use
+multiple vegetation layers in one area rather than overlapping sibling areas. To
+layer one area on top of another - for example an `additive` flower scatter over a
+`replace` clover patch - nest it as a child of that area, not as an overlapping
+sibling.
 
 The game engine trusts authored maps and does not validate containment at
-runtime. The EDITOR enforces it:
+runtime. The editor enforces it:
 
 - Checking one item against its single parent is cheap and may run in real time
   while dragging.
-- Checking an item against its children must be throttled and ASYNCHRONOUS. A
+- Checking an item against its children must be throttled and asynchronous. A
   parent may have thousands of children with complex boundaries; a naive
   every-item-against-every-item pass is worst-case quadratic and can stall or
   crash the editor. Never run the full check synchronously on every edit.
-- A full validation MUST run before save.
+- A full validation must run before save.
 
 A violating area should not raise stacking modal errors. Mark it inline instead:
-a tasteful red outline with red diagonal hatching and a faint red glow — "fix me,
-I'm swollen and injured" — so the author sees exactly which area is wrong without
-being interrupted.
+a tasteful red outline with red diagonal hatching and a faint red glow so the
+author sees exactly which area is wrong without being interrupted.
 
 ### Composition
 
-`composition` is local to the immediate parent (a grandchild composes with its
-parent, not the grandparent):
+`composition` is local to the immediate parent. A grandchild composes with its
+parent, not directly with the grandparent.
+
+Area trees resolve locally and bottom-up. If an area has children, those
+children first modify that area's resolved result. That resolved area result
+then composes upward into its own parent. An `additive` child inside a `replace`
+area adds to the replace area; it does not skip upward and add directly to the
+grandparent.
 
 - `replace`: inside this shape, this area's surface, role, mowability, and
-  vegetation replace the parent's resolved result. Across the area's `edgeFalloff`
-  band (inset from the shape edge) the two CROSS-FADE: this area's vegetation ramps
-  from full in the interior to zero at the edge while the parent's vegetation ramps
-  back from zero to full. So a clover field that replaces grass shows grass
-  returning along its edges instead of a hard cut. (Exact falloff math is
-  provisional until validated in-engine.)
-- `additive`: inside this shape, this area's vegetation is ADDED on top of the
+  vegetation replace the parent's resolved result. Across the area's
+  `edgeFalloff` band, inset from the shape edge, the two cross-fade: this area's
+  vegetation ramps from full in the interior to zero at the edge while the
+  parent's vegetation ramps back from zero to full. So a clover field that
+  replaces grass shows grass returning along its edges instead of a hard cut.
+  Exact falloff math is provisional until validated in-engine.
+- `additive`: inside this shape, this area's vegetation is added on top of the
   parent's resolved result. It does not change the parent's surface, role, or
   mowability.
 
@@ -432,22 +478,24 @@ Role defaults:
 
 `mowable` and `surface` may override the role defaults.
 
-A typical level is a level-wide `background` area that fills enough visible space
-to avoid a hard island edge, with one or more `lawn` descendants that are mowable
-and scored. Beds and dirt patches are deeper `replace` children. Decorative flower
-scatter, clover accents, and leaf drifts are usually `additive` areas.
+A typical level is a level-wide `background` area that fills enough visible
+space to avoid a hard island edge, with one or more `lawn` descendants that are
+mowable and scored. Beds and dirt patches are deeper `replace` children.
+Decorative flower scatter, clover accents, and leaf drifts are usually
+`additive` areas.
 
 ### Coverage
 
-There is NO coverage budget and nothing competes. Each vegetation layer's
+There is no coverage budget and nothing competes. Each vegetation layer's
 `density` is independent and means "how much of this foliage, where `1.0` is the
-tuned desirable amount" (see Distribution). Layers never subtract from one another.
+tuned desirable amount" (see Distribution). Layers never subtract from one
+another.
 
-To clear grass where clover sits you do NOT rely on competition: author a
-`replace` area whose vegetation is just clover. "Replace" means the parent's grass
-is simply absent inside it, and the `edgeFalloff` cross-fade brings grass back at
-the edges. To sprinkle a few flowers without touching the grass, use an `additive`
-area.
+To clear grass where clover sits, do not rely on competition: author a `replace`
+area whose vegetation is just clover. `replace` means the parent's grass is
+simply absent inside it, and the `edgeFalloff` cross-fade brings grass back at
+the edges. To sprinkle a few flowers without touching the grass, use an
+`additive` area.
 
 The engine converts each final per-type density into instance counts using its
 private foliage "full" reference.
@@ -456,8 +504,8 @@ private foliage "full" reference.
 
 ### Lawn With Organic Clover
 
-The lawn carries grass. A `replace` child holds the clover; inside it the grass is
-simply absent, and the area's `edgeFalloff` brings grass back along the edge.
+The lawn carries grass. A `replace` child holds the clover; inside it the grass
+is simply absent, and the area's `edgeFalloff` brings grass back along the edge.
 
 ```json
 {
@@ -485,7 +533,6 @@ simply absent, and the area's `edgeFalloff` brings grass back along the edge.
           "distribution": {
             "type": "perlin",
             "density": 1.0,
-            "edgeFalloff": 0.4,
             "noise": {
               "seed": 7,
               "octaves": [
@@ -515,6 +562,7 @@ replacing the grass/clover beneath.
   "kind": "area",
   "composition": "additive",
   "shape": { "type": "rectangle", "center": [6, -1], "size": [1, 2] },
+  "edgeFalloff": 0.4,
   "vegetation": [
     {
       "id": "red",
@@ -522,7 +570,6 @@ replacing the grass/clover beneath.
       "distribution": {
         "type": "perlin",
         "density": 0.2,
-        "edgeFalloff": 0.4,
         "noise": {
           "seed": 21,
           "octaves": [{ "frequency": 0.9, "weight": 1 }],
@@ -537,7 +584,6 @@ replacing the grass/clover beneath.
       "distribution": {
         "type": "perlin",
         "density": 0.2,
-        "edgeFalloff": 0.4,
         "noise": {
           "seed": 99,
           "octaves": [{ "frequency": 0.9, "weight": 1 }],
@@ -577,7 +623,7 @@ replacing the grass/clover beneath.
           "role": "bed",
           "shape": { "type": "circle", "center": [4, -3], "radius": 1.4 },
           "vegetation": [
-            { "id": "tulips", "type": "tulip", "distribution": { "type": "uniform", "density": 0.35, "edgeFalloff": 0.3 } }
+            { "id": "tulips", "type": "tulip", "distribution": { "type": "uniform", "density": 0.35 } }
           ]
         }
       ]
@@ -648,12 +694,10 @@ Examples:
 Straight runs should use `line` or `polyline`. Beziers are for genuinely curved
 runs.
 
-Fences are assumed to carry collision (bounding the lawn is their gameplay
-purpose). A later version may allow collision-less decorative fences — for example
-a neighborhood of many non-playable yards where hundreds of fence segments would
-otherwise burden the physics engine. Roads carry their lane stripes and markings
-as an engine concern; the exact styling may change in a later version. These are
-engine decisions, noted here only for context.
+Fences are assumed to carry collision. A later version may allow collision-less
+decorative fences, but v1 treats fences as gameplay boundaries first. Roads carry
+lane stripes and markings as an engine concern; exact styling may change in a
+later version. These are engine decisions, noted here only for context.
 
 ## Terrain
 
@@ -678,6 +722,11 @@ contribution is the maximum contribution from all height features containing
 that point. Overlapping hills may look odd, but they do not stack into a larger
 mountain.
 
+Terrain hill behavior is still marked for revision before v1 ships. The current
+direction is max-height-wins, but the exact contribution/falloff formula needs
+engine validation. This section is intentionally narrow until the current game
+hill behavior is confirmed.
+
 Example:
 
 ```json
@@ -699,8 +748,22 @@ Example:
 ## Objects
 
 v1 reserves an `objects: []` array on each level, but the object schema is not
-defined in v1. v1 files should keep this array empty unless a separate addendum
-defines a supported object entry.
+defined in v1. The field stays in the draft as a placeholder while object needs
+are still being discovered. v1 files should keep this array empty unless object
+support is defined before v1 ships. If objects remain ambiguous or unnecessary,
+this field should be removed from the final v1 spec and moved to a future-work
+document instead.
+
+## Open Before Final v1
+
+These are draft questions, not hidden schema requirements:
+
+- Confirm the exact area `edgeFalloff` math in the engine and editor preview.
+- Confirm the terrain hill contribution/falloff formula, and whether v1 needs to
+  represent anything beyond the current hill behavior.
+- Decide whether `objects` gets a real v1 schema or moves to future work.
+- Decide whether patch files are needed for v1 tooling. Normal v1 map files
+  remain canonical pack state either way.
 
 ## Complete Level Example
 
