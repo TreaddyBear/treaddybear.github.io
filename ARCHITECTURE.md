@@ -131,3 +131,56 @@ There is one hidden gun pickup outside the fence behind a terrain mound, current
 ## Package And Build Notes
 
 Use pnpm v11. `pnpm-workspace.yaml` currently allows the `esbuild` build script and enforces `minimumReleaseAge: 57600`, which is 40 days. Keep that security setting unless the user explicitly changes it.
+
+## Map Format — Bake-Step Architecture (decided 2026-06-25)
+
+The map pipeline is split into two formats with a mandatory bake step between them.
+
+### Two formats, one bake step
+
+| File | Role | Who writes it |
+|------|------|---------------|
+| `map-exports/lawn-maps.json` | **Authored source** — human-friendly, validated by the spec (MapPackV1 / v1 format) | Level designer / editor tool |
+| `map-exports/lawn-maps.baked.json` | **Baked artifact** — engine-ready, pre-normalized, committed build output | Baker tool (`tools/bake-maps.ts`) |
+
+The engine only loads the baked artifact. It never reads the authored source in production. The baker is the single gate from authored → engine-ready.
+
+### The baker (`tools/bake-maps.ts`)
+
+- Standalone TypeScript tool, run via `pnpm bake` (`tsx tools/bake-maps.ts`).
+- Reads `lawn-maps.json`, runs `assertMapPackValid`, then normalizes with `bakeLevel()` — the same logic as the old runtime `normalizeLevel()` but outputting `BakedRuntimeMap` (plain objects) instead of `RuntimeMap` (which uses `Vector3`).
+- **Fails loudly** on any validation error. Produces no output if the input is invalid.
+- The baked artifact is committed alongside the authored source. Stale artifacts are caught by the visual check (the game looks wrong) — a hash/manifest check can be added later.
+
+### The validator (`src/mapValidator.ts`)
+
+- Shared single definition of "valid authored source."
+- Imported by the baker (validates before baking).
+- Will be imported by the editor preview tool once it exists.
+- The engine does **not** run the validator in production (it trusts the baked artifact).
+
+### Engine startup (normal path)
+
+```
+lawn-maps.baked.json  →  loadBakedMapPack()  →  hydrate (BakedVec3 → Vector3)  →  RuntimeMap[]
+```
+
+`loadBakedMapPack()` in `src/config.ts` reconstructs `Vector3` instances from the plain `{x,y,z}` objects in the JSON. This is O(n) and negligible in cost.
+
+### Dev escape hatch (`src/devMapLoader.ts`)
+
+A flag-gated function `loadAuthoredMapPack()` that reads the authored source at runtime, validates it, and normalizes it — the full pipeline in-engine. It is:
+
+- Only importable in `import.meta.env.DEV` builds (throws if called in production).
+- Not imported by any normal game module → tree-shaken out of production bundles.
+- Useful for live-tweaking authored maps without re-running the baker.
+
+### What the baked artifact contains
+
+`BakedMapPack` holds `maps: BakedRuntimeMap[]` where `BakedRuntimeMap` is structurally identical to `RuntimeMap` but uses `BakedVec3 = { x, y, z }` in place of `Vector3` for all stored positions (`spawn`, `segments[].center`, `fenceSegments[].start/end`). The `source: LevelV1` field (raw level data, not used by game systems) is omitted from the baked format.
+
+### Key invariants
+
+1. The baker's normalization logic and the engine's runtime normalization (`normalizeMapPack`/`normalizeLevel` in `runtimeMap.ts`) must stay in sync. When `normalizeLevel` changes, `bakeLevel` in the baker must be updated and the artifact must be regenerated.
+2. The engine may assume the baked artifact is valid — no assertions needed at runtime.
+3. The validator is the contract — not the baker's internal implementation.

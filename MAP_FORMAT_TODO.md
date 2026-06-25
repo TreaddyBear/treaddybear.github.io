@@ -8,6 +8,17 @@ document; update it when items close or new ones surface.
 
 ---
 
+## Bake-step checklist (decided 2026-06-25 — see `ARCHITECTURE.md`)
+
+- [ ] **Baker tool** (`tools/bake-maps.ts`): validates authored source, runs `bakeLevel`, emits `map-exports/lawn-maps.baked.json`.
+- [ ] **Baked format types** (`src/bakedMapFormat.ts`): `BakedVec3`, `BakedRuntimeSegment`, `BakedFenceSegment`, `BakedRuntimeMap`, `BakedMapPack`.
+- [ ] **Engine wiring**: `src/config.ts` imports baked JSON and calls `loadBakedMapPack()` (hydrate + expose) instead of `normalizeMapPack(mapPack)`.
+- [ ] **Dev escape hatch** (`src/devMapLoader.ts`): `loadAuthoredMapPack()`, DEV-gated, tree-shaken in production.
+- [ ] **Remove runtime normalize from production path**: `normalizeMapPack`/`normalizeLevel` in `runtimeMap.ts` should be marked deprecated or moved to a dev-only module once the baker is fully trusted. `mapData.ts` becomes dev-only (only imported by the escape hatch).
+- [ ] **Stale-artifact detection**: add a hash/manifest check so a mismatch between authored source and baked artifact is caught at dev startup rather than silently using stale data. *(Nice-to-have, not blocking.)*
+
+---
+
 ## Bucket 1 — Close out v1 (finishable code work)
 
 - [ ] **Retire the legacy intermediary arrays.** `normalizeLevel` in
