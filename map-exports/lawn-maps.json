@@ -1423,12 +1423,12 @@
                 "noise": {
                   "seed": 7919,
                   "octaves": [
-                    { "frequency": 0.07, "weight": 1 },
-                    { "frequency": 0.15, "weight": 0.25 }
+                    { "frequency": 0.55, "weight": 1 },
+                    { "frequency": 1.20, "weight": 0.40 }
                   ],
-                  "domainWarp": 2.5,
-                  "threshold": 0.05,
-                  "softness": 0.50
+                  "domainWarp": 0.7,
+                  "threshold": 0.42,
+                  "softness": 0.12
                 }
               }
             }
@@ -1438,7 +1438,13 @@
           "id": "sq02",
           "kind": "area",
           "role": "lawn",
-          "shape": { "type": "rectangle", "center": [11, 11], "size": [20, 20] },
+          "shape": {
+            "type": "polygon",
+            "points": [
+              [20.5, 11], [15.75, 19.23], [6.25, 19.23],
+              [1.5, 11], [6.25, 2.77], [15.75, 2.77]
+            ]
+          },
           "edgeFalloff": 0,
           "vegetation": [
             {
@@ -1488,7 +1494,7 @@
           "kind": "area",
           "role": "lawn",
           "shape": { "type": "rectangle", "center": [11, -11], "size": [20, 20] },
-          "edgeFalloff": 1.6,
+          "edgeFalloff": 6.0,
           "vegetation": [
             {
               "id": "grass",

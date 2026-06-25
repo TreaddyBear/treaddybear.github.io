@@ -40,7 +40,7 @@ const TYPE_RGBA: Record<string, RGBA> = {
   flowerYellow: [255, 210,   0, 255],
   flowerRed:    [230,  40,  40, 255],
   tulip:        [255, 140, 200, 255],
-  clover:       [40,  180,  60, 255],
+  clover:       [255, 130,   0, 255],  // bright orange — high contrast on dark-green bg
   dandelion:    [210, 185,  20, 255],
   grass:        [80,  185,  50, 255],
 };
