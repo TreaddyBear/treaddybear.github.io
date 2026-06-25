@@ -54,17 +54,17 @@ This loop is already partially built for maps:
 
 The editor extends the same pipeline to other definition types without reinventing the loop.
 
-### Three definition types
+### Definition types
 
-| Type | Definition file | Bake step | Preview |
+| Type | Definition source | Bake step | Preview |
 |---|---|---|---|
 | **Maps** | `lawn-maps.json` (existing) | `pnpm bake` | `pnpm viz` + in-game |
 | **Vegetation species** | `map-exports/species/*.json` (proposed) | bake writes per-instance props to `bakedInstances` | in-editor Babylon scene — see `docs/VEGETATION_EDITOR.md` |
 | **Mowers** | `mowers/*.json` (proposed) | none — real-time assembly | in-editor Babylon scene — see §3 below |
+| **Structural objects** (fences, roads, props) | path data in `lawn-maps.json` (existing) + module mesh refs (proposed extension) | none — real-time assembly of imported modules | in-editor Babylon scene — see §4 below |
 
-All three types share the validation + preview principle. A new definition type plugs in by
-implementing the same `validate → preview` contract. The editor UI renders a different panel
-per type but the same real-engine scene.
+All types share the same validate → preview contract. The editor renders a different panel per
+type but the same real-engine scene.
 
 ---
 
@@ -153,13 +153,140 @@ players — or, if `randomnessAmount > 0`, produces a stable-yet-varied populati
 
 ---
 
-## 4. Pipeline Integration
+## 4. Structural Objects — Fences, Roads, Props (PROPOSED — not built)
+
+### The mesh-import-vs-procedural answer: both, via layering
+
+The editor never edits geometry. The mesh-import-vs-procedural question resolves by
+recognising the two live at different layers:
+
+- **Mesh importer (GLTF/GLB):** the shared primitive for bringing external assets in. A post
+  mesh, a rail section, a road profile cross-section, a mailbox body — all authored in Blender,
+  imported into the editor's asset library. The importer touches no vertex data; it only
+  registers the asset as available for assembly.
+- **Procedural assembly:** the editor layer that parameterises how imported pieces are combined.
+  It never exposes raw geometry. It says: *"repeat the post mesh every `spacing` metres along
+  this path, with height jitter ±`h` and yaw jitter ±`θ`."*
+
+The division is clean:
+
+> **Blender authors meshes. LaMow Editor imports + parameterises assembly + previews.**
+
+This is the same principle as the mower designer (§3): the base mesh and part meshes come from
+Blender; the editor authors the assembly rule. Structural objects extend it to path-following
+repetition.
+
+### Unifying model: imported part(s) + procedural rule + live preview
+
+Every structural element is one instance of the same framework. Three cases:
+
+---
+
+**Fence** — a `PathShape` + an imported post/rail module repeated along it:
+
+```ts
+type FenceDefinition = {
+  path:              PathShape;
+  postMesh:          string;    // GLTF/GLB asset reference
+  railMesh?:         string;
+  spacingRange:      [min: number, max: number]; // metres between posts
+  heightRange:       [min: number, max: number]; // post height variation
+  postRotationJitter:[min: number, max: number]; // per-post yaw jitter, radians
+};
+```
+
+`spacingRange` and `heightRange` sample independently per post from a position-derived seed,
+giving an organic, non-uniform fence from a single imported post mesh.
+
+---
+
+**Road / dirt path** — a `PathShape` + an imported cross-section profile extruded along it:
+
+```ts
+type RoadDefinition = {
+  path:         PathShape;
+  profileMesh:  string;    // 2D cross-section GLTF, extruded by the engine along the path
+  width:        number;
+  edgeBlend:    number;    // metres of terrain-blend on each side of the road
+  markings?:    { mesh: string; spacingRange: [min: number, max: number] };
+};
+```
+
+---
+
+**Static object** (mailbox, rock, street lamp, …) — the n=1 trivial case:
+
+```ts
+type ObjectPlacement = {
+  mesh:       string;
+  transform:  {
+    position: [x: number, y: number, z: number];
+    rotation: [x: number, y: number, z: number]; // Euler, radians
+    scale:    [x: number, y: number, z: number];
+  };
+  sockets?:   Socket[];  // optional — reuses the mower socket system (§3) for attachables
+};
+```
+
+A static object is not a separate concept. It is a fence with one element and no repetition —
+a degenerate assembly rule: "place once." The `objects: unknown[]` field already exists in the
+map schema (currently untyped); `ObjectPlacement` would be its concrete type.
+
+### Tie-ins with the existing map format
+
+Fences, roads, and dirtPaths are **already top-level `kind` items with `PathShape`** in
+`MAP_FORMAT_V1_DRAFT.md` (lines 640–657):
+
+```ts
+type Fence    = AuthoredItem & { kind: "fence";    height: number; postSpacing?: number; shape: PathShape; };
+type Road     = AuthoredItem & { kind: "road";     width: number;  shape: PathShape; };
+type DirtPath = AuthoredItem & { kind: "dirtPath"; width: number;  shape: PathShape; };
+```
+
+The structural editor components are the **authoring UI for those existing path-kind items**,
+extended with imported module references and range parameters. `PathShape` itself (`line |
+polyline`, spec lines 363–370) is unchanged — the editor draws it interactively and previews
+the assembled modules along it. The existing scalar `postSpacing` on `Fence` is the degenerate
+form of `spacingRange: [n, n]` — the range version is a backwards-compatible proposed
+extension.
+
+### Ranges are the consistent thread
+
+The `[min, max]` range idea now spans every content domain in the editor:
+
+| Domain | Example range | Sampled per… |
+|---|---|---|
+| Vegetation (`docs/VEGETATION_EDITOR.md §2`) | petal count, stem height | per flower instance |
+| Mower parts (§3) | part scale, hue shift | per mower |
+| Structural objects (§4) | post spacing, height jitter | per structural element |
+
+The same `sample(range, seed)` utility underlies all three. Authors tune a *distribution*; the
+engine samples it deterministically per element. This uniformity means the same mental model
+and the same range-slider UI component work across every editor panel.
+
+### Per-asset editor windows, shared framework
+
+Each structural type gets its own editor panel:
+
+| Panel | Key authoring controls |
+|---|---|
+| **Fence** | polyline path editor; post/rail mesh picker; spacing range slider; height/rotation jitter sliders |
+| **Road / dirt path** | polyline path editor; profile mesh picker; width + edge-blend controls |
+| **Object** | transform gizmo (translate/rotate/scale); mesh picker; optional socket list |
+
+All three panels share the same underlying framework: GLTF importer, procedural assembly
+runtime, Babylon preview scene. A new structural type (hedge, power line, hedge row) is a new
+panel, not a new framework.
+
+---
+
+## 5. Pipeline Integration
 
 All three definition types flow into the same build artifact structure:
 
 ```
 map-exports/
-  lawn-maps.json              ← map definitions (existing)
+  lawn-maps.json              ← map definitions, incl. fence/road/dirtPath paths (existing)
   lawn-maps.baked.json        ← baked output (existing)
   species/
     white-flower.json         ← vegetation species definitions (proposed)
@@ -169,15 +296,18 @@ map-exports/
   parts/
     eye-star.json             ← part definitions (proposed)
     arm-wave.json
+  modules/
+    fence-post-a.glb          ← imported structural modules (proposed, Blender-authored)
+    road-profile-concrete.glb
 ```
 
 The bake step (`pnpm bake`) already processes maps. When vegetation species ship, `pnpm bake`
 extends to read `species/*.json` and write per-instance visual props into `bakedInstances`.
-Mower definitions do not need a bake step — assembly is real-time.
+Mower and structural definitions do not need a bake step — assembly is real-time.
 
 ---
 
-## 5. What This Is Not
+## 6. What This Is Not
 
 - **Not a polygon mesh modeller.** The editor never exposes raw vertex positions. Static hero
   props (the mower body, rocks, the fence) are authored in Blender and imported as assets.
@@ -190,12 +320,12 @@ Mower definitions do not need a bake step — assembly is real-time.
 
 ---
 
-## 6. Cross-references
+## 7. Cross-references
 
 - `docs/VEGETATION_EDITOR.md` — full spec for the vegetation species editor (Phase 1/2)
 - `docs/VEGETATION_POPULATION.md` — bake pipeline and tiered Poisson sampler
 - `docs/BACKLOG.md §6` — at-the-machine rename task
-- `MAP_FORMAT_V1_DRAFT.md` — current map definition format (the first definition type)
+- `MAP_FORMAT_V1_DRAFT.md` — current map definition format; fence/road/dirtPath/PathShape types (lines 363–657)
 - `MAP_FORMAT_TODO.md` — open items in the map format pipeline
 
 ---
