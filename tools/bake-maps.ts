@@ -41,6 +41,7 @@ import type {
   BakedRuntimeSegment,
   BakedVec3,
 } from "../src/bakedMapFormat";
+import { computeAllTierInstances } from "./vegetation-sampler";
 import type { Bounds2 } from "../src/utils/shapes";
 
 // ---------------------------------------------------------------------------
@@ -256,6 +257,8 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1): BakedRuntimeMap {
     bounds = { xMin: x - 8, xMax: x + 8, zMin: z - 8, zMax: z + 8 };
   }
 
+  const bakedInstances = computeAllTierInstances(areas, fullLevelCode(pack.prefix, level.code));
+
   return {
     packPrefix: pack.prefix,
     code,
@@ -283,6 +286,7 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1): BakedRuntimeMap {
     dandelionCount,
     flowerFields,
     cloverPatches,
+    bakedInstances,
   };
 }
 

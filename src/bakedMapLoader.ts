@@ -50,6 +50,7 @@ function hydrateMap(baked: BakedRuntimeMap): RuntimeMap {
       ...f,
       area: hydrateSegment(f.area),
     })),
+    bakedInstances: baked.bakedInstances,
   };
 }
 

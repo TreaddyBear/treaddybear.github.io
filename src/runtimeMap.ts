@@ -10,6 +10,7 @@ import type {
   Point2,
 } from "./mapFormat";
 import { fullLevelCode } from "./mapFormat";
+import type { BakedInstance } from "./bakedMapFormat";
 import { valueNoise } from "./utils/noise";
 import type { Bounds2 } from "./utils/shapes";
 import {
@@ -101,6 +102,8 @@ export type RuntimeMap = {
   dandelionCount: number;
   flowerFields: FlowerField[];
   cloverPatches: CloverPatch[];
+  /** Bake-time tiered vegetation instances. Engine wiring in a future phase. */
+  bakedInstances: BakedInstance[];
 };
 
 type AreaSample = {
@@ -632,6 +635,7 @@ function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
     dandelionCount,
     flowerFields,
     cloverPatches,
+    bakedInstances: [],  // normalizeLevel is dev-path only; instances baked by pnpm bake
   };
 }
 

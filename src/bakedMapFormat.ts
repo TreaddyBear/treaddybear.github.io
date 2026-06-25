@@ -88,6 +88,17 @@ export type BakedRuntimeMap = {
   dandelionCount: number;
   flowerFields: BakedFlowerField[];
   cloverPatches: BakedCloverPatch[];
+  /** Bake-time tiered vegetation instances. Parallel to existing runtime placement
+   *  (which is unchanged). Engine wiring in a future phase. */
+  bakedInstances: BakedInstance[];
+};
+
+/** One vegetation instance produced by the bake-time tiered sampler. */
+export type BakedInstance = {
+  x: number;
+  z: number;
+  type: string;
+  index: number;  // stable identifier for save data (unique within a level)
 };
 
 export type BakedMapPack = {
