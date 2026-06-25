@@ -15,13 +15,14 @@ import {
   Vector2,
   Vector3,
 } from "@babylonjs/core";
-import { allLawnMaps, getActiveMap, settings } from "./config";
+import { allLawnMaps, defaultLawnMap, getActiveMap, settings } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { alphaSortOrder, renderingGroups } from "./renderOrder";
 import { valueNoise } from "./utils/noise";
 import { distanceToSegment } from "./utils/geometry";
 import { createRoadFileTexture, createRoadStripeAtlasTexture, dirtGroundTextureUrl, grassyGroundTextureUrl } from "./textures";
 import {
+  foliageDensityAt,
   pathGrassAmount,
   roadSurfaceAmount,
   roadVergeDirtAmount,
@@ -104,21 +105,6 @@ function distanceToAnyLawn(x: number, z: number) {
   return closest;
 }
 
-function grassOverlayAlpha(x: number, z: number, height: number) {
-  if (roadGrassAmount(x, z) <= 0.05) {
-    return 0;
-  }
-
-  const distance = distanceToAnyLawn(x, z);
-  const distanceMask = 1 - smoothstep01((distance - 1.5) / 18);
-  const valleyMask = 1 - smoothstep01((height - 0.35) / 4.8);
-  const broadPatch = valueNoise((x * 0.055) + 4, (z * 0.055) - 12);
-  const detailPatch = valueNoise((x * 0.18) - 20, (z * 0.18) + 7);
-  const patch = Math.max(0, Math.min(1, ((broadPatch - 0.28) / 0.54) * 0.82 + ((detailPatch - 0.45) * 0.28)));
-  const nearSolid = 1 - smoothstep01(distance / 3.5);
-  return Math.max(0, Math.min(0.96, Math.max(nearSolid, patch) * distanceMask * valleyMask));
-}
-
 function tileableNoise(u: number, v: number, frequencyX: number, frequencyZ: number) {
   const x = u * frequencyX;
   const z = v * frequencyZ;
@@ -140,13 +126,20 @@ function grassMaskValue(x: number, z: number, u: number, v: number) {
 
   const terrainHeight = terrainHeightAt(x, z);
   const distance = distanceToAnyLawn(x, z);
-  const nearLawn = 1 - smoothstep01((distance - 0.5) / 18);
+  // Authored grass density from the active level, falling back to the background
+  // level for points outside the level's authored areas. Multiplied by the
+  // distance fade so coverage tapers as the terrain rolls away from the lawn.
+  // nearSolid preserves the hard-solid zone immediately at the lawn edge
+  // (matching the pre-authored behavior) so the transition looks clean.
+  const distanceFade = 1 - smoothstep01((distance - 0.5) / 18);
+  const nearSolid = 1 - smoothstep01(distance / 3.5);
+  const grassDensity = foliageDensityAt(getActiveMap(), "grass", x, z, defaultLawnMap);
   const valley = 1 - smoothstep01((terrainHeight - 0.15) / 5.4);
   const coarse = tileableNoise(u, v, 10, 20);
   const mid = tileableNoise((u + 0.37) % 1, (v + 0.19) % 1, 27, 54);
   const fine = tileableNoise((u + 0.11) % 1, (v + 0.61) % 1, 73, 146);
   const noise = Math.max(0, Math.min(1, (coarse * 0.62) + (mid * 0.28) + (fine * 0.1)));
-  const grassBias = Math.max(0, Math.min(1, nearLawn * (0.72 + (valley * 0.3))));
+  const grassBias = Math.max(0, Math.min(1, Math.max(nearSolid, grassDensity * distanceFade) * (0.72 + (valley * 0.3))));
   const threshold = 0.06 + ((1 - grassBias) * 0.92);
   const transition = 0.035;
 

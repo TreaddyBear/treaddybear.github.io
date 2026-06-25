@@ -1427,8 +1427,8 @@
                     { "frequency": 0.055, "weight": 1.0 },
                     { "frequency": 0.18, "weight": 0.45 }
                   ],
-                  "threshold": 0.28,
-                  "softness": 0.15
+                  "threshold": 0.25,
+                  "softness": 0.18
                 }
               }
             }
