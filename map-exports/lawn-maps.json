@@ -27,6 +27,7 @@
     "prefix": "bgrn",
     "name": "Beta Green"
   },
+  "defaultLevelCode": "background",
   "levels": [
     {
       "code": "ell",
@@ -1394,6 +1395,66 @@
       },
       "objects": [],
       "tags": []
+    },
+    {
+      "code": "background",
+      "name": "Beta Green Background",
+      "parSeconds": 9999,
+      "spawn": {
+        "position": [0, 0],
+        "headingDegrees": 90
+      },
+      "areas": [
+        {
+          "id": "outer",
+          "kind": "area",
+          "role": "background",
+          "shape": {
+            "type": "rectangle",
+            "center": [0, 0],
+            "size": [600, 700]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "perlin",
+                "density": 1.0,
+                "noise": {
+                  "seed": 4721,
+                  "octaves": [
+                    { "frequency": 0.055, "weight": 1.0 },
+                    { "frequency": 0.18, "weight": 0.45 }
+                  ],
+                  "threshold": 0.28,
+                  "softness": 0.15
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [],
+      "terrain": {
+        "heightFeatures": [
+          {
+            "id": "concealHill",
+            "type": "hill",
+            "shape": {
+              "type": "circle",
+              "center": [-25.5, -16.5],
+              "radius": 9
+            },
+            "height": 4.1,
+            "falloff": 9
+          }
+        ]
+      },
+      "objects": [],
+      "tags": ["background"]
     }
   ]
 }

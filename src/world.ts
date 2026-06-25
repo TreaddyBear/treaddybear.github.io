@@ -36,14 +36,6 @@ function smoothstep01(value: number) {
   return t * t * (3 - (2 * t));
 }
 
-function distanceToMainYardBounds(x: number, z: number) {
-  const clampedX = Math.min(9, Math.max(-9, x));
-  const clampedZ = Math.min(9, Math.max(-9, z));
-  const dx = x - clampedX;
-  const dz = z - clampedZ;
-  return Math.sqrt((dx * dx) + (dz * dz));
-}
-
 // The world terrain mesh dimensions/resolution. Shared by createWorldTerrain,
 // the grass overlay, and sampledTerrainHeightAt so they all describe the exact
 // same surface.
@@ -99,10 +91,7 @@ export function terrainHeightAt(x: number, z: number) {
   const broad = valueNoise((x * 0.035) + 12, (z * 0.035) - 8) - 0.5;
   const mid = valueNoise((x * 0.095) - 4, (z * 0.095) + 19) - 0.5;
   const rolling = ((broad * 6.8) + (mid * 1.9)) * distanceFade * roadFade;
-  const concealDx = x + 25.5;
-  const concealDz = z + 16.5;
-  const concealHill = Math.max(0, 1 - (((concealDx * concealDx) / 74) + ((concealDz * concealDz) / 34)));
-  return Math.max(authoredHeight, rolling + (concealHill * concealHill * 4.1));
+  return Math.max(authoredHeight, rolling);
 }
 
 function distanceToAnyLawn(x: number, z: number) {

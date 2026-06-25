@@ -3,6 +3,7 @@ import type { Scene } from "@babylonjs/core";
 import {
   bladeCount as baseBladeCount,
   cellSize,
+  defaultLawnMap,
   getActiveLevelCode,
   getActiveMap,
   mediumGrassCount as baseMediumGrassCount,
@@ -494,7 +495,7 @@ export function createGrass(deps: GrassDeps) {
   const grassDensityOpen = (x: number, z: number) => (
     // Only a gentle density thinning toward the edge (floor 0.5) — the real blend
     // is the height taper applied at placement (grassScale *= openFieldEdge).
-    Math.random() < Math.min(1, foliageDensityAt(getActiveMap(), "grass", x, z) * (0.5 + (0.5 * openFieldEdge(x, z))))
+    Math.random() < Math.min(1, foliageDensityAt(getActiveMap(), "grass", x, z, defaultLawnMap) * (0.5 + (0.5 * openFieldEdge(x, z))))
   );
 
   const distanceToMainYard = (x: number, z: number) => Math.max(0, -signedDistanceToMowable(getActiveMap(), x, z));

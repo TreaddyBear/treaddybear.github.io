@@ -71,6 +71,7 @@ import {
 } from "./world";
 import { getLevelBestStars, getMenuPreferences, recordLevelStars, setMenuPreference } from "./localSettings";
 import { containsMowablePoint, surfaceAt } from "./runtimeMap";
+import { defaultLawnMap } from "./config";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -409,7 +410,7 @@ function showIntroHints() {
 }
 
 function flowerBedDirtAmountAt(x: number, z: number) {
-  return surfaceAt(getActiveMap(), x, z) === "dirt" ? 1 : 0;
+  return surfaceAt(getActiveMap(), x, z, defaultLawnMap) === "dirt" ? 1 : 0;
 }
 
 function dirtAmountAt(x: number, z: number) {

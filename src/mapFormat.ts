@@ -142,6 +142,7 @@ export type MapPackV1 = {
   coordinates?: CoordinateMetadata;
   pack: PackInfo;
   levels: LevelV1[];
+  defaultLevelCode?: string;
 };
 
 export const foliageRegistry = [

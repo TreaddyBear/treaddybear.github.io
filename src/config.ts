@@ -207,10 +207,17 @@ const normalizedMaps = normalizeMapPack(mapPack);
 // Level codes are durable save/tuning keys. Display names can change freely.
 export const levelCodes: LevelCode[] = normalizedMaps.codes;
 
+// Background/default level: fills outer-world content for points outside the active
+// level's authored areas. Not a playable level; excluded from the rotation.
+export const defaultLawnMap: RuntimeMap | undefined = normalizedMaps.defaultMap;
+export const defaultLevelCode: LevelCode | undefined = normalizedMaps.defaultMap?.code;
+
 // The showcase is a valid level code (so it can be active in menu/cinematic
 // mode) but is excluded from the normal playable rotation.
 export const showcaseLevelCode: LevelCode = levelCodes.find((code) => /showcase/i.test(code)) ?? levelCodes[levelCodes.length - 1];
-export const playableLevelCodes: LevelCode[] = levelCodes.filter((code) => code !== showcaseLevelCode);
+export const playableLevelCodes: LevelCode[] = levelCodes.filter(
+  (code) => code !== showcaseLevelCode && code !== defaultLevelCode,
+);
 
 export const lawnLevels = {
   settings: { parSeconds: normalizedMaps.parSeconds },
