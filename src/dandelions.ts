@@ -1,11 +1,11 @@
 import { Color3, DynamicTexture, Material, Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import { getActiveMap, yardSegments } from "./config";
+import { getActiveMap } from "./config";
 import type { Materials } from "./materials";
 import type { Dandelion, FallingPetal, FloatingSeed } from "./types";
 import type { Wind } from "./wind";
 import { distanceToShot } from "./utils/geometry";
-import { randomPointInSegments } from "./utils/yard";
+import { foliageDensityAt, randomMowablePoint } from "./runtimeMap";
 
 export type Dandelions = ReturnType<typeof createDandelions>;
 
@@ -367,8 +367,12 @@ export function createDandelions(
     place() {
       clear();
 
-      for (let i = 0; i < getActiveMap().dandelionCount; i += 1) {
-        const { x, z } = randomPointInSegments(yardSegments);
+      const map = getActiveMap();
+      for (let i = 0; i < map.dandelionCount; i += 1) {
+        let { x, z } = randomMowablePoint(map);
+        for (let attempt = 0; attempt < 64 && Math.random() > Math.min(1, foliageDensityAt(map, "dandelion", x, z)); attempt += 1) {
+          ({ x, z } = randomMowablePoint(map));
+        }
         const kind: Dandelion["kind"] = i % 3 === 0 ? "seed" : "yellow";
 
         if ((x * x) + (z * z) > 1.4) {

@@ -1,5 +1,15 @@
 import { Vector3 } from "@babylonjs/core";
-import type { RectLike } from "./utils/yard";
+import { mapPack } from "./mapData";
+import {
+  normalizeMapPack,
+  type CloverPatch,
+  type FenceSegment,
+  type FlowerBed,
+  type FlowerField,
+  type FlowerVariant,
+  type RuntimeMap,
+  type RuntimeSegment,
+} from "./runtimeMap";
 
 export const playerSpeed = 1.65;
 export const playerBoost = 1.45;
@@ -174,216 +184,43 @@ export const scoring = {
   } as Record<number, number[]>,
 };
 
-export type FenceSegment = {
-  start: Vector3;
-  end: Vector3;
-};
-
-export type FlowerBed = RectLike & {
-  count: number;
-};
-
-// Level codes are durable save/tuning keys. Display names can change freely.
-// `bgrn` is the temporary Beta Green prefix while the first green-level roster
-// is still being shaped.
-export const levelCodes = ["bgrnEll", "bgrnBed", "bgrnKeyhole", "bgrnField", "bgrnShowcase"] as const;
-export type LevelCode = (typeof levelCodes)[number];
-
-// The attract/flyby scene runs on its own dedicated showcase map. It is a valid
-// level code (so it can be the active map) but is NOT part of the playable
-// rotation: excluded from the level picker, progression, and "next level".
-export const showcaseLevelCode: LevelCode = "bgrnShowcase";
-export const playableLevelCodes: LevelCode[] = levelCodes.filter((code) => code !== showcaseLevelCode);
-
-// The saddle-petal field flower comes in a few colours. "warm" maps aren't a
-// thing — a yellow/red mix is just two fields (yellow + red) over one area.
-export type FlowerVariant = "blue" | "white" | "yellow" | "red";
-
-// A carpet of field flowers of one colour, scattered on a jittered grid across
-// the given area at roughly `spacing` metres apart. A map can list several.
-export type FlowerField = {
-  variant: FlowerVariant;
-  area: RectLike;
-  spacing: number;
-};
-
-// A circular patch of dense clover. Inside it the normal lawn is thinned to a
-// fraction (`grassKeep`) of its usual density and clover fills the gap.
-export type CloverPatch = {
-  x: number;
-  z: number;
-  radius: number;
-  spacing?: number; // clover spacing in metres (default 0.22)
-  grassKeep?: number; // fraction of normal grass kept inside (default 0.25)
-};
-
 type LawnLevelSettings = {
-  parSeconds: Record<LevelCode, number>;
+  parSeconds: Record<string, number>;
 };
 
-export type LawnMap = {
-  code: LevelCode;
-  name: string;
-  spawn: Vector3;
-  segments: Array<RectLike & { width: number; height: number; center: Vector3 }>;
-  fenceSegments: FenceSegment[];
-  flowerBeds: FlowerBed[];
-  dandelionCount: number;
-  flowerFields?: FlowerField[];
-  cloverPatches?: CloverPatch[];
+export type LawnMap = RuntimeMap;
+export type LevelCode = string;
+export type {
+  CloverPatch,
+  FenceSegment,
+  FlowerBed,
+  FlowerField,
+  FlowerVariant,
 };
 
 type LawnLevels = {
   settings: LawnLevelSettings;
-} & Record<LevelCode, LawnMap>;
+} & Record<string, LawnMap>;
 
-const betaGreenEllSegments = [
-  { xMin: -9, xMax: 9, zMin: -9, zMax: 2, width: 18, height: 11, center: new Vector3(0, 0, -3.5) },
-  { xMin: -9, xMax: 0, zMin: 2, zMax: 9, width: 9, height: 7, center: new Vector3(-4.5, 0, 5.5) },
-];
+const normalizedMaps = normalizeMapPack(mapPack);
 
-export const lawnLevels: LawnLevels = {
-  settings: {
-    parSeconds: {
-      bgrnEll: 360,
-      bgrnBed: 360,
-      bgrnKeyhole: 420,
-      bgrnField: 300,
-      bgrnShowcase: 300,
-    },
-  },
-  bgrnEll: {
-    code: "bgrnEll",
-    name: "Main",
-    spawn: new Vector3(0, 0.18, 0),
-    segments: betaGreenEllSegments,
-    fenceSegments: [
-      { start: new Vector3(-9.25, 0, -9.25), end: new Vector3(9.25, 0, -9.25) },
-      { start: new Vector3(9.25, 0, -9.25), end: new Vector3(9.25, 0, 2.25) },
-      { start: new Vector3(9.25, 0, 2.25), end: new Vector3(0.25, 0, 2.25) },
-      { start: new Vector3(0.25, 0, 2.25), end: new Vector3(0.25, 0, 9.25) },
-      { start: new Vector3(0.25, 0, 9.25), end: new Vector3(-9.25, 0, 9.25) },
-      { start: new Vector3(-9.25, 0, 9.25), end: new Vector3(-9.25, 0, -9.25) },
-    ],
-    flowerBeds: [],
-    dandelionCount: 18,
-    cloverPatches: [
-      { x: -5, z: -5, radius: 2, grassKeep: 0 },
-    ],
-  },
-  bgrnBed: {
-    code: "bgrnBed",
-    name: "Flower Bed",
-    spawn: new Vector3(0, 0.18, -7),
-    segments: [
-      { xMin: -10, xMax: 10, zMin: -10, zMax: 10, width: 20, height: 20, center: new Vector3(0, 0, 0) },
-      { xMin: -15, xMax: -10, zMin: -4, zMax: 4, width: 5, height: 8, center: new Vector3(-12.5, 0, 0) },
-      { xMin: 10, xMax: 15, zMin: -4, zMax: 4, width: 5, height: 8, center: new Vector3(12.5, 0, 0) },
-    ],
-    fenceSegments: [
-      { start: new Vector3(-10.25, 0, -10.25), end: new Vector3(10.25, 0, -10.25) },
-      { start: new Vector3(10.25, 0, -10.25), end: new Vector3(10.25, 0, -4.25) },
-      { start: new Vector3(10.25, 0, -4.25), end: new Vector3(15.25, 0, -4.25) },
-      { start: new Vector3(15.25, 0, -4.25), end: new Vector3(15.25, 0, 4.25) },
-      { start: new Vector3(15.25, 0, 4.25), end: new Vector3(10.25, 0, 4.25) },
-      { start: new Vector3(10.25, 0, 4.25), end: new Vector3(10.25, 0, 10.25) },
-      { start: new Vector3(10.25, 0, 10.25), end: new Vector3(-10.25, 0, 10.25) },
-      { start: new Vector3(-10.25, 0, 10.25), end: new Vector3(-10.25, 0, 4.25) },
-      { start: new Vector3(-10.25, 0, 4.25), end: new Vector3(-15.25, 0, 4.25) },
-      { start: new Vector3(-15.25, 0, 4.25), end: new Vector3(-15.25, 0, -4.25) },
-      { start: new Vector3(-15.25, 0, -4.25), end: new Vector3(-10.25, 0, -4.25) },
-      { start: new Vector3(-10.25, 0, -4.25), end: new Vector3(-10.25, 0, -10.25) },
-    ],
-    flowerBeds: [
-      { xMin: -3.8, xMax: 3.8, zMin: -2.2, zMax: 2.2, count: 52 },
-    ],
-    dandelionCount: 12,
-  },
-  bgrnKeyhole: {
-    code: "bgrnKeyhole",
-    name: "Keyhole Gardens",
-    spawn: new Vector3(-2, 0.18, 0),
-    segments: [
-      { xMin: -16, xMax: -6, zMin: -10, zMax: 8, width: 10, height: 18, center: new Vector3(-11, 0, -1) },
-      { xMin: -6, xMax: 2, zMin: -3, zMax: 3, width: 8, height: 6, center: new Vector3(-2, 0, 0) },
-      { xMin: 2, xMax: 11.2, zMin: -8, zMax: 10, width: 9.2, height: 18, center: new Vector3(6.6, 0, 1) },
-    ],
-    fenceSegments: [
-      { start: new Vector3(-16.25, 0, -10.25), end: new Vector3(-5.75, 0, -10.25) },
-      { start: new Vector3(-5.75, 0, -10.25), end: new Vector3(-5.75, 0, -3.25) },
-      { start: new Vector3(-5.75, 0, -3.25), end: new Vector3(1.75, 0, -3.25) },
-      { start: new Vector3(1.75, 0, -3.25), end: new Vector3(1.75, 0, -8.25) },
-      { start: new Vector3(1.75, 0, -8.25), end: new Vector3(11.45, 0, -8.25) },
-      { start: new Vector3(11.45, 0, -8.25), end: new Vector3(11.45, 0, 10.25) },
-      { start: new Vector3(11.45, 0, 10.25), end: new Vector3(1.75, 0, 10.25) },
-      { start: new Vector3(1.75, 0, 10.25), end: new Vector3(1.75, 0, 3.25) },
-      { start: new Vector3(1.75, 0, 3.25), end: new Vector3(-5.75, 0, 3.25) },
-      { start: new Vector3(-5.75, 0, 3.25), end: new Vector3(-5.75, 0, 8.25) },
-      { start: new Vector3(-5.75, 0, 8.25), end: new Vector3(-16.25, 0, 8.25) },
-      { start: new Vector3(-16.25, 0, 8.25), end: new Vector3(-16.25, 0, -10.25) },
-    ],
-    flowerBeds: [
-      { xMin: -14.1, xMax: -11.1, zMin: -4.2, zMax: 3.8, count: 34 },
-      { xMin: 4.9, xMax: 9.5, zMin: 3.6, zMax: 6.8, count: 30 },
-    ],
-    dandelionCount: 16,
-  },
-  bgrnField: {
-    code: "bgrnField",
-    name: "Blue Field",
-    spawn: new Vector3(0, 0.18, 0),
-    // A plain open square — no fence, just grass and a carpet of blue flowers.
-    segments: [
-      { xMin: -8, xMax: 8, zMin: -8, zMax: 8, width: 16, height: 16, center: new Vector3(0, 0, 0) },
-    ],
-    fenceSegments: [],
-    flowerBeds: [],
-    dandelionCount: 0,
-    // Four quadrants: blue flowers (bottom-left), white (top-left), a yellow/red
-    // mix (top-right, two overlaid fields), and clover (bottom-right).
-    flowerFields: [
-      { variant: "blue", area: { xMin: -8, xMax: 0, zMin: -8, zMax: 0 }, spacing: 0.5 },
-      { variant: "white", area: { xMin: -8, xMax: 0, zMin: 0, zMax: 8 }, spacing: 0.5 },
-      { variant: "yellow", area: { xMin: 0, xMax: 8, zMin: 0, zMax: 8 }, spacing: 0.7 },
-      { variant: "red", area: { xMin: 0, xMax: 8, zMin: 0, zMax: 8 }, spacing: 0.7 },
-    ],
-    cloverPatches: [
-      { x: 4, z: -4, radius: 2.5, grassKeep: 0 },
-    ],
-  },
-  // Attract-only showcase: a large open lawn (no fence) with broad, well-separated
-  // single-type flower areas and a couple of clover patches. The flyby director
-  // treats each flower-area centre and clover patch as a point of interest.
-  bgrnShowcase: {
-    code: "bgrnShowcase",
-    name: "Showcase",
-    spawn: new Vector3(0, 0.18, 0),
-    // Broad attract-only field so the flyby feels like a real lawn, not a small
-    // playable arena. The flower/clover POIs stay in a central focal zone while
-    // the LOD grass carries the larger surrounding lawn.
-    segments: [
-      { xMin: -60, xMax: 60, zMin: -60, zMax: 60, width: 120, height: 120, center: new Vector3(0, 0, 0) },
-    ],
-    fenceSegments: [],
-    flowerBeds: [],
-    dandelionCount: 10,
-    // Colored flower fields in three quadrants; the fourth quadrant + centre are
-    // clover (amorphous, much less grass, with little white "clover flower"
-    // bunches). White is NOT a field here — white only appears as clover bunches.
-    flowerFields: [
-      { variant: "blue", area: { xMin: -24, xMax: -4, zMin: -24, zMax: -4 }, spacing: 0.72 },
-      { variant: "yellow", area: { xMin: 4, xMax: 24, zMin: -24, zMax: -4 }, spacing: 0.72 },
-      { variant: "red", area: { xMin: -24, xMax: -4, zMin: 4, zMax: 24 }, spacing: 0.78 },
-    ],
-    cloverPatches: [
-      { x: 13, z: 13, radius: 8, grassKeep: 0 },
-      { x: 1.5, z: 4.5, radius: 5.8, grassKeep: 0 },
-    ],
-  },
-};
+// Level codes are durable save/tuning keys. Display names can change freely.
+export const levelCodes: LevelCode[] = normalizedMaps.codes;
 
-// Only the playable maps — the showcase is attract-only and never listed.
+// The showcase is a valid level code (so it can be active in menu/cinematic
+// mode) but is excluded from the normal playable rotation.
+export const showcaseLevelCode: LevelCode = levelCodes.find((code) => /showcase/i.test(code)) ?? levelCodes[levelCodes.length - 1];
+export const playableLevelCodes: LevelCode[] = levelCodes.filter((code) => code !== showcaseLevelCode);
+
+export const lawnLevels = {
+  settings: { parSeconds: normalizedMaps.parSeconds },
+  ...normalizedMaps.byCode,
+} as unknown as LawnLevels;
+
+// Only the playable maps: excluded from the level picker, progression, and
+// "next level" rotation.
 export const lawnMaps = playableLevelCodes.map((code) => lawnLevels[code]);
+export const allLawnMaps = levelCodes.map((code) => lawnLevels[code]);
 
 const legacyLevelCodes: Record<string, LevelCode> = {
   main: "bgrnEll",
@@ -392,11 +229,11 @@ const legacyLevelCodes: Record<string, LevelCode> = {
 };
 
 export function normalizeLevelCode(code: string): LevelCode {
-  if ((levelCodes as readonly string[]).includes(code)) {
-    return code as LevelCode;
+  if (levelCodes.includes(code)) {
+    return code;
   }
 
-  return legacyLevelCodes[code] ?? "bgrnEll";
+  return legacyLevelCodes[code] ?? playableLevelCodes[0] ?? levelCodes[0];
 }
 
 export function getActiveLevelCode() {
@@ -406,7 +243,6 @@ export function getActiveLevelCode() {
 }
 
 export function getNextLevelCode(levelCode = getActiveLevelCode()) {
-  // Advance within the playable rotation only (skip the attract-only showcase).
   const index = playableLevelCodes.indexOf(levelCode);
   if (index < 0) {
     return playableLevelCodes[0];
@@ -418,7 +254,7 @@ export function getActiveMap() {
   return lawnLevels[getActiveLevelCode()];
 }
 
-export const yardSegments = [...betaGreenEllSegments];
+export const yardSegments: RuntimeSegment[] = [...getActiveMap().segments];
 
 export function applyActiveMap() {
   const activeMap = getActiveMap();

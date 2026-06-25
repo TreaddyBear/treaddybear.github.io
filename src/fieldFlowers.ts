@@ -4,6 +4,7 @@ import type { FlowerVariant } from "./config";
 import { cloverAmountAt } from "./cloverField";
 import type { Materials } from "./materials";
 import { valueNoise } from "./utils/noise";
+import { foliageDensityAt } from "./runtimeMap";
 
 export type FieldFlowers = ReturnType<typeof createFieldFlowers>;
 
@@ -165,23 +166,19 @@ export function createFieldFlowers(
     for (const field of fields ?? []) {
       const { area, spacing, variant } = field;
       const jitter = spacing * 0.34;
-      // Density falls off over the outer `feather` metres of the field, so the
-      // patch dissolves into the grass instead of stopping at a hard rectangle.
-      const feather = 1.6;
 
       for (let x = area.xMin + (spacing / 2); x <= area.xMax; x += spacing) {
         for (let z = area.zMin + (spacing / 2); z <= area.zMax; z += spacing) {
           const fx = x + ((Math.random() - 0.5) * 2 * jitter);
           const fz = z + ((Math.random() - 0.5) * 2 * jitter);
 
-          if (fx < area.xMin || fx > area.xMax || fz < area.zMin || fz > area.zMax) {
+          const density = Math.min(1, foliageDensityAt(map, field.type, fx, fz));
+          if (density <= 0 || fx < area.xMin || fx > area.xMax || fz < area.zMin || fz > area.zMax) {
             continue;
           }
 
-          // Distance to the nearest field edge -> keep probability (smooth ramp).
-          const edgeDist = Math.min(fx - area.xMin, area.xMax - fx, fz - area.zMin, area.zMax - fz);
-          const edge = Math.max(0, Math.min(1, edgeDist / feather));
-          const edgeKeep = edge * edge * (3 - (2 * edge));
+          // v1 area falloff and perlin masks are already included in density.
+          const edgeKeep = density;
           // Low-frequency noise gathers the flowers into soft clumps with thinner
           // gaps between (a cloudy distribution), instead of an even carpet. A
           // floor keeps the gaps from going fully bare.

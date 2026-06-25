@@ -1,5 +1,6 @@
 import { Color3, DynamicTexture, Material, Mesh, StandardMaterial, Texture, VertexData } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
+import { allLawnMaps } from "./config";
 
 // The "mow-state field": a coarse paint-as-you-mow grid baked into a texture,
 // recording where the mower has cut (black = tall/uncut, white = mowed/short).
@@ -9,7 +10,41 @@ import type { Scene } from "@babylonjs/core";
 //
 // Fixed bounds cover both maps (main ±9, flower-court x±15/z±10) with padding, so
 // it survives a map switch without rebuilding.
-export const MOW_FIELD = { minX: -18, maxX: 18, minZ: -13, maxZ: 13, res: 128 };
+function mapPackMowBounds() {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+
+  for (const map of allLawnMaps) {
+    minX = Math.min(minX, map.bounds.xMin);
+    maxX = Math.max(maxX, map.bounds.xMax);
+    minZ = Math.min(minZ, map.bounds.zMin);
+    maxZ = Math.max(maxZ, map.bounds.zMax);
+  }
+
+  if (!Number.isFinite(minX)) {
+    return { minX: -18, maxX: 18, minZ: -13, maxZ: 13, res: 128 };
+  }
+
+  const padding = 4;
+  const width = (maxX - minX) + (padding * 2);
+  const depth = (maxZ - minZ) + (padding * 2);
+  const texelsPerMeter = 4;
+  const res = Math.max(128, Math.min(1024, 2 ** Math.ceil(Math.log2(Math.max(width, depth) * texelsPerMeter))));
+
+  return {
+    minX: minX - padding,
+    maxX: maxX + padding,
+    minZ: minZ - padding,
+    maxZ: maxZ + padding,
+    res,
+  };
+}
+
+// Bounds are derived from the authored v1 map pack, so larger editor-authored
+// levels do not clip mow state or the grass LOD field.
+export const MOW_FIELD = mapPackMowBounds();
 
 export type MowField = ReturnType<typeof createMowField>;
 

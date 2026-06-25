@@ -4,7 +4,7 @@ import { getActiveMap, mowerCutRadius } from "./config";
 import type { Materials } from "./materials";
 import type { Tulip } from "./types";
 import { distanceToShot } from "./utils/geometry";
-import { randomRectPoint } from "./utils/yard";
+import { randomPointInArea } from "./runtimeMap";
 
 export type Tulips = ReturnType<typeof createTulips>;
 
@@ -68,18 +68,7 @@ export function createTulips(scene: Scene, materials: Materials, groundHeightAt:
 
       for (const bed of getActiveMap().flowerBeds) {
         for (let i = 0; i < bed.count; i += 1) {
-          const edgeFlower = Math.random() < 0.14;
-          const inset = 0.72;
-          const hasInterior = (bed.xMax - bed.xMin) > inset * 2 && (bed.zMax - bed.zMin) > inset * 2;
-          const point = edgeFlower || !hasInterior
-            ? randomRectPoint(bed)
-            : randomRectPoint({
-              ...bed,
-              xMin: bed.xMin + inset,
-              xMax: bed.xMax - inset,
-              zMin: bed.zMin + inset,
-              zMax: bed.zMax - inset,
-            });
+          const point = randomPointInArea(bed.sourceArea);
           const { x, z } = point;
           createTulip(x, z);
         }

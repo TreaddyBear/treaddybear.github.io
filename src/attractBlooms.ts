@@ -3,7 +3,7 @@ import type { FlowerVariant } from "./config";
 import { getActiveMap } from "./config";
 import type { Materials } from "./materials";
 import { randomHash, smoothstep, valueNoise } from "./utils/noise";
-import { isInsideSegments } from "./utils/yard";
+import { containsMowablePoint, randomMowablePoint } from "./runtimeMap";
 
 export type AttractBlooms = ReturnType<typeof createAttractBlooms>;
 
@@ -102,32 +102,11 @@ function showInstances(mesh: Mesh, buffer: Float32Array) {
 }
 
 function mapArea() {
-  return getActiveMap().segments.reduce((sum, segment) => sum + ((segment.xMax - segment.xMin) * (segment.zMax - segment.zMin)), 0);
+  return getActiveMap().mowableArea;
 }
 
 function randomMapPoint() {
-  const map = getActiveMap();
-  const total = mapArea();
-  let pick = Math.random() * total;
-
-  for (const segment of map.segments) {
-    const area = (segment.xMax - segment.xMin) * (segment.zMax - segment.zMin);
-    if (pick > area) {
-      pick -= area;
-      continue;
-    }
-
-    return {
-      x: segment.xMin + (Math.random() * (segment.xMax - segment.xMin)),
-      z: segment.zMin + (Math.random() * (segment.zMax - segment.zMin)),
-    };
-  }
-
-  const segment = map.segments[0];
-  return {
-    x: segment.center.x,
-    z: segment.center.z,
-  };
+  return randomMowablePoint(getActiveMap());
 }
 
 function fbm(x: number, z: number, seed: number) {
@@ -379,7 +358,7 @@ export function createAttractBlooms(
 
     for (let i = 0; i < flowers.length; i += 1) {
       const flower = flowers[i];
-      if (!isInsideSegments(getActiveMap().segments, flower.x, flower.z)) {
+      if (!containsMowablePoint(getActiveMap(), flower.x, flower.z)) {
         continue;
       }
       const groundY = groundHeightAt(flower.x, flower.z) + 0.012;

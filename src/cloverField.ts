@@ -1,4 +1,6 @@
 import type { CloverPatch } from "./config";
+import { getActiveMap } from "./config";
+import { foliageDensityAt } from "./runtimeMap";
 import { randomHash, smoothstep, valueNoise } from "./utils/noise";
 
 // Shared, pure description of where the clover sits, so the clover placement and
@@ -53,6 +55,11 @@ function patchCloverAmount(patch: CloverPatch, x: number, z: number) {
 
 // Max clover coverage over all patches (0..1).
 export function cloverAmountAt(patches: CloverPatch[] | undefined, x: number, z: number) {
+  const mapAmount = foliageDensityAt(getActiveMap(), "clover", x, z);
+  if (mapAmount > 0) {
+    return clamp01(mapAmount);
+  }
+
   if (!patches || patches.length === 0) {
     return 0;
   }
@@ -69,6 +76,12 @@ export function cloverAmountAt(patches: CloverPatch[] | undefined, x: number, z:
 // toward the patch's `grassKeep` across the soft edge. With grassKeep 0 the
 // interior is fully clear of grass (clover only).
 export function cloverGrassKeepAt(patches: CloverPatch[] | undefined, x: number, z: number) {
+  const map = getActiveMap();
+  const clover = foliageDensityAt(map, "clover", x, z);
+  if (clover > 0) {
+    return Math.max(0, Math.min(1, foliageDensityAt(map, "grass", x, z)));
+  }
+
   if (!patches || patches.length === 0) {
     return 1;
   }

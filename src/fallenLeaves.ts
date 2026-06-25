@@ -1,7 +1,7 @@
 import { Color3, Matrix, Mesh, Scene, StandardMaterial, VertexData } from "@babylonjs/core";
 import { getActiveMap } from "./config";
 import { randomHash, valueNoise } from "./utils/noise";
-import { isInsideSegments } from "./utils/yard";
+import { containsMowablePoint, randomMowablePoint, signedDistanceToMowable } from "./runtimeMap";
 
 export type FallenLeaves = ReturnType<typeof createFallenLeaves>;
 
@@ -102,29 +102,11 @@ function showInstances(mesh: Mesh, buffer: Float32Array) {
 }
 
 function mapArea() {
-  return getActiveMap().segments.reduce((sum, segment) => sum + ((segment.xMax - segment.xMin) * (segment.zMax - segment.zMin)), 0);
+  return getActiveMap().mowableArea;
 }
 
 function randomMapPoint() {
-  const map = getActiveMap();
-  const total = mapArea();
-  let pick = Math.random() * total;
-
-  for (const segment of map.segments) {
-    const area = (segment.xMax - segment.xMin) * (segment.zMax - segment.zMin);
-    if (pick > area) {
-      pick -= area;
-      continue;
-    }
-
-    return {
-      x: segment.xMin + (Math.random() * (segment.xMax - segment.xMin)),
-      z: segment.zMin + (Math.random() * (segment.zMax - segment.zMin)),
-    };
-  }
-
-  const segment = map.segments[0];
-  return { x: segment.center.x, z: segment.center.z };
+  return randomMowablePoint(getActiveMap());
 }
 
 function leafCloudAmount(x: number, z: number) {
@@ -136,20 +118,7 @@ function leafCloudAmount(x: number, z: number) {
 
 function edgeAmount(x: number, z: number) {
   const map = getActiveMap();
-  let nearest = 99;
-  for (const segment of map.segments) {
-    if (x < segment.xMin || x > segment.xMax || z < segment.zMin || z > segment.zMax) {
-      continue;
-    }
-    nearest = Math.min(
-      nearest,
-      x - segment.xMin,
-      segment.xMax - x,
-      z - segment.zMin,
-      segment.zMax - z,
-    );
-  }
-
+  const nearest = signedDistanceToMowable(map, x, z);
   return Math.max(0, Math.min(1, (16 - nearest) / 16));
 }
 
@@ -229,7 +198,7 @@ export function createFallenLeaves(
 
     for (let i = 0; i < leafCount; i += 1) {
       const point = pickLeafPoint();
-      if (!isInsideSegments(getActiveMap().segments, point.x, point.z)) {
+      if (!containsMowablePoint(getActiveMap(), point.x, point.z)) {
         continue;
       }
 
