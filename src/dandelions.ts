@@ -368,6 +368,21 @@ export function createDandelions(
       clear();
 
       const map = getActiveMap();
+
+      // Baked path: use pre-sampled positions for stable placement.
+      const bakedDandelions = map.bakedInstances.filter((inst) => inst.type === "dandelion");
+      if (bakedDandelions.length > 0) {
+        for (const inst of bakedDandelions) {
+          if ((inst.x * inst.x) + (inst.z * inst.z) <= 1.4) {
+            continue; // skip dandelions within mower spawn radius
+          }
+          const kind: Dandelion["kind"] = inst.index % 3 === 0 ? "seed" : "yellow";
+          createDandelion(inst.x, inst.z, kind);
+        }
+        return;
+      }
+
+      // Runtime fallback — dev map loader or levels without baked dandelion data.
       for (let i = 0; i < map.dandelionCount; i += 1) {
         let { x, z } = randomMowablePoint(map);
         for (let attempt = 0; attempt < 64 && Math.random() > Math.min(1, foliageDensityAt(map, "dandelion", x, z)); attempt += 1) {

@@ -27,6 +27,14 @@ const TAU = Math.PI * 2;
 const SMALL_PER_SQM = 32;
 const LARGE_PER_SQM = 6;
 
+// Baked-path cluster constants. Each baked "clover" instance expands into a small
+// cluster of leaves. The expansion ratio (~2 small + P(0.25) large) approximately
+// preserves the runtime leaf count across typical authored densities (validated
+// against bgrnEll d≈0.25 and bgrnShowcase d≈2.4).
+const BAKED_SMALL_PER_INSTANCE = 2;
+const BAKED_LARGE_PROB = 0.25;
+const BAKED_SCATTER_RADIUS = 0.12; // leaves scatter within ±this of the anchor
+
 function meshFrom(scene: Scene, name: string, positions: number[], indices: number[]): Mesh {
   const normals: number[] = [];
   VertexData.ComputeNormals(positions, indices, normals);
@@ -103,11 +111,69 @@ export function createCloverPatch(
     buffer.fill(0, instanceIndex * 16, (instanceIndex * 16) + 16);
   };
 
+  const placeLeaf = (
+    cx: number, cz: number, isLarge: boolean,
+    smallMatrices: Matrix[], largeMatrices: Matrix[],
+  ) => {
+    const groundY = groundHeightAt(cx, cz);
+    const y = groundY + (isLarge ? 0.05 + (Math.random() * 0.07) : Math.random() * 0.025);
+    const radius = isLarge ? 0.09 + (Math.random() * 0.07) : 0.05 + (Math.random() * 0.04);
+    const yaw = Math.random() * TAU;
+    const tiltX = (Math.random() - 0.5) * 0.3;
+    const tiltZ = (Math.random() - 0.5) * 0.3;
+    const out = isLarge ? largeMatrices : smallMatrices;
+    const index = out.length;
+    out.push(
+      Matrix.Scaling(radius, radius, radius)
+        .multiply(Matrix.RotationY(yaw))
+        .multiply(Matrix.RotationX(tiltX))
+        .multiply(Matrix.RotationZ(tiltZ))
+        .multiply(Matrix.Translation(cx, y, cz)),
+    );
+    plants.push({ x: cx, z: cz, mowed: false, large: isLarge, index });
+  };
+
   const place = () => {
     plants = [];
-    const patches = getActiveMap().cloverPatches;
+    const map = getActiveMap();
     const smallMatrices: Matrix[] = [];
     const largeMatrices: Matrix[] = [];
+
+    // Baked path: each "clover" instance expands into a small cluster of leaves.
+    if (map.bakedInstances.length > 0) {
+      for (const inst of map.bakedInstances) {
+        if (inst.type !== "clover") {
+          continue;
+        }
+        for (let i = 0; i < BAKED_SMALL_PER_INSTANCE; i += 1) {
+          const cx = inst.x + ((Math.random() - 0.5) * 2 * BAKED_SCATTER_RADIUS);
+          const cz = inst.z + ((Math.random() - 0.5) * 2 * BAKED_SCATTER_RADIUS);
+          placeLeaf(cx, cz, false, smallMatrices, largeMatrices);
+        }
+        if (Math.random() < BAKED_LARGE_PROB) {
+          const cx = inst.x + ((Math.random() - 0.5) * 2 * BAKED_SCATTER_RADIUS);
+          const cz = inst.z + ((Math.random() - 0.5) * 2 * BAKED_SCATTER_RADIUS);
+          placeLeaf(cx, cz, true, smallMatrices, largeMatrices);
+        }
+      }
+
+      const flatten = (mats: Matrix[]) => {
+        const buffer = new Float32Array(mats.length * 16);
+        for (let i = 0; i < mats.length; i += 1) {
+          mats[i].copyToArray(buffer, i * 16);
+        }
+        return buffer;
+      };
+      smallBuffer = flatten(smallMatrices);
+      largeBuffer = flatten(largeMatrices);
+      showInstances(small, smallBuffer);
+      showInstances(large, largeBuffer);
+      return;
+    }
+
+    // Runtime fallback — used when bakedInstances is empty (dev map loader or
+    // levels the bake pipeline skipped).
+    const patches = getActiveMap().cloverPatches;
 
     const sampleTier = (perSqm: number, isLarge: boolean, out: Matrix[]) => {
       if (!patches) {

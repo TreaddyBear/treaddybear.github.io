@@ -17,6 +17,15 @@ export type FieldFlowers = ReturnType<typeof createFieldFlowers>;
 
 const VARIANTS: FlowerVariant[] = ["blue", "white", "yellow", "red"];
 
+// Maps baked instance type strings → FlowerVariant. Types not listed here (tulip,
+// clover, dandelion) are ignored by the flower renderer.
+const BAKED_TO_VARIANT: Partial<Record<string, FlowerVariant>> = {
+  flowerBlue: "blue",
+  flowerWhite: "white",
+  flowerYellow: "yellow",
+  flowerRed: "red",
+};
+
 // Builds one low-poly petal as a hyperbolic-paraboloid (saddle): the long side
 // edges curl up while the base and tip droop. Local space: length along +Z (0
 // base, 1 tip), width along X, pinched at both ends. Unit-sized.
@@ -159,8 +168,32 @@ export function createFieldFlowers(
     }
 
     const map = getActiveMap();
-    const fields = map.flowerFields;
     const cloverPatches = map.cloverPatches;
+
+    // Baked path: use pre-sampled blue-noise positions when the artifact has them.
+    if (map.bakedInstances.length > 0) {
+      const flowers: Flower[] = [];
+      for (const inst of map.bakedInstances) {
+        const variant = BAKED_TO_VARIANT[inst.type];
+        if (!variant) {
+          continue;
+        }
+        flowers.push({
+          x: inst.x,
+          z: inst.z,
+          variant,
+          yaw: Math.random() * Math.PI * 2,
+          height: 0.1 + (Math.random() * 0.08),
+          petalCount: 5 + Math.floor(Math.random() * 4),
+        });
+      }
+      addCloverFlowerBunches(cloverPatches, flowers);
+      return flowers;
+    }
+
+    // Runtime fallback — used when bakedInstances is empty (dev map loader, or
+    // levels the bake pipeline skipped such as bgrnBackground).
+    const fields = map.flowerFields;
     const flowers: Flower[] = [];
 
     for (const field of fields ?? []) {

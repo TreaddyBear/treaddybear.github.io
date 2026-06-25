@@ -151,9 +151,19 @@ edits MAP_FORMAT_V1_DRAFT.md.
   colour), summed T field heatmap, scatter plot (dark-green bg, dots coloured by type, area
   outlines in white/amber). Run with `pnpm viz`; outputs to `map-exports/debug/*.png`.
 
-- [ ] **Engine wiring** (future phase): wire `bakedInstances` into the three-renderer path
-  (flowers, clover, dandelion). Remove or demote the existing `flowerFields`, `cloverPatches`,
-  `dandelionCount` flat arrays once the tiered instances fully replace them.
+- [x] **Engine wiring** (done 2026-06-25): wire `bakedInstances` into the three-renderer path:
+  - `fieldFlowers.ts`: baked `flowerBlue/White/Yellow/Red` instances → `Flower[]` (1:1); runtime
+    fallback when `bakedInstances` is empty (dev map loader). `tulip` instances intentionally
+    skipped (no scatter-flower renderer; tulip → flowerBeds via `tulips.ts`).
+  - `cloverPatch.ts`: each baked `clover` instance expands to a cluster of ~2 small + P(0.25)
+    large leaves (BAKED_SMALL_PER_INSTANCE=2, BAKED_LARGE_PROB=0.25, scatter radius 0.12 m).
+    Ratio calibrated to preserve visual density across authored density range 0.25–2.4.
+  - `dandelions.ts`: baked `dandelion` instances → stable positions; `inst.index % 3 === 0`
+    assigns seed/yellow kind deterministically. Spawn-radius guard preserved (skip within 1.18 m).
+  - All three: if `bakedInstances.length === 0`, fall through to existing runtime path (dev escape
+    hatch / bgrnBackground). The escape hatch is automatic — no extra flag needed.
+  - Flat arrays (`flowerFields`, `cloverPatches`, `dandelionCount`) kept for the runtime fallback;
+    removal pending once the baked path is fully trusted (see Bucket 1 above).
 
 ---
 
