@@ -10,12 +10,17 @@ document; update it when items close or new ones surface.
 
 ## Bake-step checklist (decided 2026-06-25 — see `ARCHITECTURE.md`)
 
-- [ ] **Baker tool** (`tools/bake-maps.ts`): validates authored source, runs `bakeLevel`, emits `map-exports/lawn-maps.baked.json`.
-- [ ] **Baked format types** (`src/bakedMapFormat.ts`): `BakedVec3`, `BakedRuntimeSegment`, `BakedFenceSegment`, `BakedRuntimeMap`, `BakedMapPack`.
-- [ ] **Engine wiring**: `src/config.ts` imports baked JSON and calls `loadBakedMapPack()` (hydrate + expose) instead of `normalizeMapPack(mapPack)`.
-- [ ] **Dev escape hatch** (`src/devMapLoader.ts`): `loadAuthoredMapPack()`, DEV-gated, tree-shaken in production.
-- [ ] **Remove runtime normalize from production path**: `normalizeMapPack`/`normalizeLevel` in `runtimeMap.ts` should be marked deprecated or moved to a dev-only module once the baker is fully trusted. `mapData.ts` becomes dev-only (only imported by the escape hatch).
+- [x] **Baked format types** (`src/bakedMapFormat.ts`): `BakedVec3`, `BakedRuntimeSegment`, `BakedFenceSegment`, `BakedRuntimeMap`, `BakedMapPack`. `RuntimeMap.source` made optional so the baked format can omit the redundant raw level data.
+- [x] **Baker tool** (`tools/bake-maps.ts`): validates authored source (`assertMapPackValid`), runs `bakeLevel()` (same logic as `normalizeLevel()` but without Babylon.js — outputs plain `BakedVec3`), emits `map-exports/lawn-maps.baked.json`. Run with `pnpm bake`. Exits 1 on invalid input.
+- [x] **Initial baked artifact** committed (`map-exports/lawn-maps.baked.json`): 6 levels, 25 areas, 10 mowable segments. Regenerate with `pnpm bake` after editing the authored source.
+- [x] **Engine wiring** (`src/bakedMapLoader.ts` + `src/config.ts`): `loadBakedMapPack()` imports the baked JSON, hydrates `BakedVec3 → Vector3`, and returns the same `{ maps, byCode, parSeconds, codes, defaultMap }` shape. `config.ts` now calls `loadBakedMapPack()` instead of `normalizeMapPack(mapPack)`. `mapData.ts` is no longer imported by any production module.
+- [x] **Dev escape hatch** (`src/devMapLoader.ts`): `loadAuthoredMapPack()` is DEV-gated (throws in production) and uses dynamic imports so it is tree-shaken out of production bundles. Not imported by any game module.
+- [ ] **Remove runtime normalize from production path**: `normalizeMapPack`/`normalizeLevel` in `runtimeMap.ts` are no longer called at startup but remain in the codebase — used by `devMapLoader.ts` and potentially useful for testing. Mark them `@deprecated` or move to a dev-only module once the bake step is fully trusted and the dev escape hatch is the only consumer.
 - [ ] **Stale-artifact detection**: add a hash/manifest check so a mismatch between authored source and baked artifact is caught at dev startup rather than silently using stale data. *(Nice-to-have, not blocking.)*
+
+**Baking issues caught during implementation (validator wins):**
+- `bgrnField.areas[0].children`: `flowerYellow03` and `flowerRed04` are identical additive rectangles — intentional (two flower types, same footprint). Validator updated to skip additive+additive pairs (commit `68c9329`).
+- `bgrnShowcase.areas[0].children`: `cloverPatch02` (replace circle, r=5.8) overlap with `flowerRed03` (additive rectangle) at corner region. Fixed by shifting circle center 0.5m east to `[2.0, 4.5]` (commit `19f39bf`).
 
 ---
 
