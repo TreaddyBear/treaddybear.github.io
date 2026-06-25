@@ -1,0 +1,5305 @@
+{
+  "bakedVersion": 1,
+  "defaultLevelCode": "bgrnBackground",
+  "maps": [
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnEll",
+      "shortCode": "ell",
+      "name": "Main",
+      "parSeconds": 360,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              -3.5
+            ],
+            "size": [
+              18,
+              11
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  -5,
+                  -5
+                ],
+                "radius": 2
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 9165,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -4.5,
+              5.5
+            ],
+            "size": [
+              9,
+              7
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              -3.5
+            ],
+            "size": [
+              18,
+              11
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  -5,
+                  -5
+                ],
+                "radius": 2
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 9165,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -4.5,
+              5.5
+            ],
+            "size": [
+              9,
+              7
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ]
+        }
+      ],
+      "bedAreas": [],
+      "vegetationAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              -3.5
+            ],
+            "size": [
+              18,
+              11
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  -5,
+                  -5
+                ],
+                "radius": 2
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 9165,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cloverPatch01",
+          "kind": "area",
+          "composition": "replace",
+          "shape": {
+            "type": "circle",
+            "center": [
+              -5,
+              -5
+            ],
+            "radius": 2
+          },
+          "edgeFalloff": 0.6,
+          "vegetation": [
+            {
+              "id": "clover",
+              "type": "clover",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 9165,
+                  "octaves": [
+                    {
+                      "frequency": 0.4,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.9,
+                      "weight": 0.4
+                    }
+                  ],
+                  "domainWarp": 0.3,
+                  "threshold": 0.5,
+                  "softness": 0.12
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -4.5,
+              5.5
+            ],
+            "size": [
+              9,
+              7
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.069
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [
+        {
+          "id": "fence01",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -9.25,
+              -9.25
+            ],
+            "end": [
+              9.25,
+              -9.25
+            ]
+          },
+          "points": [
+            [
+              -9.25,
+              -9.25
+            ],
+            [
+              9.25,
+              -9.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -9.29,
+            "xMax": 9.29,
+            "zMin": -9.29,
+            "zMax": -9.21
+          }
+        },
+        {
+          "id": "fence02",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              9.25,
+              -9.25
+            ],
+            "end": [
+              9.25,
+              2.25
+            ]
+          },
+          "points": [
+            [
+              9.25,
+              -9.25
+            ],
+            [
+              9.25,
+              2.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 9.21,
+            "xMax": 9.29,
+            "zMin": -9.29,
+            "zMax": 2.29
+          }
+        },
+        {
+          "id": "fence03",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              9.25,
+              2.25
+            ],
+            "end": [
+              0.25,
+              2.25
+            ]
+          },
+          "points": [
+            [
+              9.25,
+              2.25
+            ],
+            [
+              0.25,
+              2.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 0.21,
+            "xMax": 9.29,
+            "zMin": 2.21,
+            "zMax": 2.29
+          }
+        },
+        {
+          "id": "fence04",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              0.25,
+              2.25
+            ],
+            "end": [
+              0.25,
+              9.25
+            ]
+          },
+          "points": [
+            [
+              0.25,
+              2.25
+            ],
+            [
+              0.25,
+              9.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 0.21,
+            "xMax": 0.29,
+            "zMin": 2.21,
+            "zMax": 9.29
+          }
+        },
+        {
+          "id": "fence05",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              0.25,
+              9.25
+            ],
+            "end": [
+              -9.25,
+              9.25
+            ]
+          },
+          "points": [
+            [
+              0.25,
+              9.25
+            ],
+            [
+              -9.25,
+              9.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -9.29,
+            "xMax": 0.29,
+            "zMin": 9.21,
+            "zMax": 9.29
+          }
+        },
+        {
+          "id": "fence06",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -9.25,
+              9.25
+            ],
+            "end": [
+              -9.25,
+              -9.25
+            ]
+          },
+          "points": [
+            [
+              -9.25,
+              9.25
+            ],
+            [
+              -9.25,
+              -9.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -9.29,
+            "xMax": -9.21,
+            "zMin": -9.29,
+            "zMax": 9.29
+          }
+        }
+      ],
+      "terrain": {
+        "heightFeatures": []
+      },
+      "objects": [],
+      "tags": [],
+      "bounds": {
+        "xMin": -9.29,
+        "xMax": 9.29,
+        "zMin": -9.29,
+        "zMax": 9.29
+      },
+      "mowableArea": 248.4336293856408,
+      "segments": [
+        {
+          "xMin": -9,
+          "xMax": 9,
+          "zMin": -9,
+          "zMax": 2,
+          "width": 18,
+          "height": 11,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": -3.5
+          }
+        },
+        {
+          "xMin": -9,
+          "xMax": 0,
+          "zMin": 2,
+          "zMax": 9,
+          "width": 9,
+          "height": 7,
+          "center": {
+            "x": -4.5,
+            "y": 0,
+            "z": 5.5
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -9.25,
+            "y": 0,
+            "z": -9.25
+          },
+          "end": {
+            "x": 9.25,
+            "y": 0,
+            "z": -9.25
+          }
+        },
+        {
+          "start": {
+            "x": 9.25,
+            "y": 0,
+            "z": -9.25
+          },
+          "end": {
+            "x": 9.25,
+            "y": 0,
+            "z": 2.25
+          }
+        },
+        {
+          "start": {
+            "x": 9.25,
+            "y": 0,
+            "z": 2.25
+          },
+          "end": {
+            "x": 0.25,
+            "y": 0,
+            "z": 2.25
+          }
+        },
+        {
+          "start": {
+            "x": 0.25,
+            "y": 0,
+            "z": 2.25
+          },
+          "end": {
+            "x": 0.25,
+            "y": 0,
+            "z": 9.25
+          }
+        },
+        {
+          "start": {
+            "x": 0.25,
+            "y": 0,
+            "z": 9.25
+          },
+          "end": {
+            "x": -9.25,
+            "y": 0,
+            "z": 9.25
+          }
+        },
+        {
+          "start": {
+            "x": -9.25,
+            "y": 0,
+            "z": 9.25
+          },
+          "end": {
+            "x": -9.25,
+            "y": 0,
+            "z": -9.25
+          }
+        }
+      ],
+      "flowerBeds": [],
+      "dandelionCount": 18,
+      "flowerFields": [],
+      "cloverPatches": [
+        {
+          "x": -5,
+          "z": -5,
+          "radius": 2,
+          "grassKeep": 0,
+          "sourceArea": {
+            "id": "cloverPatch01",
+            "kind": "area",
+            "composition": "replace",
+            "shape": {
+              "type": "circle",
+              "center": [
+                -5,
+                -5
+              ],
+              "radius": 2
+            },
+            "edgeFalloff": 0.6,
+            "vegetation": [
+              {
+                "id": "clover",
+                "type": "clover",
+                "distribution": {
+                  "type": "perlin",
+                  "density": 1,
+                  "noise": {
+                    "seed": 9165,
+                    "octaves": [
+                      {
+                        "frequency": 0.4,
+                        "weight": 1
+                      },
+                      {
+                        "frequency": 0.9,
+                        "weight": 0.4
+                      }
+                    ],
+                    "domainWarp": 0.3,
+                    "threshold": 0.5,
+                    "softness": 0.12
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnBed",
+      "shortCode": "bed",
+      "name": "Flower Bed",
+      "parSeconds": 360,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": -7
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  0,
+                  0
+                ],
+                "size": [
+                  7.6,
+                  4.4
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.389
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  0,
+                  0
+                ],
+                "size": [
+                  7.6,
+                  4.4
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.389
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        }
+      ],
+      "bedAreas": [
+        {
+          "id": "flowerBed01",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              7.6,
+              4.4
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.389
+              }
+            }
+          ]
+        }
+      ],
+      "vegetationAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  0,
+                  0
+                ],
+                "size": [
+                  7.6,
+                  4.4
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.389
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "flowerBed01",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              7.6,
+              4.4
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.389
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              12.5,
+              0
+            ],
+            "size": [
+              5,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.025
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [
+        {
+          "id": "fence01",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -10.25,
+              -10.25
+            ],
+            "end": [
+              10.25,
+              -10.25
+            ]
+          },
+          "points": [
+            [
+              -10.25,
+              -10.25
+            ],
+            [
+              10.25,
+              -10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -10.29,
+            "xMax": 10.29,
+            "zMin": -10.29,
+            "zMax": -10.21
+          }
+        },
+        {
+          "id": "fence02",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              10.25,
+              -10.25
+            ],
+            "end": [
+              10.25,
+              -4.25
+            ]
+          },
+          "points": [
+            [
+              10.25,
+              -10.25
+            ],
+            [
+              10.25,
+              -4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 10.21,
+            "xMax": 10.29,
+            "zMin": -10.29,
+            "zMax": -4.21
+          }
+        },
+        {
+          "id": "fence03",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              10.25,
+              -4.25
+            ],
+            "end": [
+              15.25,
+              -4.25
+            ]
+          },
+          "points": [
+            [
+              10.25,
+              -4.25
+            ],
+            [
+              15.25,
+              -4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 10.21,
+            "xMax": 15.29,
+            "zMin": -4.29,
+            "zMax": -4.21
+          }
+        },
+        {
+          "id": "fence04",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              15.25,
+              -4.25
+            ],
+            "end": [
+              15.25,
+              4.25
+            ]
+          },
+          "points": [
+            [
+              15.25,
+              -4.25
+            ],
+            [
+              15.25,
+              4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 15.21,
+            "xMax": 15.29,
+            "zMin": -4.29,
+            "zMax": 4.29
+          }
+        },
+        {
+          "id": "fence05",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              15.25,
+              4.25
+            ],
+            "end": [
+              10.25,
+              4.25
+            ]
+          },
+          "points": [
+            [
+              15.25,
+              4.25
+            ],
+            [
+              10.25,
+              4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 10.21,
+            "xMax": 15.29,
+            "zMin": 4.21,
+            "zMax": 4.29
+          }
+        },
+        {
+          "id": "fence06",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              10.25,
+              4.25
+            ],
+            "end": [
+              10.25,
+              10.25
+            ]
+          },
+          "points": [
+            [
+              10.25,
+              4.25
+            ],
+            [
+              10.25,
+              10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 10.21,
+            "xMax": 10.29,
+            "zMin": 4.21,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence07",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              10.25,
+              10.25
+            ],
+            "end": [
+              -10.25,
+              10.25
+            ]
+          },
+          "points": [
+            [
+              10.25,
+              10.25
+            ],
+            [
+              -10.25,
+              10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -10.29,
+            "xMax": 10.29,
+            "zMin": 10.21,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence08",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -10.25,
+              10.25
+            ],
+            "end": [
+              -10.25,
+              4.25
+            ]
+          },
+          "points": [
+            [
+              -10.25,
+              10.25
+            ],
+            [
+              -10.25,
+              4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -10.29,
+            "xMax": -10.21,
+            "zMin": 4.21,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence09",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -10.25,
+              4.25
+            ],
+            "end": [
+              -15.25,
+              4.25
+            ]
+          },
+          "points": [
+            [
+              -10.25,
+              4.25
+            ],
+            [
+              -15.25,
+              4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -15.29,
+            "xMax": -10.21,
+            "zMin": 4.21,
+            "zMax": 4.29
+          }
+        },
+        {
+          "id": "fence10",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -15.25,
+              4.25
+            ],
+            "end": [
+              -15.25,
+              -4.25
+            ]
+          },
+          "points": [
+            [
+              -15.25,
+              4.25
+            ],
+            [
+              -15.25,
+              -4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -15.29,
+            "xMax": -15.21,
+            "zMin": -4.29,
+            "zMax": 4.29
+          }
+        },
+        {
+          "id": "fence11",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -15.25,
+              -4.25
+            ],
+            "end": [
+              -10.25,
+              -4.25
+            ]
+          },
+          "points": [
+            [
+              -15.25,
+              -4.25
+            ],
+            [
+              -10.25,
+              -4.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -15.29,
+            "xMax": -10.21,
+            "zMin": -4.29,
+            "zMax": -4.21
+          }
+        },
+        {
+          "id": "fence12",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -10.25,
+              -4.25
+            ],
+            "end": [
+              -10.25,
+              -10.25
+            ]
+          },
+          "points": [
+            [
+              -10.25,
+              -4.25
+            ],
+            [
+              -10.25,
+              -10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -10.29,
+            "xMax": -10.21,
+            "zMin": -10.29,
+            "zMax": -4.21
+          }
+        }
+      ],
+      "terrain": {
+        "heightFeatures": []
+      },
+      "objects": [],
+      "tags": [],
+      "bounds": {
+        "xMin": -15.29,
+        "xMax": 15.29,
+        "zMin": -10.29,
+        "zMax": 10.29
+      },
+      "mowableArea": 446.56,
+      "segments": [
+        {
+          "xMin": -10,
+          "xMax": 10,
+          "zMin": -10,
+          "zMax": 10,
+          "width": 20,
+          "height": 20,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": -15,
+          "xMax": -10,
+          "zMin": -4,
+          "zMax": 4,
+          "width": 5,
+          "height": 8,
+          "center": {
+            "x": -12.5,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": 10,
+          "xMax": 15,
+          "zMin": -4,
+          "zMax": 4,
+          "width": 5,
+          "height": 8,
+          "center": {
+            "x": 12.5,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": -10.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": 15.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": 15.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": 15.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": 15.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": 10.25,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 10.25,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": -15.25,
+            "y": 0,
+            "z": 4.25
+          }
+        },
+        {
+          "start": {
+            "x": -15.25,
+            "y": 0,
+            "z": 4.25
+          },
+          "end": {
+            "x": -15.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": -15.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": -4.25
+          }
+        },
+        {
+          "start": {
+            "x": -10.25,
+            "y": 0,
+            "z": -4.25
+          },
+          "end": {
+            "x": -10.25,
+            "y": 0,
+            "z": -10.25
+          }
+        }
+      ],
+      "flowerBeds": [
+        {
+          "xMin": -3.8,
+          "xMax": 3.8,
+          "zMin": -2.2,
+          "zMax": 2.2,
+          "width": 7.6,
+          "height": 4.4,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "count": 52,
+          "sourceArea": {
+            "id": "flowerBed01",
+            "kind": "area",
+            "role": "bed",
+            "composition": "replace",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                0,
+                0
+              ],
+              "size": [
+                7.6,
+                4.4
+              ]
+            },
+            "vegetation": [
+              {
+                "id": "tulip",
+                "type": "tulip",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.389
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "dandelionCount": 12,
+      "flowerFields": [],
+      "cloverPatches": []
+    },
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnKeyhole",
+      "shortCode": "keyhole",
+      "name": "Keyhole Gardens",
+      "parSeconds": 420,
+      "spawn": {
+        "x": -2,
+        "y": 0,
+        "z": 0
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -11,
+              -1
+            ],
+            "size": [
+              10,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -12.6,
+                  -0.2
+                ],
+                "size": [
+                  3,
+                  8
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.354
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -2,
+              0
+            ],
+            "size": [
+              8,
+              6
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              6.6,
+              1
+            ],
+            "size": [
+              9.2,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed02",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  7.2,
+                  5.2
+                ],
+                "size": [
+                  4.6,
+                  3.2
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.51
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -11,
+              -1
+            ],
+            "size": [
+              10,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -12.6,
+                  -0.2
+                ],
+                "size": [
+                  3,
+                  8
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.354
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -2,
+              0
+            ],
+            "size": [
+              8,
+              6
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              6.6,
+              1
+            ],
+            "size": [
+              9.2,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed02",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  7.2,
+                  5.2
+                ],
+                "size": [
+                  4.6,
+                  3.2
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.51
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "bedAreas": [
+        {
+          "id": "flowerBed01",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -12.6,
+              -0.2
+            ],
+            "size": [
+              3,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.354
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerBed02",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              7.2,
+              5.2
+            ],
+            "size": [
+              4.6,
+              3.2
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.51
+              }
+            }
+          ]
+        }
+      ],
+      "vegetationAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -11,
+              -1
+            ],
+            "size": [
+              10,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed01",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -12.6,
+                  -0.2
+                ],
+                "size": [
+                  3,
+                  8
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.354
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "flowerBed01",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -12.6,
+              -0.2
+            ],
+            "size": [
+              3,
+              8
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.354
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -2,
+              0
+            ],
+            "size": [
+              8,
+              6
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ]
+        },
+        {
+          "id": "lawn03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              6.6,
+              1
+            ],
+            "size": [
+              9.2,
+              18
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0407
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBed02",
+              "kind": "area",
+              "role": "bed",
+              "composition": "replace",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  7.2,
+                  5.2
+                ],
+                "size": [
+                  4.6,
+                  3.2
+                ]
+              },
+              "vegetation": [
+                {
+                  "id": "tulip",
+                  "type": "tulip",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.51
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "flowerBed02",
+          "kind": "area",
+          "role": "bed",
+          "composition": "replace",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              7.2,
+              5.2
+            ],
+            "size": [
+              4.6,
+              3.2
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "tulip",
+              "type": "tulip",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.51
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [
+        {
+          "id": "fence01",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -16.25,
+              -10.25
+            ],
+            "end": [
+              -5.75,
+              -10.25
+            ]
+          },
+          "points": [
+            [
+              -16.25,
+              -10.25
+            ],
+            [
+              -5.75,
+              -10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -16.29,
+            "xMax": -5.71,
+            "zMin": -10.29,
+            "zMax": -10.21
+          }
+        },
+        {
+          "id": "fence02",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -5.75,
+              -10.25
+            ],
+            "end": [
+              -5.75,
+              -3.25
+            ]
+          },
+          "points": [
+            [
+              -5.75,
+              -10.25
+            ],
+            [
+              -5.75,
+              -3.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -5.79,
+            "xMax": -5.71,
+            "zMin": -10.29,
+            "zMax": -3.21
+          }
+        },
+        {
+          "id": "fence03",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -5.75,
+              -3.25
+            ],
+            "end": [
+              1.75,
+              -3.25
+            ]
+          },
+          "points": [
+            [
+              -5.75,
+              -3.25
+            ],
+            [
+              1.75,
+              -3.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -5.79,
+            "xMax": 1.79,
+            "zMin": -3.29,
+            "zMax": -3.21
+          }
+        },
+        {
+          "id": "fence04",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              1.75,
+              -3.25
+            ],
+            "end": [
+              1.75,
+              -8.25
+            ]
+          },
+          "points": [
+            [
+              1.75,
+              -3.25
+            ],
+            [
+              1.75,
+              -8.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 1.71,
+            "xMax": 1.79,
+            "zMin": -8.29,
+            "zMax": -3.21
+          }
+        },
+        {
+          "id": "fence05",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              1.75,
+              -8.25
+            ],
+            "end": [
+              11.45,
+              -8.25
+            ]
+          },
+          "points": [
+            [
+              1.75,
+              -8.25
+            ],
+            [
+              11.45,
+              -8.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 1.71,
+            "xMax": 11.489999999999998,
+            "zMin": -8.29,
+            "zMax": -8.21
+          }
+        },
+        {
+          "id": "fence06",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              11.45,
+              -8.25
+            ],
+            "end": [
+              11.45,
+              10.25
+            ]
+          },
+          "points": [
+            [
+              11.45,
+              -8.25
+            ],
+            [
+              11.45,
+              10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 11.41,
+            "xMax": 11.489999999999998,
+            "zMin": -8.29,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence07",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              11.45,
+              10.25
+            ],
+            "end": [
+              1.75,
+              10.25
+            ]
+          },
+          "points": [
+            [
+              11.45,
+              10.25
+            ],
+            [
+              1.75,
+              10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 1.71,
+            "xMax": 11.489999999999998,
+            "zMin": 10.21,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence08",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              1.75,
+              10.25
+            ],
+            "end": [
+              1.75,
+              3.25
+            ]
+          },
+          "points": [
+            [
+              1.75,
+              10.25
+            ],
+            [
+              1.75,
+              3.25
+            ]
+          ],
+          "bounds": {
+            "xMin": 1.71,
+            "xMax": 1.79,
+            "zMin": 3.21,
+            "zMax": 10.29
+          }
+        },
+        {
+          "id": "fence09",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              1.75,
+              3.25
+            ],
+            "end": [
+              -5.75,
+              3.25
+            ]
+          },
+          "points": [
+            [
+              1.75,
+              3.25
+            ],
+            [
+              -5.75,
+              3.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -5.79,
+            "xMax": 1.79,
+            "zMin": 3.21,
+            "zMax": 3.29
+          }
+        },
+        {
+          "id": "fence10",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -5.75,
+              3.25
+            ],
+            "end": [
+              -5.75,
+              8.25
+            ]
+          },
+          "points": [
+            [
+              -5.75,
+              3.25
+            ],
+            [
+              -5.75,
+              8.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -5.79,
+            "xMax": -5.71,
+            "zMin": 3.21,
+            "zMax": 8.29
+          }
+        },
+        {
+          "id": "fence11",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -5.75,
+              8.25
+            ],
+            "end": [
+              -16.25,
+              8.25
+            ]
+          },
+          "points": [
+            [
+              -5.75,
+              8.25
+            ],
+            [
+              -16.25,
+              8.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -16.29,
+            "xMax": -5.71,
+            "zMin": 8.21,
+            "zMax": 8.29
+          }
+        },
+        {
+          "id": "fence12",
+          "kind": "fence",
+          "width": 0.08,
+          "height": 1,
+          "shape": {
+            "type": "line",
+            "start": [
+              -16.25,
+              8.25
+            ],
+            "end": [
+              -16.25,
+              -10.25
+            ]
+          },
+          "points": [
+            [
+              -16.25,
+              8.25
+            ],
+            [
+              -16.25,
+              -10.25
+            ]
+          ],
+          "bounds": {
+            "xMin": -16.29,
+            "xMax": -16.21,
+            "zMin": -10.29,
+            "zMax": 8.29
+          }
+        }
+      ],
+      "terrain": {
+        "heightFeatures": []
+      },
+      "objects": [],
+      "tags": [],
+      "bounds": {
+        "xMin": -16.29,
+        "xMax": 11.489999999999998,
+        "zMin": -10.29,
+        "zMax": 10.29
+      },
+      "mowableArea": 354.88,
+      "segments": [
+        {
+          "xMin": -16,
+          "xMax": -6,
+          "zMin": -10,
+          "zMax": 8,
+          "width": 10,
+          "height": 18,
+          "center": {
+            "x": -11,
+            "y": 0,
+            "z": -1
+          }
+        },
+        {
+          "xMin": -6,
+          "xMax": 2,
+          "zMin": -3,
+          "zMax": 3,
+          "width": 8,
+          "height": 6,
+          "center": {
+            "x": -2,
+            "y": 0,
+            "z": 0
+          }
+        },
+        {
+          "xMin": 2,
+          "xMax": 11.2,
+          "zMin": -8,
+          "zMax": 10,
+          "width": 9.2,
+          "height": 18,
+          "center": {
+            "x": 6.6,
+            "y": 0,
+            "z": 1
+          }
+        }
+      ],
+      "fenceSegments": [
+        {
+          "start": {
+            "x": -16.25,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": -10.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": -10.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": -3.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": -3.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": -3.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": -3.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": -8.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": -8.25
+          },
+          "end": {
+            "x": 11.45,
+            "y": 0,
+            "z": -8.25
+          }
+        },
+        {
+          "start": {
+            "x": 11.45,
+            "y": 0,
+            "z": -8.25
+          },
+          "end": {
+            "x": 11.45,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 11.45,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": 10.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": 10.25
+          },
+          "end": {
+            "x": 1.75,
+            "y": 0,
+            "z": 3.25
+          }
+        },
+        {
+          "start": {
+            "x": 1.75,
+            "y": 0,
+            "z": 3.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": 3.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": 3.25
+          },
+          "end": {
+            "x": -5.75,
+            "y": 0,
+            "z": 8.25
+          }
+        },
+        {
+          "start": {
+            "x": -5.75,
+            "y": 0,
+            "z": 8.25
+          },
+          "end": {
+            "x": -16.25,
+            "y": 0,
+            "z": 8.25
+          }
+        },
+        {
+          "start": {
+            "x": -16.25,
+            "y": 0,
+            "z": 8.25
+          },
+          "end": {
+            "x": -16.25,
+            "y": 0,
+            "z": -10.25
+          }
+        }
+      ],
+      "flowerBeds": [
+        {
+          "xMin": -14.1,
+          "xMax": -11.1,
+          "zMin": -4.2,
+          "zMax": 3.8,
+          "width": 3,
+          "height": 8,
+          "center": {
+            "x": -12.6,
+            "y": 0,
+            "z": -0.20000000000000018
+          },
+          "count": 34,
+          "sourceArea": {
+            "id": "flowerBed01",
+            "kind": "area",
+            "role": "bed",
+            "composition": "replace",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                -12.6,
+                -0.2
+              ],
+              "size": [
+                3,
+                8
+              ]
+            },
+            "vegetation": [
+              {
+                "id": "tulip",
+                "type": "tulip",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.354
+                }
+              }
+            ]
+          }
+        },
+        {
+          "xMin": 4.9,
+          "xMax": 9.5,
+          "zMin": 3.6,
+          "zMax": 6.8,
+          "width": 4.6,
+          "height": 3.1999999999999997,
+          "center": {
+            "x": 7.2,
+            "y": 0,
+            "z": 5.2
+          },
+          "count": 30,
+          "sourceArea": {
+            "id": "flowerBed02",
+            "kind": "area",
+            "role": "bed",
+            "composition": "replace",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                7.2,
+                5.2
+              ],
+              "size": [
+                4.6,
+                3.2
+              ]
+            },
+            "vegetation": [
+              {
+                "id": "tulip",
+                "type": "tulip",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.51
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "dandelionCount": 16,
+      "flowerFields": [],
+      "cloverPatches": []
+    },
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnField",
+      "shortCode": "field",
+      "name": "Blue Field",
+      "parSeconds": 300,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              16,
+              16
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerWhite02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerWhite",
+                  "type": "flowerWhite",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed04",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  4,
+                  -4
+                ],
+                "radius": 2.5
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 53638,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              16,
+              16
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerWhite02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerWhite",
+                  "type": "flowerWhite",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed04",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  4,
+                  -4
+                ],
+                "radius": 2.5
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 53638,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "bedAreas": [],
+      "vegetationAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              16,
+              16
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerWhite02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerWhite",
+                  "type": "flowerWhite",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed04",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  4,
+                  4
+                ],
+                "size": [
+                  8,
+                  8
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.714
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  4,
+                  -4
+                ],
+                "radius": 2.5
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 53638,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "flowerBlue01",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -4,
+              -4
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerBlue",
+              "type": "flowerBlue",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerWhite02",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -4,
+              4
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerWhite",
+              "type": "flowerWhite",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerYellow03",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              4,
+              4
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerYellow",
+              "type": "flowerYellow",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.714
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerRed04",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              4,
+              4
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerRed",
+              "type": "flowerRed",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.714
+              }
+            }
+          ]
+        },
+        {
+          "id": "cloverPatch01",
+          "kind": "area",
+          "composition": "replace",
+          "shape": {
+            "type": "circle",
+            "center": [
+              4,
+              -4
+            ],
+            "radius": 2.5
+          },
+          "edgeFalloff": 0.6,
+          "vegetation": [
+            {
+              "id": "clover",
+              "type": "clover",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 53638,
+                  "octaves": [
+                    {
+                      "frequency": 0.4,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.9,
+                      "weight": 0.4
+                    }
+                  ],
+                  "domainWarp": 0.3,
+                  "threshold": 0.5,
+                  "softness": 0.12
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [],
+      "terrain": {
+        "heightFeatures": []
+      },
+      "objects": [],
+      "tags": [],
+      "bounds": {
+        "xMin": -8,
+        "xMax": 8,
+        "zMin": -8,
+        "zMax": 8
+      },
+      "mowableArea": 236.3650459150638,
+      "segments": [
+        {
+          "xMin": -8,
+          "xMax": 8,
+          "zMin": -8,
+          "zMax": 8,
+          "width": 16,
+          "height": 16,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [],
+      "flowerBeds": [],
+      "dandelionCount": 0,
+      "flowerFields": [
+        {
+          "variant": "blue",
+          "area": {
+            "xMin": -8,
+            "xMax": 0,
+            "zMin": -8,
+            "zMax": 0,
+            "width": 8,
+            "height": 8,
+            "center": {
+              "x": -4,
+              "y": 0,
+              "z": -4
+            }
+          },
+          "spacing": 0.5,
+          "sourceArea": {
+            "id": "flowerBlue01",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                -4,
+                -4
+              ],
+              "size": [
+                8,
+                8
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerBlue",
+                "type": "flowerBlue",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 1
+                }
+              }
+            ]
+          },
+          "type": "flowerBlue"
+        },
+        {
+          "variant": "white",
+          "area": {
+            "xMin": -8,
+            "xMax": 0,
+            "zMin": 0,
+            "zMax": 8,
+            "width": 8,
+            "height": 8,
+            "center": {
+              "x": -4,
+              "y": 0,
+              "z": 4
+            }
+          },
+          "spacing": 0.5,
+          "sourceArea": {
+            "id": "flowerWhite02",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                -4,
+                4
+              ],
+              "size": [
+                8,
+                8
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerWhite",
+                "type": "flowerWhite",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 1
+                }
+              }
+            ]
+          },
+          "type": "flowerWhite"
+        },
+        {
+          "variant": "yellow",
+          "area": {
+            "xMin": 0,
+            "xMax": 8,
+            "zMin": 0,
+            "zMax": 8,
+            "width": 8,
+            "height": 8,
+            "center": {
+              "x": 4,
+              "y": 0,
+              "z": 4
+            }
+          },
+          "spacing": 0.592,
+          "sourceArea": {
+            "id": "flowerYellow03",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                4,
+                4
+              ],
+              "size": [
+                8,
+                8
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerYellow",
+                "type": "flowerYellow",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.714
+                }
+              }
+            ]
+          },
+          "type": "flowerYellow"
+        },
+        {
+          "variant": "red",
+          "area": {
+            "xMin": 0,
+            "xMax": 8,
+            "zMin": 0,
+            "zMax": 8,
+            "width": 8,
+            "height": 8,
+            "center": {
+              "x": 4,
+              "y": 0,
+              "z": 4
+            }
+          },
+          "spacing": 0.592,
+          "sourceArea": {
+            "id": "flowerRed04",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                4,
+                4
+              ],
+              "size": [
+                8,
+                8
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerRed",
+                "type": "flowerRed",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.714
+                }
+              }
+            ]
+          },
+          "type": "flowerRed"
+        }
+      ],
+      "cloverPatches": [
+        {
+          "x": 4,
+          "z": -4,
+          "radius": 2.5,
+          "grassKeep": 0,
+          "sourceArea": {
+            "id": "cloverPatch01",
+            "kind": "area",
+            "composition": "replace",
+            "shape": {
+              "type": "circle",
+              "center": [
+                4,
+                -4
+              ],
+              "radius": 2.5
+            },
+            "edgeFalloff": 0.6,
+            "vegetation": [
+              {
+                "id": "clover",
+                "type": "clover",
+                "distribution": {
+                  "type": "perlin",
+                  "density": 1,
+                  "noise": {
+                    "seed": 53638,
+                    "octaves": [
+                      {
+                        "frequency": 0.4,
+                        "weight": 1
+                      },
+                      {
+                        "frequency": 0.9,
+                        "weight": 0.4
+                      }
+                    ],
+                    "domainWarp": 0.3,
+                    "threshold": 0.5,
+                    "softness": 0.12
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnShowcase",
+      "shortCode": "showcase",
+      "name": "Showcase",
+      "parSeconds": 300,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              120,
+              120
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0007
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.641
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  13,
+                  13
+                ],
+                "radius": 8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 38291,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch02",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  2,
+                  4.5
+                ],
+                "radius": 5.8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 15910,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              120,
+              120
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0007
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.641
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  13,
+                  13
+                ],
+                "radius": 8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 38291,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch02",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  2,
+                  4.5
+                ],
+                "radius": 5.8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 15910,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "bedAreas": [],
+      "vegetationAreas": [
+        {
+          "id": "lawn01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              120,
+              120
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "uniform",
+                "density": 1
+              }
+            },
+            {
+              "id": "dandelion",
+              "type": "dandelion",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.0007
+              }
+            }
+          ],
+          "children": [
+            {
+              "id": "flowerBlue01",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerBlue",
+                  "type": "flowerBlue",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerYellow02",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  14,
+                  -14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerYellow",
+                  "type": "flowerYellow",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.694
+                  }
+                }
+              ]
+            },
+            {
+              "id": "flowerRed03",
+              "kind": "area",
+              "composition": "additive",
+              "shape": {
+                "type": "rectangle",
+                "center": [
+                  -14,
+                  14
+                ],
+                "size": [
+                  20,
+                  20
+                ]
+              },
+              "edgeFalloff": 1.6,
+              "vegetation": [
+                {
+                  "id": "flowerRed",
+                  "type": "flowerRed",
+                  "distribution": {
+                    "type": "uniform",
+                    "density": 0.641
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch01",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  13,
+                  13
+                ],
+                "radius": 8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 38291,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cloverPatch02",
+              "kind": "area",
+              "composition": "replace",
+              "shape": {
+                "type": "circle",
+                "center": [
+                  2,
+                  4.5
+                ],
+                "radius": 5.8
+              },
+              "edgeFalloff": 0.6,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": {
+                    "type": "perlin",
+                    "density": 1,
+                    "noise": {
+                      "seed": 15910,
+                      "octaves": [
+                        {
+                          "frequency": 0.4,
+                          "weight": 1
+                        },
+                        {
+                          "frequency": 0.9,
+                          "weight": 0.4
+                        }
+                      ],
+                      "domainWarp": 0.3,
+                      "threshold": 0.5,
+                      "softness": 0.12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "flowerBlue01",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -14,
+              -14
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerBlue",
+              "type": "flowerBlue",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.694
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerYellow02",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              14,
+              -14
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerYellow",
+              "type": "flowerYellow",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.694
+              }
+            }
+          ]
+        },
+        {
+          "id": "flowerRed03",
+          "kind": "area",
+          "composition": "additive",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              -14,
+              14
+            ],
+            "size": [
+              20,
+              20
+            ]
+          },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "flowerRed",
+              "type": "flowerRed",
+              "distribution": {
+                "type": "uniform",
+                "density": 0.641
+              }
+            }
+          ]
+        },
+        {
+          "id": "cloverPatch01",
+          "kind": "area",
+          "composition": "replace",
+          "shape": {
+            "type": "circle",
+            "center": [
+              13,
+              13
+            ],
+            "radius": 8
+          },
+          "edgeFalloff": 0.6,
+          "vegetation": [
+            {
+              "id": "clover",
+              "type": "clover",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 38291,
+                  "octaves": [
+                    {
+                      "frequency": 0.4,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.9,
+                      "weight": 0.4
+                    }
+                  ],
+                  "domainWarp": 0.3,
+                  "threshold": 0.5,
+                  "softness": 0.12
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "cloverPatch02",
+          "kind": "area",
+          "composition": "replace",
+          "shape": {
+            "type": "circle",
+            "center": [
+              2,
+              4.5
+            ],
+            "radius": 5.8
+          },
+          "edgeFalloff": 0.6,
+          "vegetation": [
+            {
+              "id": "clover",
+              "type": "clover",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 15910,
+                  "octaves": [
+                    {
+                      "frequency": 0.4,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.9,
+                      "weight": 0.4
+                    }
+                  ],
+                  "domainWarp": 0.3,
+                  "threshold": 0.5,
+                  "softness": 0.12
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [],
+      "terrain": {
+        "heightFeatures": []
+      },
+      "objects": [],
+      "tags": [],
+      "bounds": {
+        "xMin": -60,
+        "xMax": 60,
+        "zMin": -60,
+        "zMax": 60
+      },
+      "mowableArea": 14093.254893303492,
+      "segments": [
+        {
+          "xMin": -60,
+          "xMax": 60,
+          "zMin": -60,
+          "zMax": 60,
+          "width": 120,
+          "height": 120,
+          "center": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "fenceSegments": [],
+      "flowerBeds": [],
+      "dandelionCount": 10,
+      "flowerFields": [
+        {
+          "variant": "blue",
+          "area": {
+            "xMin": -24,
+            "xMax": -4,
+            "zMin": -24,
+            "zMax": -4,
+            "width": 20,
+            "height": 20,
+            "center": {
+              "x": -14,
+              "y": 0,
+              "z": -14
+            }
+          },
+          "spacing": 0.6,
+          "sourceArea": {
+            "id": "flowerBlue01",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                -14,
+                -14
+              ],
+              "size": [
+                20,
+                20
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerBlue",
+                "type": "flowerBlue",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.694
+                }
+              }
+            ]
+          },
+          "type": "flowerBlue"
+        },
+        {
+          "variant": "yellow",
+          "area": {
+            "xMin": 4,
+            "xMax": 24,
+            "zMin": -24,
+            "zMax": -4,
+            "width": 20,
+            "height": 20,
+            "center": {
+              "x": 14,
+              "y": 0,
+              "z": -14
+            }
+          },
+          "spacing": 0.6,
+          "sourceArea": {
+            "id": "flowerYellow02",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                14,
+                -14
+              ],
+              "size": [
+                20,
+                20
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerYellow",
+                "type": "flowerYellow",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.694
+                }
+              }
+            ]
+          },
+          "type": "flowerYellow"
+        },
+        {
+          "variant": "red",
+          "area": {
+            "xMin": -24,
+            "xMax": -4,
+            "zMin": 4,
+            "zMax": 24,
+            "width": 20,
+            "height": 20,
+            "center": {
+              "x": -14,
+              "y": 0,
+              "z": 14
+            }
+          },
+          "spacing": 0.625,
+          "sourceArea": {
+            "id": "flowerRed03",
+            "kind": "area",
+            "composition": "additive",
+            "shape": {
+              "type": "rectangle",
+              "center": [
+                -14,
+                14
+              ],
+              "size": [
+                20,
+                20
+              ]
+            },
+            "edgeFalloff": 1.6,
+            "vegetation": [
+              {
+                "id": "flowerRed",
+                "type": "flowerRed",
+                "distribution": {
+                  "type": "uniform",
+                  "density": 0.641
+                }
+              }
+            ]
+          },
+          "type": "flowerRed"
+        }
+      ],
+      "cloverPatches": [
+        {
+          "x": 13,
+          "z": 13,
+          "radius": 8,
+          "grassKeep": 0,
+          "sourceArea": {
+            "id": "cloverPatch01",
+            "kind": "area",
+            "composition": "replace",
+            "shape": {
+              "type": "circle",
+              "center": [
+                13,
+                13
+              ],
+              "radius": 8
+            },
+            "edgeFalloff": 0.6,
+            "vegetation": [
+              {
+                "id": "clover",
+                "type": "clover",
+                "distribution": {
+                  "type": "perlin",
+                  "density": 1,
+                  "noise": {
+                    "seed": 38291,
+                    "octaves": [
+                      {
+                        "frequency": 0.4,
+                        "weight": 1
+                      },
+                      {
+                        "frequency": 0.9,
+                        "weight": 0.4
+                      }
+                    ],
+                    "domainWarp": 0.3,
+                    "threshold": 0.5,
+                    "softness": 0.12
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "x": 2,
+          "z": 4.5,
+          "radius": 5.8,
+          "grassKeep": 0,
+          "sourceArea": {
+            "id": "cloverPatch02",
+            "kind": "area",
+            "composition": "replace",
+            "shape": {
+              "type": "circle",
+              "center": [
+                2,
+                4.5
+              ],
+              "radius": 5.8
+            },
+            "edgeFalloff": 0.6,
+            "vegetation": [
+              {
+                "id": "clover",
+                "type": "clover",
+                "distribution": {
+                  "type": "perlin",
+                  "density": 1,
+                  "noise": {
+                    "seed": 15910,
+                    "octaves": [
+                      {
+                        "frequency": 0.4,
+                        "weight": 1
+                      },
+                      {
+                        "frequency": 0.9,
+                        "weight": 0.4
+                      }
+                    ],
+                    "domainWarp": 0.3,
+                    "threshold": 0.5,
+                    "softness": 0.12
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "packPrefix": "bgrn",
+      "code": "bgrnBackground",
+      "shortCode": "background",
+      "name": "Beta Green Background",
+      "parSeconds": 9999,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnHeadingDegrees": 90,
+      "areas": [
+        {
+          "id": "outer",
+          "kind": "area",
+          "role": "background",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              600,
+              700
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 4721,
+                  "octaves": [
+                    {
+                      "frequency": 0.055,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.18,
+                      "weight": 0.45
+                    }
+                  ],
+                  "threshold": 0.25,
+                  "softness": 0.18
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "mowableAreas": [],
+      "bedAreas": [],
+      "vegetationAreas": [
+        {
+          "id": "outer",
+          "kind": "area",
+          "role": "background",
+          "shape": {
+            "type": "rectangle",
+            "center": [
+              0,
+              0
+            ],
+            "size": [
+              600,
+              700
+            ]
+          },
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": {
+                "type": "perlin",
+                "density": 1,
+                "noise": {
+                  "seed": 4721,
+                  "octaves": [
+                    {
+                      "frequency": 0.055,
+                      "weight": 1
+                    },
+                    {
+                      "frequency": 0.18,
+                      "weight": 0.45
+                    }
+                  ],
+                  "threshold": 0.25,
+                  "softness": 0.18
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [],
+      "terrain": {
+        "heightFeatures": [
+          {
+            "id": "concealHill",
+            "type": "hill",
+            "shape": {
+              "type": "circle",
+              "center": [
+                -25.5,
+                -16.5
+              ],
+              "radius": 9
+            },
+            "height": 4.1,
+            "falloff": 9
+          }
+        ]
+      },
+      "objects": [],
+      "tags": [
+        "background"
+      ],
+      "bounds": {
+        "xMin": -300,
+        "xMax": 300,
+        "zMin": -350,
+        "zMax": 350
+      },
+      "mowableArea": 0,
+      "segments": [],
+      "fenceSegments": [],
+      "flowerBeds": [],
+      "dandelionCount": 0,
+      "flowerFields": [],
+      "cloverPatches": []
+    }
+  ]
+}
