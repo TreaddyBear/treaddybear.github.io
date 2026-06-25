@@ -123,20 +123,28 @@ function errorsForArea(area: Area, areaPath: string, parentShape: AreaShape | nu
 }
 
 // Checks each pair of sibling areas for overlap by sampling extremal points of
-// one against the other. Additive and replace siblings are both checked —
-// the spec forbids all sibling overlap regardless of composition mode.
+// one against the other.
+// Additive areas only add vegetation densities — they do not set role/mowable/
+// surface. Two additive siblings can safely overlap because their contributions
+// commute and no ambiguity arises. Only flag when at least one sibling is a
+// replace area (where overlap creates role/mowable/surface indeterminacy).
 function siblingSiblingErrors(siblings: Area[], siblingPath: string): string[] {
   const errors: string[] = [];
   for (let i = 0; i < siblings.length - 1; i += 1) {
     for (let j = i + 1; j < siblings.length; j += 1) {
       const a = siblings[i];
       const b = siblings[j];
+      const aIsAdditive = (a.composition ?? "replace") === "additive";
+      const bIsAdditive = (b.composition ?? "replace") === "additive";
+      if (aIsAdditive && bIsAdditive) {
+        continue;
+      }
       const aInB = shapeExtremals(a.shape).some(([x, z]) => containsPoint(b.shape, x, z));
       const bInA = shapeExtremals(b.shape).some(([x, z]) => containsPoint(a.shape, x, z));
       if (aInB || bInA) {
         errors.push(
           `${siblingPath}: areas "${a.id}" and "${b.id}" appear to overlap — ` +
-          `sibling areas must have non-overlapping footprints`,
+          `sibling areas with replace composition must have non-overlapping footprints`,
         );
       }
     }
