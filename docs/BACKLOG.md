@@ -127,6 +127,24 @@ want to inspect `lawn-maps.baked.json` in a browser JSON viewer remotely.
 
 ---
 
+### 6. Establish "LaMow Editor" name in new UI (5 min)
+
+**Why.** The forthcoming authoring tool covers maps, vegetation species, and mowers — not just
+maps. Calling it "LaMow Map Editor" would misname it from launch. See `docs/EDITOR_VISION.md`
+for the full rationale.
+
+**Task.** When building any editor UI title bar, window heading, or `<title>` element, use
+**LaMow Editor**, not "LaMow Map Editor." Also update one doc-only occurrence:
+
+| File | Line | Current | Replace with |
+|---|---|---|---|
+| `MAP_FORMAT_V1_DRAFT.md` | 6 | `"the current map editor format is a prototype"` | `"the current authored map format is a prototype"` |
+
+No code currently contains the phrase "LaMow Map Editor" — this is a proactive guard, not a
+fix. The rename costs 2 minutes and prevents a harder rename later.
+
+---
+
 ## Part 2 — Unaddressed issues (game + engine)
 
 Items already tracked in `MAP_FORMAT_TODO.md` are noted by section reference.
