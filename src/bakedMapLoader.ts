@@ -57,6 +57,15 @@ function hydrateMap(baked: BakedRuntimeMap): RuntimeMap {
 // codes, defaultMap — so config.ts can stay structurally unchanged.
 export function loadBakedMapPack() {
   const baked = rawBaked as unknown as BakedMapPack;
+
+  // Fire-and-forget dev staleness check. The dynamic import is inside the DEV
+  // guard so Vite tree-shakes the entire devMapStaleCheck module from prod builds.
+  if (import.meta.env.DEV) {
+    import("./devMapStaleCheck").then(({ checkBakedStaleness }) => {
+      checkBakedStaleness(baked);
+    });
+  }
+
   const maps = baked.maps.map(hydrateMap);
   const byCode = Object.fromEntries(maps.map((m) => [m.code, m])) as Record<string, RuntimeMap>;
   const parSeconds = Object.fromEntries(maps.map((m) => [m.code, m.parSeconds])) as Record<string, number>;
