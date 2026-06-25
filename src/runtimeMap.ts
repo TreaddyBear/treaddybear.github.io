@@ -222,10 +222,14 @@ function addSamples(base: AreaSample, addition: AreaSample): AreaSample {
 }
 
 function lerpSamples(from: AreaSample, to: AreaSample, amount: number): AreaSample {
+  // role/mowable/surface belong to whichever replace area spatially contains the point.
+  // lerpSamples is only called when the point IS inside the area (fade > 0), so the
+  // inner area's non-vegetation properties apply throughout the shape including the
+  // falloff band. Vegetation alone cross-fades across that band.
   const out: AreaSample = {
-    role: amount >= 0.5 ? to.role : from.role,
-    mowable: amount >= 0.5 ? to.mowable : from.mowable,
-    surface: amount >= 0.5 ? to.surface : from.surface,
+    role: to.role,
+    mowable: to.mowable,
+    surface: to.surface,
     densities: new Map(),
   };
   const types = new Set([...from.densities.keys(), ...to.densities.keys()]);
@@ -268,29 +272,42 @@ function resolveArea(area: Area, inherited: AreaSample, x: number, z: number): A
   return resolved;
 }
 
-export function sampleMapArea(map: RuntimeMap, x: number, z: number): AreaSample {
+export function sampleMapArea(map: RuntimeMap, x: number, z: number, fallback?: RuntimeMap): AreaSample {
   let sample = emptySample();
+  let hasReplace = false;
 
   for (const area of map.areas) {
     const resolved = resolveArea(area, emptySample(), x, z);
     if (resolved) {
-      sample = area.composition === "additive" ? addSamples(sample, resolved) : resolved;
+      if (area.composition === "additive") {
+        sample = addSamples(sample, resolved);
+      } else {
+        sample = resolved;
+        hasReplace = true;
+      }
     }
+  }
+
+  // No replace area in the active level covers this point — use the fallback (background
+  // level) as the base and layer any additive contributions from this map on top.
+  if (!hasReplace && fallback) {
+    return addSamples(sampleMapArea(fallback, x, z), sample);
   }
 
   return sample;
 }
 
-export function foliageDensityAt(map: RuntimeMap, type: string, x: number, z: number) {
-  return sampleMapArea(map, x, z).densities.get(type) ?? 0;
+export function foliageDensityAt(map: RuntimeMap, type: string, x: number, z: number, fallback?: RuntimeMap) {
+  return sampleMapArea(map, x, z, fallback).densities.get(type) ?? 0;
 }
 
 export function containsMowablePoint(map: RuntimeMap, x: number, z: number) {
+  // Intentionally no fallback: background areas are not mowable.
   return sampleMapArea(map, x, z).mowable;
 }
 
-export function surfaceAt(map: RuntimeMap, x: number, z: number) {
-  return sampleMapArea(map, x, z).surface;
+export function surfaceAt(map: RuntimeMap, x: number, z: number, fallback?: RuntimeMap) {
+  return sampleMapArea(map, x, z, fallback).surface;
 }
 
 export function signedDistanceToMowable(map: RuntimeMap, x: number, z: number) {
@@ -482,15 +499,22 @@ export function terrainHeightFromMaps(maps: RuntimeMap[], x: number, z: number) 
   return height;
 }
 
-function estimatedMowableArea(areas: Area[]) {
+function estimatedMowableArea(areas: Area[], parentMowable = false): number {
+  // Each replace area contributes (isMowable - parentIsMowable) * ownArea, so child
+  // beds nested inside a mowable lawn subtract their footprint rather than adding to it.
+  // Additive areas don't change mowability, so they pass the parent's flag through.
   let total = 0;
-  walkAreas(areas, (area) => {
+  for (const area of areas) {
     const defaults = roleDefaults(area.role);
     const mowable = area.mowable ?? defaults.mowable;
-    if (mowable) {
-      total += shapeArea(area.shape);
+    const isReplace = (area.composition ?? "replace") === "replace";
+    if (isReplace) {
+      total += ((mowable ? 1 : 0) - (parentMowable ? 1 : 0)) * shapeArea(area.shape);
+      total += estimatedMowableArea(area.children ?? [], mowable);
+    } else {
+      total += estimatedMowableArea(area.children ?? [], parentMowable);
     }
-  });
+  }
   return total;
 }
 
@@ -504,7 +528,7 @@ function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
   });
   const bedAreas = flatAreas.filter((area) => {
     const defaults = roleDefaults(area.role);
-    return (area.surface ?? defaults.surface) === "dirt" || area.role === "bed" || areaHasLayer(area, "tulip");
+    return area.role === "bed" || (area.surface ?? defaults.surface) === "dirt";
   });
   const vegetationAreas = flatAreas.filter((area) => area.vegetation.length > 0);
   const roads = (level.roads ?? []).map(toRuntimePath);
@@ -537,20 +561,30 @@ function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
           type,
         });
       } else if (layer.type === "clover") {
+        // grassKeep: how much grass remains inside this clover area. In v1 terms that is
+        // the area's own grass-layer density (0 = all clover, 1 = full grass underneath).
+        // This matches the legacy CloverPatch.grassKeep semantics when the parent lawn
+        // has density 1.0, which is the common case for all current levels.
+        const grassKeep = area.vegetation.find((entry) => entry.type === "grass")?.distribution.density ?? 0;
+        const center = shapeCenter(area.shape);
         if (area.shape.type === "circle") {
           cloverPatches.push({
-            x: area.shape.center[0],
-            z: area.shape.center[1],
+            x: center.x,
+            z: center.z,
             radius: area.shape.radius,
-            grassKeep: area.vegetation.find((entry) => entry.type === "grass")?.distribution.density ?? 0,
+            grassKeep,
             sourceArea: area,
           });
         } else {
+          // Non-circle: use an area-equivalent circle so instance count is preserved.
+          // The clover renderer still draws a circle shape, but at least the area budget
+          // (and therefore the number of instances) matches the authored footprint.
+          const equivalentRadius = Math.sqrt(Math.max(0, shapeArea(area.shape)) / Math.PI);
           cloverPatches.push({
-            x: bounds.center.x,
-            z: bounds.center.z,
-            radius: Math.max(0.1, Math.min(bounds.width, bounds.height) / 2),
-            grassKeep: area.vegetation.find((entry) => entry.type === "grass")?.distribution.density ?? 0,
+            x: center.x,
+            z: center.z,
+            radius: Math.max(0.1, equivalentRadius),
+            grassKeep,
             sourceArea: area,
           });
         }
@@ -577,7 +611,7 @@ function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
     shortCode: level.code,
     name: level.name,
     parSeconds: level.parSeconds,
-    spawn: new Vector3(level.spawn.position[0], 0.18, level.spawn.position[1]),
+    spawn: new Vector3(level.spawn.position[0], 0, level.spawn.position[1]),
     spawnHeadingDegrees: level.spawn.headingDegrees,
     areas,
     mowableAreas,
@@ -605,7 +639,9 @@ export function normalizeMapPack(pack: MapPackV1) {
   const byCode = Object.fromEntries(maps.map((map) => [map.code, map])) as Record<string, RuntimeMap>;
   const parSeconds = Object.fromEntries(maps.map((map) => [map.code, map.parSeconds])) as Record<string, number>;
   const codes = maps.map((map) => map.code);
-  return { maps, byCode, parSeconds, codes };
+  const defaultCode = pack.defaultLevelCode ? fullLevelCode(pack.pack.prefix, pack.defaultLevelCode) : undefined;
+  const defaultMap = defaultCode ? byCode[defaultCode] : undefined;
+  return { maps, byCode, parSeconds, codes, defaultMap };
 }
 
 export function shapeCenter(shape: AreaShape) {
