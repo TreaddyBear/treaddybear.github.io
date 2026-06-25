@@ -1397,6 +1397,119 @@
       "tags": []
     },
     {
+      "code": "vegtest",
+      "name": "Veg Test (debug only)",
+      "parSeconds": 9999,
+      "spawn": { "position": [0, 0], "headingDegrees": 90 },
+      "areas": [
+        {
+          "id": "sq01",
+          "kind": "area",
+          "role": "lawn",
+          "shape": { "type": "rectangle", "center": [-11, 11], "size": [20, 20] },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": { "type": "uniform", "density": 1 }
+            },
+            {
+              "id": "flowerBlue",
+              "type": "flowerBlue",
+              "distribution": {
+                "type": "perlin",
+                "density": 1.0,
+                "noise": {
+                  "seed": 7919,
+                  "octaves": [
+                    { "frequency": 0.07, "weight": 1 },
+                    { "frequency": 0.15, "weight": 0.25 }
+                  ],
+                  "domainWarp": 2.5,
+                  "threshold": 0.05,
+                  "softness": 0.50
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "sq02",
+          "kind": "area",
+          "role": "lawn",
+          "shape": { "type": "rectangle", "center": [11, 11], "size": [20, 20] },
+          "edgeFalloff": 0,
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": { "type": "uniform", "density": 1 }
+            },
+            {
+              "id": "flowerYellow",
+              "type": "flowerYellow",
+              "distribution": { "type": "uniform", "density": 0.7 }
+            }
+          ]
+        },
+        {
+          "id": "sq03",
+          "kind": "area",
+          "role": "lawn",
+          "shape": { "type": "rectangle", "center": [-11, -11], "size": [20, 20] },
+          "edgeFalloff": 0,
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": { "type": "uniform", "density": 0.5 }
+            }
+          ],
+          "children": [
+            {
+              "id": "sq03clover",
+              "kind": "area",
+              "composition": "replace",
+              "shape": { "type": "rectangle", "center": [-11, -11], "size": [16, 16] },
+              "edgeFalloff": 3.0,
+              "vegetation": [
+                {
+                  "id": "clover",
+                  "type": "clover",
+                  "distribution": { "type": "uniform", "density": 2.0 }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sq04",
+          "kind": "area",
+          "role": "lawn",
+          "shape": { "type": "rectangle", "center": [11, -11], "size": [20, 20] },
+          "edgeFalloff": 1.6,
+          "vegetation": [
+            {
+              "id": "grass",
+              "type": "grass",
+              "distribution": { "type": "uniform", "density": 1 }
+            },
+            {
+              "id": "flowerYellow",
+              "type": "flowerYellow",
+              "distribution": { "type": "uniform", "density": 0.7 }
+            }
+          ]
+        }
+      ],
+      "roads": [],
+      "dirtPaths": [],
+      "fences": [],
+      "objects": [],
+      "tags": ["vegtest", "debug"]
+    },
+    {
       "code": "background",
       "name": "Beta Green Background",
       "parSeconds": 9999,

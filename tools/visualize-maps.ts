@@ -29,8 +29,8 @@ mkdirSync(outDir, { recursive: true });
 // Config
 // ---------------------------------------------------------------------------
 
-const PX_PER_M = 6;    // pixels per metre
-const MAX_DIM  = 700;  // cap image dimensions at this many pixels
+const PX_PER_M = 20;    // pixels per metre (was 6)
+const MAX_DIM  = 1800;  // cap image dimensions at this many pixels (was 700)
 
 // Per-type dot colours for the scatter plot (RGBA)
 type RGBA = [number, number, number, number];
