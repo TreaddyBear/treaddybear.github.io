@@ -113,7 +113,25 @@ function point2(point, y = 0) {
 }
 
 function densityToSpacing(density) {
-  return Math.max(0.25, Number((0.5 / Math.max(0.01, density)).toFixed(3)));
+  if (density <= 0) {
+    return 0.6;
+  }
+  return Math.max(0.18, Number((0.5 / Math.sqrt(Math.max(0.01, density))).toFixed(3)));
+}
+
+// Approximate centroid: exact for circles/rectangles, vertex-average for polygons.
+function shapeCenter(shape) {
+  if (shape.type === "circle" || shape.type === "rectangle") {
+    return { x: shape.center[0], z: shape.center[1] };
+  }
+  const pts = shape.points ?? [];
+  if (pts.length === 0) {
+    return { x: 0, z: 0 };
+  }
+  return {
+    x: pts.reduce((sum, [x]) => sum + x, 0) / pts.length,
+    z: pts.reduce((sum, [, z]) => sum + z, 0) / pts.length,
+  };
 }
 
 function cubicBezier(start, c1, c2, end, t) {
@@ -208,10 +226,11 @@ function v1LevelToLegacyMap(pack, level) {
           grassKeep: layerDensity(area, "grass") || 0,
         });
       } else {
+        const center = shapeCenter(area.shape);
         cloverPatches.push({
-          x: (areaRect.xMin + areaRect.xMax) / 2,
-          z: (areaRect.zMin + areaRect.zMax) / 2,
-          radius: Math.min(areaRect.xMax - areaRect.xMin, areaRect.zMax - areaRect.zMin) / 2,
+          x: center.x,
+          z: center.z,
+          radius: Math.sqrt(shapeArea(area.shape) / Math.PI),
           grassKeep: layerDensity(area, "grass") || 0,
         });
       }
@@ -222,7 +241,7 @@ function v1LevelToLegacyMap(pack, level) {
     code: fullLevelCode(pack, level),
     name: level.name,
     parSeconds: level.parSeconds,
-    spawn: point2(level.spawn?.position, 0.18),
+    spawn: point2(level.spawn?.position, 0),
     segments,
     fenceSegments: (level.fences ?? []).flatMap((fence) => pathFenceSegments(fence.shape)),
     flowerBeds,
