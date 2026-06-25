@@ -249,4 +249,102 @@ edgeFalloff, which is an argument for keeping it consistent.
 
 ---
 
+## 3. Mowing score vs. decorative vegetation
+
+### What the code does
+
+Mow completion (the grass-percentage score that drives `grassPoints()` in `src/scoring.ts`) is
+tracked solely by `src/mowField.ts` + the per-blade `isMowed[]` array in `src/grass.ts`. The
+HUD completion fraction is `grass.mowedCount / grass.bladeCount`.
+
+Three other vegetation types respond to the mower spatially every frame (in `src/main.ts`
+lines 1551–1555) but are explicitly marked decorative with no scoring effect:
+
+```ts
+// Field flowers + clover mow away under the mower (decorative — no scoring).
+fieldFlowers.update(player.position.x, player.position.z, flowerMowRadiusSquared);
+cloverPatch.update(player.position.x, player.position.z, flowerMowRadiusSquared);
+```
+
+Dandelions also mow away (`dandelions.mowAt(…)` line 1551) with a full animation
+(stem shrink, head toss, seed scatter) but do not advance the score percentage.
+
+Tulips (`src/tulips.ts`) sit in `role: "bed"` (non-mowable) areas. The mower radius
+reaches them anyway, and hitting one increments `tulips.mistakeCount`, deducting from
+the final score via `mistakePenalty()`.
+
+The `role`/`mowable` area flags gate **grass-blade placement** (via `randomMowablePoint`)
+and **scoring geometry** (via `mowableAreas`). They do NOT gate whether flowers, clover,
+or dandelions respond to the mower — those respond purely on proximity, with no check of the
+enclosing area's `mowable` flag.
+
+Full analysis: see the mow investigation note appended to `docs/BACKLOG.md` and `main.ts`
+lines 1550–1565.
+
+### The open design question
+
+**Should cutting decorative vegetation in the mowable lawn affect the score or any secondary
+metric — or should it stay purely cosmetic?**
+
+Three options:
+
+---
+
+**Option D1 — Keep decorative-only (current behaviour)**
+
+Flowers, clover, and dandelions collapse visually when the mower passes but count for nothing.
+The player may not even notice they mowed a dandelion.
+
+*Pros:* Simple scoring model (grass % only); no design work needed; all existing scoring
+formulas stay untouched; no gameplay balance re-tuning.
+
+*Cons:* The richest visual events in the game (dandelion seed pop, flower collapse, clover mat
+disappearing) have zero mechanical weight. A player completing the level notices the flowers
+are gone but the score ignores it entirely. The visual feedback is orphaned from the loop.
+
+---
+
+**Option D2 — Add a secondary "tidiness" score for decorative vegetation**
+
+Introduce a second score axis (e.g., "garden score" or "tidiness %") that tracks how many
+decorative instances in the mowable zone have been cut. Display it separately — or fold it
+into the star thresholds as a bonus that can push a 2-star run to 3 stars.
+
+*Pros:* Rewards thorough mowing; gives the dandelion/flower animations mechanical meaning;
+creates a clearer skill ceiling (100% grass AND full tidiness = perfection).
+
+*Cons:* Two score axes are harder to communicate to the player; requires HUD design work;
+the existing `grassPoints + timePoints − mistakePenalty` formula needs a fourth term; balance
+needs re-tuning across all levels. The bake pipeline would need stable per-instance IDs to
+track which instances were mowed (currently non-deterministic — see `docs/BACKLOG.md §A2`).
+
+---
+
+**Option D3 — Count decorative vegetation toward the existing grass completion %**
+
+Treat clover leaves, flowers, and dandelions as additional "grass" for scoring purposes.
+Each mowed decorative instance advances the same `mowedCount / totalCount` fraction.
+
+*Pros:* Single score axis preserved; no HUD redesign; gives vegetation mowing mechanical
+weight without new UI.
+
+*Cons:* The grass % would now include items the player doesn't naturally think of as grass
+(a mowed flower advances "lawn done %"). Clover patches thin grass and restore blade count
+elsewhere (by design — see `grass.ts:469–472`), so mixing the two populations distorts the
+completion denominator. The mow score would become harder to predict and explain. Requires
+per-instance stable IDs across loads for decorative types (same BACKLOG §A2 dependency).
+
+---
+
+**Interaction with the tulip mismatch**
+
+Tulips are the sharpest variant: they sit in non-mowable (`role: "bed"`) areas, the mower
+reaches them, and hitting one is a *mistake*. That behaviour is intentional and unlikely to
+change. Any option above that adds a positive score for decorative mowing should explicitly
+carve out tulips (and any future `bed`-area obstacles) so they remain penalty-only.
+
+**Decision is T's — do not implement any of the above options without explicit direction.**
+
+---
+
 *Analysis generated 2026-06-25. No runtime behavior was modified.*
