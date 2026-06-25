@@ -20,6 +20,7 @@ import {
   randomPointInShape,
   shapeArea,
   shapeBounds,
+  shapeCenter,
   signedDistanceToShapeEdge,
 } from "./utils/shapes";
 
@@ -644,13 +645,3 @@ export function normalizeMapPack(pack: MapPackV1) {
   return { maps, byCode, parSeconds, codes, defaultMap };
 }
 
-export function shapeCenter(shape: AreaShape) {
-  if (shape.type === "circle" || shape.type === "rectangle") {
-    return { x: shape.center[0], z: shape.center[1] };
-  }
-  const points = shape.points.length ? shape.points : [[0, 0] as Point2];
-  return {
-    x: points.reduce((sum, [x]) => sum + x, 0) / points.length,
-    z: points.reduce((sum, [, z]) => sum + z, 0) / points.length,
-  };
-}

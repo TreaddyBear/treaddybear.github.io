@@ -220,6 +220,20 @@ export function pathBounds(shape: PathShape, curveSteps = 16): Bounds2 {
   return boundsFromPoints(pathToPolyline(shape, curveSteps));
 }
 
+// Returns the geometric centre of a shape: the exact centre for circles and
+// rectangles, the vertex average for polygons (a centroid approximation that
+// is exact for regular polygons and good enough for convex authoring shapes).
+export function shapeCenter(shape: AreaShape): { x: number; z: number } {
+  if (shape.type === "circle" || shape.type === "rectangle") {
+    return { x: shape.center[0], z: shape.center[1] };
+  }
+  const points = shape.points.length > 0 ? shape.points : ([[0, 0]] as Point2[]);
+  return {
+    x: points.reduce((sum, [px]) => sum + px, 0) / points.length,
+    z: points.reduce((sum, [, pz]) => sum + pz, 0) / points.length,
+  };
+}
+
 export function distanceToPath(shape: PathShape, x: number, z: number, curveSteps = 16): number {
   const points = pathToPolyline(shape, curveSteps);
   if (points.length < 2) {
