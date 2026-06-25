@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "preview:lan": "vite preview --host 0.0.0.0",
     "bake": "tsx tools/bake-maps.ts",
+    "viz": "tsx tools/visualize-maps.ts",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "dependencies": {

@@ -128,6 +128,35 @@ edits MAP_FORMAT_V1_DRAFT.md.
 
 ---
 
+## Vegetation population pipeline
+
+- [x] **Tiered unified-categorical sampler** (`tools/vegetation-sampler.ts`): deterministic
+  Bridson Poisson-disk with variable radius `r = minSpacing / √min(T, 8)`. Density field
+  computation mirrors `runtimeMap.ts` exactly (smoothstep edgeFalloff, distributionAmount,
+  resolveArea, lerpDens/addDens). Two tiers: flowers (0.45 m), groundcover (0.30 m).
+  One Bridson pass per contributing area — handles disconnected patches (showcase's three
+  separate flower squares) correctly. Tier 1 positions feed Tier 2 as exclusion zones.
+  Seeded LCG (per-level × per-tier, 32-bit hash of levelCode XOR tierIndex).
+
+- [x] **`BakedInstance` type** (`src/bakedMapFormat.ts`): `{x, z, type, index}`. Added to
+  `BakedRuntimeMap.bakedInstances` and threaded through `runtimeMap.ts` and `bakedMapLoader.ts`.
+  `normalizeLevel` (dev path) returns `bakedInstances: []`. Engine wiring is the next phase.
+
+- [x] **Baker integration** (`tools/bake-maps.ts`): calls `computeAllTierInstances` per level;
+  background level (>4 km² bbox) skipped automatically. `pnpm bake` produces per-level instance
+  lists in the baked artifact.
+
+- [x] **Visual debug output** (`tools/visualize-maps.ts`, `tools/png-writer.ts`): zero external
+  deps (pure Node.js zlib). Generates per-level: density heatmap per veg type (tinted by type
+  colour), summed T field heatmap, scatter plot (dark-green bg, dots coloured by type, area
+  outlines in white/amber). Run with `pnpm viz`; outputs to `map-exports/debug/*.png`.
+
+- [ ] **Engine wiring** (future phase): wire `bakedInstances` into the three-renderer path
+  (flowers, clover, dandelion). Remove or demote the existing `flowerFields`, `cloverPatches`,
+  `dandelionCount` flat arrays once the tiered instances fully replace them.
+
+---
+
 ## This session's commits (context for whoever picks this up next)
 
 These four commits landed locally on the `dev` branch and have **not been
