@@ -92,6 +92,9 @@ export type BakedRuntimeMap = {
 
 export type BakedMapPack = {
   bakedVersion: 1;
+  // FNV-1a hash of JSON.stringify(parsed authored source) at bake time.
+  // Compared at dev startup to detect edits to lawn-maps.json without a rebake.
+  sourceHash: string;
   defaultLevelCode?: string;
   maps: BakedRuntimeMap[];
 };

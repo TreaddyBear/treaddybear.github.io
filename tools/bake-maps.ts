@@ -286,13 +286,25 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1): BakedRuntimeMap {
   };
 }
 
-function bakeMapPack(pack: MapPackV1): BakedMapPack {
+// FNV-1a 32-bit hash — fast, dependency-free, deterministic across V8
+// (Node.js and browser). Used to detect stale baked artifacts at dev startup.
+// Same implementation must be used in src/devMapStaleCheck.ts.
+function fnv1a(str: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash ^ str.charCodeAt(i)) * 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function bakeMapPack(pack: MapPackV1, sourceHash: string): BakedMapPack {
   const maps = pack.levels.map((level) => bakeLevel(pack.pack, level));
   const defaultCode = pack.defaultLevelCode
     ? fullLevelCode(pack.pack.prefix, pack.defaultLevelCode)
     : undefined;
   return {
     bakedVersion: 1,
+    sourceHash,
     defaultLevelCode: defaultCode,
     maps,
   };
@@ -308,10 +320,14 @@ const outputPath = resolve(__dirname, "../map-exports/lawn-maps.baked.json");
 
 const raw = JSON.parse(readFileSync(sourcePath, "utf-8")) as MapPackV1;
 
+// Hash the parsed source (JSON.stringify normalises whitespace/formatting)
+// so the dev-time staleness check can detect edits without re-baking.
+const sourceHash = fnv1a(JSON.stringify(raw));
+
 // Validate — exits loudly if the source is malformed.
 assertMapPackValid(raw);
 
-const baked = bakeMapPack(raw);
+const baked = bakeMapPack(raw, sourceHash);
 
 writeFileSync(outputPath, JSON.stringify(baked, null, 2), "utf-8");
 
