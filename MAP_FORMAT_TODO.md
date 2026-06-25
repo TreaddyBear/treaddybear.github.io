@@ -73,16 +73,22 @@ document; update it when items close or new ones surface.
 
 ## Bucket 2 — Spec hygiene (doc edits in `MAP_FORMAT_V1_DRAFT.md`, not code)
 
-- [ ] **Resolve `edgeFalloff` math** — currently marked provisional ("Exact
-  falloff math is provisional until validated in-engine" appears in both the
-  Distribution and Areas → Composition sections). Pin the formula once the
-  engine behavior is confirmed so editor preview can match it exactly.
+See **[docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md)** for full analysis and proposed
+resolutions for both items below. Checkboxes stay open until T accepts a resolution and
+edits MAP_FORMAT_V1_DRAFT.md.
 
-- [ ] **Resolve terrain `max-height-wins` behavior** — spec says "Terrain hill
-  behavior is still marked for revision before v1 ships. The current direction is
-  max-height-wins, but the exact contribution/falloff formula needs engine
-  validation." Confirm the formula, update the Terrain section, and remove the
-  provisional note.
+- [ ] **Resolve `edgeFalloff` math** — formula confirmed as
+  `smoothstep01(signedDistToEdge / edgeFalloff) × density`. Three spec
+  clarifications proposed: name the smoothstep curve; document that
+  role/mowable/surface snap at shape boundary (not at vegetation transition);
+  note polygon SDF approximation. See `docs/OPEN_QUESTIONS.md §1`.
+
+- [ ] **Resolve terrain `max-height-wins` behavior** — formula confirmed as
+  `max(feature.height × smoothstep01(distToEdge / falloff))` over all features.
+  Two decisions still open: how to define `height` when `falloff ≥ shape_inradius`
+  (Option A1 vs. A2 in the doc), and whether to add a validator warning for that
+  case (Option B1 vs. B2). Max-wins multi-feature is already spec'd as intent and
+  confirmed. See `docs/OPEN_QUESTIONS.md §2`.
 
 - [x] **`objects: []`** — DECIDED (2026-06-24 session): stays in the spec as an
   intentional future placeholder. No schema defined in v1; the array is kept
