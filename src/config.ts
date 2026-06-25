@@ -1,14 +1,13 @@
 import { Vector3 } from "@babylonjs/core";
-import { mapPack } from "./mapData";
-import {
-  normalizeMapPack,
-  type CloverPatch,
-  type FenceSegment,
-  type FlowerBed,
-  type FlowerField,
-  type FlowerVariant,
-  type RuntimeMap,
-  type RuntimeSegment,
+import { loadBakedMapPack } from "./bakedMapLoader";
+import type {
+  CloverPatch,
+  FenceSegment,
+  FlowerBed,
+  FlowerField,
+  FlowerVariant,
+  RuntimeMap,
+  RuntimeSegment,
 } from "./runtimeMap";
 
 export const playerSpeed = 1.65;
@@ -202,7 +201,7 @@ type LawnLevels = {
   settings: LawnLevelSettings;
 } & Record<string, LawnMap>;
 
-const normalizedMaps = normalizeMapPack(mapPack);
+const normalizedMaps = loadBakedMapPack();
 
 // Level codes are durable save/tuning keys. Display names can change freely.
 export const levelCodes: LevelCode[] = normalizedMaps.codes;
