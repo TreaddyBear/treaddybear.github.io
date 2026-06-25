@@ -155,7 +155,7 @@ const maps = Object.entries(lawnLevels)
   });
 
 const exportJson = {
-  version: 1,
+  version: 0,
   maps,
 };
 

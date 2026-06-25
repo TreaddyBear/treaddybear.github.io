@@ -14,8 +14,13 @@ function option(name, fallback) {
 const outPath = path.resolve(option("--out", "map-exports/lawn-levels.generated.ts"));
 const exportJson = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 
-if (exportJson.version !== 1 || !Array.isArray(exportJson.maps)) {
-  throw new Error("Expected { version: 1, maps: [...] }");
+if (exportJson.version === 1) {
+  throw new Error(
+    "This file claims version: 1 (v1 spec format). This tool reads pre-v1 (version: 0) files only. Use a v1 importer for v1 files.",
+  );
+}
+if (exportJson.version !== 0 || !Array.isArray(exportJson.maps)) {
+  throw new Error("Expected { version: 0, maps: [...] }");
 }
 
 function num(value) {
