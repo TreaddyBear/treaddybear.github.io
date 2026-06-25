@@ -232,7 +232,158 @@ point. Fixed total count; density shapes the spatial distribution. Also non-dete
 
 ---
 
-## 5. [PROPOSED] — Bake-time precompute and stable identity
+## 5. Methods comparison: population algorithm options
+
+Five strategies for distributing instances across a density field, with honest tradeoffs.
+Method 3 is implemented in `tools/vegetation-sampler.ts` and is the recommended path.
+
+---
+
+### Method 1 — N independent stipple passes (naive)
+
+Run a separate placement pass for each vegetation type, treating each type's density layer
+as if the others do not exist.
+
+**How it works**: for each type, iterate a grid or random set of candidates; accept a
+candidate with probability proportional to `d_i(x,z)`.
+
+**Flaws for multi-layer scenes**:
+
+1. **Collisions.** A blue flower and a red flower can occupy the same position, or be
+   placed so close together they visually overlap. Each pass is blind to the others.
+
+2. **Double-counted space.** Where two types have high density, both see the full grid of
+   candidates. Their combined instance count is the sum of the two independent counts
+   rather than the combined count that the total density T = d₁ + d₂ would naturally
+   produce. The result is artificially crowded where layers overlap.
+
+3. **Order-dependence.** If blue is placed before red, and the grid uses jitter, blue
+   might claim positions that would otherwise go to red. The output changes if you swap
+   the processing order.
+
+4. **Non-deterministic from ordering.** Stable positions require locking the per-type
+   seed. If you add a new type, all other types' seeds must shift to keep existing saves
+   valid.
+
+**Verdict**: Works for a single type in isolation. Breaks in multi-layer scenes.
+
+---
+
+### Method 2 — Unified blue-noise + per-point categorical draw
+
+Sum all layers at each point into a single total density field T(x,z) = Σᵢ dᵢ(x,z).
+Generate one blue-noise point set using T to control local spacing. For each placed point
+p, draw its type from the categorical distribution P(type=i | p) = dᵢ(p) / T(p).
+
+**Properties**:
+- **No collisions**: one point set, one type per point — two instances can never occupy the
+  same position.
+- **Expected count of type i** ∝ ∫ dᵢ(x,z) dx dz — types compete fairly for space.
+- **Natural competition**: where blue and red overlap, points are split proportionally. Where
+  only blue exists, every point is blue.
+- **Deterministic and bakeable**: same seed → same point positions and same type draws.
+- **Blue-noise quality**: local spacing ∝ 1/√T means dense regions are tighter, sparse
+  regions more open — always as uniform as the density allows.
+
+**Remaining issue**: fine (dense, small) types and coarse (sparse, large) types share the
+same point set. The spacing is driven by whichever type has the highest local T. A clover
+patch (dense) inside a flower bed (sparse) forces the sampler to use fine spacing in the
+overlap, generating many close flower candidates that still compete for the coarser flower
+slots. The blue-noise quality for the coarse tier degrades.
+
+**Verdict**: Correct. Works well when all types are at the same visual scale. Degrades for
+mixed-scale scenes.
+
+---
+
+### Method 3 — Tiered unified-categorical ⟵ RECOMMENDED
+
+Group vegetation types into **scale tiers** (e.g., 2–3 groups by feature size), run
+Method 2 independently within each tier, and composite the tiers by subtracting the
+coarser tier's footprints from the finer tier's density field before sampling.
+
+**Tiers used in this project**:
+
+| Tier | Types | Min spacing |
+|---|---|---|
+| Flower (coarse) | flowerBlue, flowerWhite, flowerYellow, flowerRed, tulip | 0.45 m |
+| Ground cover (fine) | clover, dandelion | 0.30 m |
+| Grass | managed by blade system (fixed budget) | N/A |
+
+**Algorithm**:
+1. Sample the **flower tier** first. Collect all placed positions.
+2. Add flower positions as "pre-occupied" exclusion points when sampling the **ground
+   cover tier**. Ground cover candidates within 0.30 m of any flower are rejected.
+3. Each tier produces a typed instance list. Concatenate into the final output.
+
+**Properties**:
+- Inherits all benefits of Method 2 within each tier.
+- Flowers and ground cover are never collocated within the finer tier's minimum spacing.
+- The flower tier's blue-noise quality is not distorted by clover density: they live in
+  separate point sets.
+- Visual scale separation matches biological intuition — clover doesn't grow right at the
+  base of a flower stem.
+- Still deterministic and bakeable.
+
+**Trade-off**: slightly more complex to implement; the tier boundaries (what goes in which
+tier) are an authoring choice that must be documented.
+
+**Verdict**: Best overall quality for a multi-scale scene. Implemented.
+
+---
+
+### Method 4 — Blue-noise-mask / dithered importance sampling
+
+Precompute a fixed Halton, Sobol, or blue-noise tile of points over the unit square.
+Scale and tile it to cover the area. For each point in the tile, keep it if
+`random() < d_i(x,z) / d_max` (importance sampling), discard otherwise. Repeat per type.
+
+**Pros**: essentially O(1) setup (no active-list iteration); predictable point count;
+easy to implement.
+
+**Cons**:
+- The tile is uniform — the blue-noise quality is constant regardless of density. Dense
+  regions get the same inter-point distances as sparse regions instead of adapting.
+- Per-type: inherits the collision and double-counting problems of Method 1 unless a
+  unified categorical draw is added, at which point you recover Method 2 but with a
+  non-adaptive point set.
+- Tiling artifacts can appear if the tile period doesn't match the authored feature scale.
+
+**Verdict**: Fast and simple for homogeneous density fields. Suboptimal quality for
+large density variation or multi-scale scenes.
+
+---
+
+### Method 5 — Adaptive Poisson-disk (Bridson, variable radius)
+
+This is the **position generator** used inside Methods 2 and 3 — it is not a separate
+placement strategy but a component.
+
+**Algorithm** (Bridson 2007, extended to variable radius):
+1. Choose a global minimum radius `r_min` (the minimum possible spacing).
+2. Build a background grid with cell size `r_min / √2`.
+3. Start with one seed point. Add it to an "active" list.
+4. While active list non-empty:
+   - Pick a random active point `p`.
+   - Try `k=30` random candidates in the annulus `[r(p), 2r(p)]` around `p`,
+     where `r(p) = min_spacing / √T(p)` is the local target radius.
+   - Accept a candidate `q` if no accepted point is within `r(q)` of `q` (checked via grid).
+   - If no valid candidate found after k tries, remove `p` from active list.
+5. Return all accepted points.
+
+**Complexity**: O(n) time and space, where n is the number of placed points.
+
+**Properties**: provably no two accepted points are within their respective target radius
+of each other; guarantees maximal packing relative to the density field.
+
+**Trade-offs vs. greedy dart throwing**: Bridson is faster (O(n) vs. O(n²) for dart
+throwing). Greedy dart throwing starts from the highest-density points, which can produce
+marginally better initial coverage but is slower. For bake-time (not real-time), both are
+acceptable; Bridson was chosen for its O(n) guarantee.
+
+---
+
+## 6. [PROPOSED] — Bake-time precompute and stable identity
 
 ### Motivation
 
@@ -299,6 +450,8 @@ frame the tradeoff before implementation begins.
 
 ---
 
-*Written 2026-06-25. Sections marked [PROPOSED] are design directions, not implemented
-code. Verify current behavior against `src/runtimeMap.ts`, `src/fieldFlowers.ts`,
-`src/cloverPatch.ts`, and `src/grass.ts` before implementing.*
+*Written 2026-06-25; methods section added 2026-06-25. Sections marked [PROPOSED] are
+design directions, not implemented code. Section 5 (tiered unified-categorical) is
+implemented in `tools/vegetation-sampler.ts`. Verify current runtime behavior against
+`src/runtimeMap.ts`, `src/fieldFlowers.ts`, `src/cloverPatch.ts`, and `src/grass.ts`
+before rewiring engine consumers.*
