@@ -28,12 +28,19 @@ document; update it when items close or new ones surface.
   the clover renderer is rewritten to consume `sampleMapArea` directly (see
   above), both fields can be dropped from the type.
 
-- [ ] **Add a real validator.** One function that checks a parsed map pack
-  against the spec: child areas fully contained within their parent, no sibling
-  overlap, all `vegetation.type` values present in the foliage registry, no
-  duplicate `id` values within a level. `tools/export-maps.mjs` already has
-  partial structural validation to build from; the containment and overlap checks
-  are the gap.
+- [x] **Add a real validator.** `src/mapValidator.ts` — `validateMapPack()`
+  returns a list of error strings; `assertMapPackValid()` throws on any error.
+  Checks: version field, prefix present, level code uniqueness, area ID
+  uniqueness (within each level tree), vegetation layer ID uniqueness (within
+  each area), all `vegetation.type` values in the foliage registry, density ≥ 0
+  and < 10, Perlin softness > 0, octaves non-empty, edgeFalloff ≥ 0, road/path
+  widths and fence heights > 0, heightFeature falloff > 0,
+  `defaultLevelCode` resolves to an existing level, area containment (boundary
+  samples of child inside parent, 0.5% inset to avoid float false-positives),
+  and sibling overlap (boundary samples of one sibling not inside another).
+  Wired into `src/mapData.ts` at startup — fails loudly on malformed data.
+  *(Geometric checks approximate: false negatives possible for edge crossings
+  without vertex containment; false positives are suppressed by the inset.)*
 
 - [ ] **Visual check (in-game).** Two changes from the 2026-06-24–25 session
   need eyes on them before being considered done:
@@ -83,6 +90,21 @@ document; update it when items close or new ones surface.
 
 ---
 
+## Additional completed items (not in original buckets)
+
+- [x] **Move `shapeCenter` to `utils/shapes.ts`.** It is a shape-geometry
+  utility with no business being in `runtimeMap.ts`. Moved and re-exported from
+  the correct module; `runtimeMap.ts` imports it alongside the rest of the shape
+  helpers.
+
+- [x] **Fix `import-maps.mjs` legacy divergences** (see commit `45e6671`):
+  `densityToSpacing` formula aligned with runtime (`0.5/√density`, min 0.18);
+  non-circle clover center now uses `shapeCenter` (vertex-average) instead of
+  bounding-box midpoint; non-circle clover radius now uses area-equivalent
+  `√(area/π)` instead of inscribed-circle-from-bounds; spawn Y changed 0.18→0.
+
+---
+
 ## This session's commits (context for whoever picks this up next)
 
 These four commits landed locally on the `dev` branch and have **not been
@@ -94,3 +116,6 @@ pushed** as of 2026-06-25:
 | `874ee77` | Fix six `runtimeMap.ts` correctness bugs (`lerpSamples`, `bedAreas`, `estimatedMowableArea`, clover radius, `grassKeep` comment, spawn Y); add `fallback`-capable sample API |
 | `d7ca9b6` | Add default background level for outer-world authored content — `bgrnBackground` level with Perlin grass and authored conceal-hill height feature; remove hardcoded hill formula from `world.ts`; wire `defaultLawnMap` through `config.ts`, `grass.ts`, `main.ts` |
 | `619d60c` | Wire grass overlay mask to authored background density — `grassMaskValue` now reads `foliageDensityAt(activeMap, "grass", x, z, defaultLawnMap)` instead of a hardcoded `distanceToAnyLawn` fade; remove dead `grassOverlayAlpha` |
+| `383028c` | Add map-pack validator (`src/mapValidator.ts`) and wire into `src/mapData.ts` at startup |
+| `596b0c6` | Move `shapeCenter` from `runtimeMap.ts` to `utils/shapes.ts` |
+| `45e6671` | Fix three legacy divergences in `tools/import-maps.mjs` (densityToSpacing, non-circle clover, spawn Y) |
