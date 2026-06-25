@@ -1,4 +1,7 @@
 import rawMapPack from "../map-exports/lawn-maps.json";
 import type { MapPackV1 } from "./mapFormat";
+import { assertMapPackValid } from "./mapValidator";
 
-export const mapPack = rawMapPack as unknown as MapPackV1;
+const pack = rawMapPack as unknown as MapPackV1;
+assertMapPackValid(pack);
+export const mapPack = pack;
