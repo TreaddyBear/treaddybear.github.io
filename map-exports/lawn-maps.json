@@ -1427,8 +1427,8 @@
                     { "frequency": 1.20, "weight": 0.40 }
                   ],
                   "domainWarp": 0.7,
-                  "threshold": 0.42,
-                  "softness": 0.12
+                  "threshold": 0.38,
+                  "softness": 0.22
                 }
               }
             }
@@ -1441,7 +1441,7 @@
           "shape": {
             "type": "polygon",
             "points": [
-              [20.5, 11], [15.75, 19.23], [6.25, 19.23],
+              [20.5, 11], [15.75, 19.23], [11, 11], [6.25, 19.23],
               [1.5, 11], [6.25, 2.77], [15.75, 2.77]
             ]
           },
@@ -1477,7 +1477,7 @@
               "id": "sq03clover",
               "kind": "area",
               "composition": "replace",
-              "shape": { "type": "rectangle", "center": [-11, -11], "size": [16, 16] },
+              "shape": { "type": "circle", "center": [-11, -11], "radius": 7 },
               "edgeFalloff": 3.0,
               "vegetation": [
                 {
@@ -1504,6 +1504,11 @@
             {
               "id": "flowerYellow",
               "type": "flowerYellow",
+              "distribution": { "type": "uniform", "density": 0.7 }
+            },
+            {
+              "id": "flowerRed",
+              "type": "flowerRed",
               "distribution": { "type": "uniform", "density": 0.7 }
             }
           ]
