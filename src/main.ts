@@ -28,7 +28,6 @@ import {
   playerFenceRadius,
   settings,
   showcaseLevelCode,
-  yardSegments,
 } from "./config";
 import type { YardSegment } from "./config";
 import type { RockCollider } from "./types";
@@ -54,7 +53,6 @@ import { createCloudShadows } from "./cloudShadows";
 import { createMenu } from "./menu";
 import { createMowerControl } from "./mowerControl";
 import { renderingGroups } from "./renderOrder";
-import { isInsideSegments } from "./utils/yard";
 import {
   biomeHomeAmount,
   createBiomeGroundMaterial,
@@ -65,12 +63,14 @@ import {
   createWorldTerrain,
   fenceDirtAmountAt,
   roadVergeDirt,
+  roadSurfaceAt,
   flowerBedHeightAt,
   sampledTerrainHeightAt,
   terrainHeightAt,
   updateBiomeGroundMaterialScale,
 } from "./world";
 import { getLevelBestStars, getMenuPreferences, recordLevelStars, setMenuPreference } from "./localSettings";
+import { containsMowablePoint, surfaceAt } from "./runtimeMap";
 
 const canvasElement = document.querySelector<HTMLCanvasElement>("#renderCanvas");
 const scoreElement = document.querySelector<HTMLDivElement>("#score");
@@ -345,11 +345,11 @@ function updateSecretGunPickup() {
 }
 
 function isInsideYard(x: number, z: number) {
-  return isInsideSegments(yardSegments, x, z);
+  return containsMowablePoint(getActiveMap(), x, z);
 }
 
-function isOnRoad(x: number) {
-  return x > 11.8 && x < 17.2;
+function isOnRoad(x: number, z: number) {
+  return roadSurfaceAt(x, z) > 0.5;
 }
 
 // Pop a big red-orange "x" (matching the accident HUD marks) at the world point
@@ -409,17 +409,11 @@ function showIntroHints() {
 }
 
 function flowerBedDirtAmountAt(x: number, z: number) {
-  for (const bed of getActiveMap().flowerBeds) {
-    if (x >= bed.xMin && x <= bed.xMax && z >= bed.zMin && z <= bed.zMax) {
-      return 1;
-    }
-  }
-
-  return 0;
+  return surfaceAt(getActiveMap(), x, z) === "dirt" ? 1 : 0;
 }
 
 function dirtAmountAt(x: number, z: number) {
-  if (isOnRoad(x)) {
+  if (isOnRoad(x, z)) {
     return 0;
   }
 
@@ -532,10 +526,10 @@ function groundHeightAt(x: number, z: number) {
   }
 
   if (isInsideYard(x, z)) {
-    return 0;
+    return Math.max(0, sampledTerrainHeightAt(x, z) - 0.08);
   }
 
-  if (isOnRoad(x)) {
+  if (isOnRoad(x, z)) {
     return 0.006;
   }
 
@@ -637,8 +631,12 @@ function resetGame() {
   const isShowcase = getActiveLevelCode() === showcaseLevelCode;
   treesRoot.setEnabled(!isShowcase);
   rocksRoot.setEnabled(!isShowcase);
-  roadRoot.setEnabled(!isShowcase);
-  roadDirt.overlay.setEnabled(!isShowcase);
+  roadRoot.dispose(false, true);
+  roadDirt.overlay.dispose(false, true);
+  roadRoot = createRoad(scene, roadMaterial, stripeMaterial, getActiveMap());
+  roadDirt = createRoadDirtOverlay(scene, getActiveMap());
+  roadRoot.setEnabled(getActiveMap().roads.length > 0);
+  roadDirt.overlay.setEnabled(getActiveMap().roads.length > 0 || getActiveMap().dirtPaths.length > 0);
   player.setEnabled(!isShowcase);
   cloudShadows.setEnabled(isShowcase);
   hud.resetCelebration();
@@ -704,7 +702,7 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
     || fence.isNearBrokenOpening(nextPosition.x, nextPosition.z);
   const steepTerrainHit = !crossingBrokenOpening
     && !isInsideYard(nextPosition.x, nextPosition.z)
-    && !isOnRoad(nextPosition.x)
+    && !isOnRoad(nextPosition.x, nextPosition.z)
     && slope > 0.72;
 
   if (fenceHit.index < 0 && rockHit.index < 0 && !steepTerrainHit) {
@@ -1085,8 +1083,8 @@ const scenery = createSceneryRocks(scene, materials, shadowGenerator);
 const rocksRoot = scenery.root;
 rockColliders.push(...scenery.colliders);
 
-const roadRoot = createRoad(scene, roadMaterial, stripeMaterial);
-const roadDirt = createRoadDirtOverlay(scene);
+let roadRoot = createRoad(scene, roadMaterial, stripeMaterial, getActiveMap());
+let roadDirt = createRoadDirtOverlay(scene, getActiveMap());
 secretGunRoot = createHiddenGunProp();
 
 player = MeshBuilder.CreateBox("player", { size: 1 }, scene);

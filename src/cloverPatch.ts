@@ -2,6 +2,8 @@ import { Matrix, Mesh, Scene, VertexData } from "@babylonjs/core";
 import { getActiveMap } from "./config";
 import { cloverAmountAt } from "./cloverField";
 import type { Materials } from "./materials";
+import { foliageDensityAt } from "./runtimeMap";
+import { shapeBounds } from "./utils/shapes";
 
 export type CloverPatch = ReturnType<typeof createCloverPatch>;
 
@@ -113,13 +115,14 @@ export function createCloverPatch(
       }
       const spacing = 1 / Math.sqrt(perSqm);
       const jitter = spacing * 0.85; // organic, less grid-like
+      const map = getActiveMap();
       for (const patch of patches) {
-        const reach = patch.radius * 1.5; // covers the noise-wobbled bulges
-        for (let x = patch.x - reach; x <= patch.x + reach; x += spacing) {
-          for (let z = patch.z - reach; z <= patch.z + reach; z += spacing) {
+        const bounds = shapeBounds(patch.sourceArea.shape);
+        for (let x = bounds.xMin; x <= bounds.xMax; x += spacing) {
+          for (let z = bounds.zMin; z <= bounds.zMax; z += spacing) {
             const cx = x + ((Math.random() - 0.5) * 2 * jitter);
             const cz = z + ((Math.random() - 0.5) * 2 * jitter);
-            const amount = cloverAmountAt([patch], cx, cz);
+            const amount = Math.max(cloverAmountAt([patch], cx, cz), foliageDensityAt(map, "clover", cx, cz));
             const keep = (amount ** 1.35) * (isLarge ? 0.72 : 1);
             if (Math.random() > keep) {
               continue;

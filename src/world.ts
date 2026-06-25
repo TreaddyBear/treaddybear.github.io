@@ -15,12 +15,21 @@ import {
   Vector2,
   Vector3,
 } from "@babylonjs/core";
-import { lawnMaps, settings } from "./config";
+import { allLawnMaps, getActiveMap, settings } from "./config";
 import type { FenceSegment, LawnMap } from "./config";
 import { alphaSortOrder, renderingGroups } from "./renderOrder";
 import { valueNoise } from "./utils/noise";
 import { distanceToSegment } from "./utils/geometry";
 import { createRoadFileTexture, createRoadStripeAtlasTexture, dirtGroundTextureUrl, grassyGroundTextureUrl } from "./textures";
+import {
+  pathGrassAmount,
+  roadSurfaceAmount,
+  roadVergeDirtAmount,
+  signedDistanceToMowable,
+  terrainHeightFromMaps,
+  type RuntimePathFeature,
+} from "./runtimeMap";
+import { shapeBounds, signedDistanceToShapeEdge } from "./utils/shapes";
 
 function smoothstep01(value: number) {
   const t = Math.max(0, Math.min(1, value));
@@ -84,37 +93,30 @@ export function sampledTerrainHeightAt(x: number, z: number) {
 }
 
 export function terrainHeightAt(x: number, z: number) {
-  const distanceFade = smoothstep01((distanceToMainYardBounds(x, z) - 10) / 54);
-  const roadFade = smoothstep01(Math.max(0, Math.abs(x - ROAD_CENTER_X) - 4.2) / 8);
+  const authoredHeight = terrainHeightFromMaps(allLawnMaps, x, z);
+  const distanceFade = smoothstep01((distanceToAnyLawn(x, z) - 10) / 54);
+  const roadFade = roadGrassAmount(x, z);
   const broad = valueNoise((x * 0.035) + 12, (z * 0.035) - 8) - 0.5;
   const mid = valueNoise((x * 0.095) - 4, (z * 0.095) + 19) - 0.5;
   const rolling = ((broad * 6.8) + (mid * 1.9)) * distanceFade * roadFade;
   const concealDx = x + 25.5;
   const concealDz = z + 16.5;
   const concealHill = Math.max(0, 1 - (((concealDx * concealDx) / 74) + ((concealDz * concealDz) / 34)));
-  return rolling + (concealHill * concealHill * 4.1);
+  return Math.max(authoredHeight, rolling + (concealHill * concealHill * 4.1));
 }
 
 function distanceToAnyLawn(x: number, z: number) {
   let closest = Number.POSITIVE_INFINITY;
 
-  for (const map of lawnMaps) {
-    for (const segment of map.segments) {
-      const clampedX = Math.min(segment.xMax, Math.max(segment.xMin, x));
-      const clampedZ = Math.min(segment.zMax, Math.max(segment.zMin, z));
-      const dx = x - clampedX;
-      const dz = z - clampedZ;
-      const inside = x >= segment.xMin && x <= segment.xMax && z >= segment.zMin && z <= segment.zMax;
-      const distance = inside ? 0 : Math.sqrt((dx * dx) + (dz * dz));
-      closest = Math.min(closest, distance);
-    }
+  for (const map of allLawnMaps) {
+    closest = Math.min(closest, Math.max(0, -signedDistanceToMowable(map, x, z)));
   }
 
   return closest;
 }
 
 function grassOverlayAlpha(x: number, z: number, height: number) {
-  if (Math.abs(x - ROAD_CENTER_X) < 4.1) {
+  if (roadGrassAmount(x, z) <= 0.05) {
     return 0;
   }
 
@@ -143,7 +145,7 @@ function tileableNoise(u: number, v: number, frequencyX: number, frequencyZ: num
 }
 
 function grassMaskValue(x: number, z: number, u: number, v: number) {
-  if (Math.abs(x - ROAD_CENTER_X) < 4.1) {
+  if (roadGrassAmount(x, z) <= 0.05) {
     return 0;
   }
 
@@ -499,7 +501,96 @@ function createRoadStripe(scene: Scene, material: StandardMaterial, z: number) {
   return mesh;
 }
 
-export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeMaterial: StandardMaterial) {
+function createPathRibbon(scene: Scene, name: string, feature: RuntimePathFeature, material: Material, y: number) {
+  if (feature.points.length < 2) {
+    return null;
+  }
+
+  const halfWidth = feature.width / 2;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
+  let distance = 0;
+
+  for (let index = 0; index < feature.points.length; index += 1) {
+    const point = feature.points[index];
+    const previous = feature.points[Math.max(0, index - 1)];
+    const next = feature.points[Math.min(feature.points.length - 1, index + 1)];
+    const dx = next[0] - previous[0];
+    const dz = next[1] - previous[1];
+    const length = Math.max(0.0001, Math.hypot(dx, dz));
+    const nx = -dz / length;
+    const nz = dx / length;
+
+    if (index > 0) {
+      const prev = feature.points[index - 1];
+      distance += Math.hypot(point[0] - prev[0], point[1] - prev[1]);
+    }
+
+    positions.push(
+      point[0] + (nx * halfWidth), y, point[1] + (nz * halfWidth),
+      point[0] - (nx * halfWidth), y, point[1] - (nz * halfWidth),
+    );
+    uvs.push(0, distance * 0.15, 1, distance * 0.15);
+
+    if (index < feature.points.length - 1) {
+      const base = index * 2;
+      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+    }
+  }
+
+  const normals: number[] = [];
+  VertexData.ComputeNormals(positions, indices, normals);
+  const vertexData = new VertexData();
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.normals = normals;
+  vertexData.uvs = uvs;
+
+  const mesh = new Mesh(name, scene);
+  vertexData.applyToMesh(mesh);
+  mesh.material = material;
+  mesh.receiveShadows = true;
+  mesh.isPickable = false;
+  return mesh;
+}
+
+function createPathStripes(scene: Scene, feature: RuntimePathFeature, material: StandardMaterial, root: TransformNode) {
+  let carried = 8;
+
+  for (let index = 0; index < feature.points.length - 1; index += 1) {
+    const start = feature.points[index];
+    const end = feature.points[index + 1];
+    const dx = end[0] - start[0];
+    const dz = end[1] - start[1];
+    const length = Math.hypot(dx, dz);
+    if (length < 0.0001) {
+      continue;
+    }
+
+    const dirX = dx / length;
+    const dirZ = dz / length;
+    const yaw = Math.atan2(dirX, dirZ);
+
+    for (let distance = carried; distance < length - 4; distance += ROAD_STRIPE_SPACING) {
+      const x = start[0] + (dirX * distance);
+      const z = start[1] + (dirZ * distance);
+      const stripe = MeshBuilder.CreateGround("road-stripe", {
+        width: ROAD_STRIPE_HALF_WIDTH * 2,
+        height: ROAD_STRIPE_HALF_LENGTH * 2,
+      }, scene);
+      stripe.position = new Vector3(x, 0.018, z);
+      stripe.rotation.y = yaw;
+      stripe.material = material;
+      stripe.parent = root;
+      stripe.isPickable = false;
+    }
+
+    carried = (ROAD_STRIPE_SPACING - ((length - carried) % ROAD_STRIPE_SPACING)) % ROAD_STRIPE_SPACING;
+  }
+}
+
+export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeMaterial: StandardMaterial, map: LawnMap = getActiveMap()) {
   roadMaterial.diffuseColor.set(1, 1, 1);
   roadMaterial.diffuseTexture?.dispose();
   roadMaterial.diffuseTexture = createRoadFileTexture(scene);
@@ -513,16 +604,11 @@ export function createRoad(scene: Scene, roadMaterial: StandardMaterial, stripeM
   stripeMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
   (stripeMaterial.opacityTexture as { getAlphaFromRGB?: boolean }).getAlphaFromRGB = true;
 
-  // Everything parented to a root so a map (e.g. the open showcase) can hide the
-  // whole road at once.
   const root = new TransformNode("road-root", scene);
-  const road = MeshBuilder.CreateGround("road", { width: ROAD_WIDTH, height: ROAD_LENGTH }, scene);
-  road.position = new Vector3(ROAD_CENTER_X, 0.006, 0);
-  road.material = roadMaterial;
-  road.parent = root;
 
-  for (let z = (-ROAD_LENGTH / 2) + 8; z <= (ROAD_LENGTH / 2) - 8; z += ROAD_STRIPE_SPACING) {
-    createRoadStripe(scene, stripeMaterial, z).parent = root;
+  for (const road of map.roads) {
+    createPathRibbon(scene, `road-${road.id}`, road, roadMaterial, 0.006)?.setParent(root);
+    createPathStripes(scene, road, stripeMaterial, root);
   }
 
   return root;
@@ -700,30 +786,44 @@ function roadOuterEdge(x: number, z: number) {
 
 // 1 inside the dirt band (between the two edges), 0 on the road and on grass.
 export function roadVergeDirt(x: number, z: number) {
-  const d = Math.abs(x - ROAD_CENTER_X);
-  const up = smoothstep01((d - roadInnerEdge(x, z)) / 0.045);
-  const down = 1 - smoothstep01((d - roadOuterEdge(x, z)) / 0.05);
-  return Math.max(0, up * down);
+  return roadVergeDirtAmount(getActiveMap(), x, z, settings.lodRoadVergeWidth);
 }
 
 // 1 where there is grass (past the verge), 0 on the road and dirt band. The slat
 // coverage multiplies this in so slats stop at the irregular dirt->grass edge.
 export function roadGrassAmount(x: number, z: number, inset = 0) {
-  const d = Math.abs(x - ROAD_CENTER_X);
-  // `inset` pushes the grass edge further from the road. The slats pass a small
-  // inset so their leaning/wiggling geometry doesn't overhang the dirt verge.
-  return smoothstep01((d - (roadOuterEdge(x, z) + inset)) / 0.05);
+  return pathGrassAmount(getActiveMap(), x, z, inset);
+}
+
+export function roadSurfaceAt(x: number, z: number) {
+  return roadSurfaceAmount(getActiveMap(), x, z);
 }
 
 // Dirt overlay along the road, same technique as the fence-dirt overlay but
 // driven by the two road edges. Spans only the near/visible road length (the far
 // road keeps its plain edge). Rendered just above the road so its ragged inner
 // edge blends the straight kerb into dirt.
-export function createRoadDirtOverlay(scene: Scene) {
-  const xMin = ROAD_CENTER_X - 7;
-  const xMax = ROAD_CENTER_X + 7;
-  const zMin = -75;
-  const zMax = 70;
+export function createRoadDirtOverlay(scene: Scene, map: LawnMap = getActiveMap()) {
+  const features = [...map.roads, ...map.dirtPaths];
+  if (features.length === 0) {
+    return { overlay: new TransformNode("road-dirt-root", scene), rebuild: () => {} };
+  }
+
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  for (const feature of features) {
+    xMin = Math.min(xMin, feature.bounds.xMin);
+    xMax = Math.max(xMax, feature.bounds.xMax);
+    zMin = Math.min(zMin, feature.bounds.zMin);
+    zMax = Math.max(zMax, feature.bounds.zMax);
+  }
+  const margin = 1.25;
+  xMin -= margin;
+  xMax += margin;
+  zMin -= margin;
+  zMax += margin;
   const width = xMax - xMin;
   const depth = zMax - zMin;
 
@@ -746,7 +846,7 @@ export function createRoadDirtOverlay(scene: Scene) {
 
       for (let i = 0; i < maskWidth; i += 1) {
         const worldX = xMin + ((i / (maskWidth - 1)) * width);
-        const dirtAmount = roadVergeDirt(worldX, worldZ);
+        const dirtAmount = roadVergeDirtAmount(map, worldX, worldZ, settings.lodRoadVergeWidth);
         const index = ((j * maskWidth) + i) * 4;
         image.data[index] = 255;
         image.data[index + 1] = 255;
@@ -816,12 +916,15 @@ const flowerBedSlopeWidth = 0.72;
 export function flowerBedHeightAt(map: LawnMap, x: number, z: number) {
   let height = 0;
 
-  for (const bed of map.flowerBeds) {
-    if (x < bed.xMin || x > bed.xMax || z < bed.zMin || z > bed.zMax) {
+  for (const bed of map.bedAreas) {
+    if (!bed.shape) {
       continue;
     }
 
-    const edgeDistance = Math.min(x - bed.xMin, bed.xMax - x, z - bed.zMin, bed.zMax - z);
+    const edgeDistance = signedDistanceToShapeEdge(bed.shape, x, z);
+    if (edgeDistance <= 0) {
+      continue;
+    }
     const slope = smoothstep01(edgeDistance / flowerBedSlopeWidth);
     height = Math.max(height, flowerBedPlateauHeight * slope);
   }
@@ -829,9 +932,10 @@ export function flowerBedHeightAt(map: LawnMap, x: number, z: number) {
   return height;
 }
 
-function createRaisedFlowerBed(scene: Scene, map: LawnMap, material: Material, index: number, bed: LawnMap["flowerBeds"][number]) {
-  const width = bed.xMax - bed.xMin;
-  const depth = bed.zMax - bed.zMin;
+function createRaisedFlowerBed(scene: Scene, map: LawnMap, material: Material, index: number, bed: LawnMap["bedAreas"][number]) {
+  const bounds = shapeBounds(bed.shape);
+  const width = Math.max(0.001, bounds.xMax - bounds.xMin);
+  const depth = Math.max(0.001, bounds.zMax - bounds.zMin);
   const subdivisionsX = 18;
   const subdivisionsZ = 12;
   const positions: number[] = [];
@@ -839,12 +943,12 @@ function createRaisedFlowerBed(scene: Scene, map: LawnMap, material: Material, i
   const uvs: number[] = [];
 
   for (let zIndex = 0; zIndex <= subdivisionsZ; zIndex += 1) {
-    const z = bed.zMin + ((zIndex / subdivisionsZ) * depth);
+    const z = bounds.zMin + ((zIndex / subdivisionsZ) * depth);
 
     for (let xIndex = 0; xIndex <= subdivisionsX; xIndex += 1) {
-      const x = bed.xMin + ((xIndex / subdivisionsX) * width);
+      const x = bounds.xMin + ((xIndex / subdivisionsX) * width);
       positions.push(x, flowerBedHeightAt(map, x, z) + 0.006, z);
-      uvs.push((x - bed.xMin) * 0.72, (z - bed.zMin) * 0.72);
+      uvs.push((x - bounds.xMin) * 0.72, (z - bounds.zMin) * 0.72);
     }
   }
 
@@ -853,8 +957,12 @@ function createRaisedFlowerBed(scene: Scene, map: LawnMap, material: Material, i
   for (let zIndex = 0; zIndex < subdivisionsZ; zIndex += 1) {
     for (let xIndex = 0; xIndex < subdivisionsX; xIndex += 1) {
       const base = (zIndex * row) + xIndex;
-      indices.push(base, base + 1, base + row);
-      indices.push(base + 1, base + row + 1, base + row);
+      const cx = bounds.xMin + (((xIndex + 0.5) / subdivisionsX) * width);
+      const cz = bounds.zMin + (((zIndex + 0.5) / subdivisionsZ) * depth);
+      if (signedDistanceToShapeEdge(bed.shape, cx, cz) > -0.08) {
+        indices.push(base, base + 1, base + row);
+        indices.push(base + 1, base + row + 1, base + row);
+      }
     }
   }
 
@@ -885,7 +993,7 @@ export function createMapGrounds(scene: Scene, map: LawnMap, groundMaterial: Mat
 
   void groundMaterial;
 
-  for (const [index, bed] of map.flowerBeds.entries()) {
+  for (const [index, bed] of map.bedAreas.entries()) {
     const bedMesh = createRaisedFlowerBed(scene, map, bedMaterial, index, bed);
     bedMesh.parent = root;
   }

@@ -447,16 +447,7 @@ export function createAttractDirector(deps: AttractDeps) {
   const computeBounds = (list: Poi[]): Bounds => {
     if (list.length === 0) {
       const map = getActiveMap();
-      let xMin = Infinity;
-      let xMax = -Infinity;
-      let zMin = Infinity;
-      let zMax = -Infinity;
-      for (const segment of map.segments) {
-        xMin = Math.min(xMin, segment.xMin);
-        xMax = Math.max(xMax, segment.xMax);
-        zMin = Math.min(zMin, segment.zMin);
-        zMax = Math.max(zMax, segment.zMax);
-      }
+      const { xMin, xMax, zMin, zMax } = map.bounds;
       if (!Number.isFinite(xMin)) {
         const s = map.spawn;
         return boundsFromRect(s.x - 8, s.x + 8, s.z - 8, s.z + 8);

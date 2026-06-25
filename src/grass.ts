@@ -10,7 +10,6 @@ import {
   settings,
   showcaseLevelCode,
   wheatGrassCount as baseWheatGrassCount,
-  yardSegments,
 } from "./config";
 import type { FenceSystem } from "./fence";
 import type { Materials } from "./materials";
@@ -18,8 +17,7 @@ import type { Wind } from "./wind";
 import { emptyMatrix, writeColor, writeMatrix } from "./utils/buffers";
 import { color3ToHsl, hexToColor3, hslToColor3, mixColor } from "./utils/color";
 import { grassNoiseAt, randomHash } from "./utils/noise";
-import { gridKey, isInsideSegments, randomPointInSegments } from "./utils/yard";
-import { cloverGrassKeepAt } from "./cloverField";
+import { gridKey } from "./utils/yard";
 import "./devSettings"; // dev-only: load saved setting overrides before anything reads them
 import { createMowField } from "./mowField";
 import { createGrassBake } from "./grassBake";
@@ -27,6 +25,13 @@ import { createGrassField } from "./grassField";
 import { createGrassSlats } from "./grassSlats";
 import { attachLodDither } from "./lodDither";
 import { roadGrassAmount } from "./world";
+import {
+  containsMowablePoint,
+  distanceToBed,
+  foliageDensityAt,
+  randomMowablePoint,
+  signedDistanceToMowable,
+} from "./runtimeMap";
 
 export type Grass = ReturnType<typeof createGrass>;
 
@@ -119,10 +124,7 @@ export function createGrass(deps: GrassDeps) {
   const highlightFirstDelay = 10;
   const highlightRepeatDelay = 5;
 
-  const activeMapArea = () => getActiveMap().segments.reduce(
-    (sum, segment) => sum + ((segment.xMax - segment.xMin) * (segment.zMax - segment.zMin)),
-    0,
-  );
+  const activeMapArea = () => getActiveMap().mowableArea;
 
   const refreshGrassBudgets = () => {
     const area = activeMapArea();
@@ -144,12 +146,12 @@ export function createGrass(deps: GrassDeps) {
     currentSlatDensityScale = 1;
   };
 
-  const isInsideYard = (x: number, z: number) => isInsideSegments(yardSegments, x, z);
+  const isInsideYard = (x: number, z: number) => containsMowablePoint(getActiveMap(), x, z);
   // Grass blades stop at the SAME irregular dirt->grass edge the slats and the
   // ground dirt overlay use (roadGrassAmount), so all three line up exactly
   // instead of the blades leaving a wider gap by the road.
   const isGrassHere = (x: number, z: number) => roadGrassAmount(x, z) > 0.5;
-  const randomYardPoint = () => randomPointInSegments(yardSegments);
+  const randomYardPoint = () => randomMowablePoint(getActiveMap());
 
   // Four cut-blade silhouettes. backFaceCulling is off on the cut material, so
   // winding doesn't matter. y runs 0 (base) to 1 (tip), scaled tiny when drawn.
@@ -436,19 +438,7 @@ export function createGrass(deps: GrassDeps) {
   };
 
   const distanceToFlowerBed = (x: number, z: number) => {
-    let closest = Number.POSITIVE_INFINITY;
-
-    for (const bed of getActiveMap().flowerBeds) {
-      const clampedX = Math.min(bed.xMax, Math.max(bed.xMin, x));
-      const clampedZ = Math.min(bed.zMax, Math.max(bed.zMin, z));
-      const dx = x - clampedX;
-      const dz = z - clampedZ;
-      const inside = x >= bed.xMin && x <= bed.xMax && z >= bed.zMin && z <= bed.zMax;
-      const distance = inside ? -Math.min(x - bed.xMin, bed.xMax - x, z - bed.zMin, bed.zMax - z) : Math.sqrt((dx * dx) + (dz * dz));
-      closest = Math.min(closest, distance);
-    }
-
-    return closest;
+    return distanceToBed(getActiveMap(), x, z);
   };
 
   const shouldPlaceGrassNearFlowerBed = (x: number, z: number) => {
@@ -496,42 +486,18 @@ export function createGrass(deps: GrassDeps) {
       return 1;
     }
 
-    let xMin = Infinity;
-    let xMax = -Infinity;
-    let zMin = Infinity;
-    let zMax = -Infinity;
-    for (const segment of map.segments) {
-      xMin = Math.min(xMin, segment.xMin);
-      xMax = Math.max(xMax, segment.xMax);
-      zMin = Math.min(zMin, segment.zMin);
-      zMax = Math.max(zMax, segment.zMax);
-    }
-
     const band = 9; // wide, gradual taper
-    const distInside = Math.min(x - xMin, xMax - x, z - zMin, zMax - z);
-    const t = Math.max(0, Math.min(1, distInside / band));
+    const t = Math.max(0, Math.min(1, signedDistanceToMowable(map, x, z) / band));
     return t * t * (3 - (2 * t)); // smoothstep
   };
 
   const grassDensityOpen = (x: number, z: number) => (
     // Only a gentle density thinning toward the edge (floor 0.5) — the real blend
     // is the height taper applied at placement (grassScale *= openFieldEdge).
-    Math.random() < (cloverGrassKeepAt(getActiveMap().cloverPatches, x, z) * (0.5 + (0.5 * openFieldEdge(x, z))))
+    Math.random() < Math.min(1, foliageDensityAt(getActiveMap(), "grass", x, z) * (0.5 + (0.5 * openFieldEdge(x, z))))
   );
 
-  const distanceToMainYard = (x: number, z: number) => {
-    let closest = Number.POSITIVE_INFINITY;
-
-    for (const segment of yardSegments) {
-      const clampedX = Math.min(segment.xMax, Math.max(segment.xMin, x));
-      const clampedZ = Math.min(segment.zMax, Math.max(segment.zMin, z));
-      const dx = x - clampedX;
-      const dz = z - clampedZ;
-      closest = Math.min(closest, Math.sqrt((dx * dx) + (dz * dz)));
-    }
-
-    return closest;
-  };
+  const distanceToMainYard = (x: number, z: number) => Math.max(0, -signedDistanceToMowable(getActiveMap(), x, z));
 
   const matrixForBlade = (index: number, cut: boolean, yawOverride = grassRotation[index], sway = 0) => {
     const pitch = cut ? cutTiltX[index] : sway * 0.28;
