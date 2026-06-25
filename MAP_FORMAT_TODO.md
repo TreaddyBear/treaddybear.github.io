@@ -81,7 +81,8 @@ edits MAP_FORMAT_V1_DRAFT.md.
   `smoothstep01(signedDistToEdge / edgeFalloff) × density`. Three spec
   clarifications proposed: name the smoothstep curve; document that
   role/mowable/surface snap at shape boundary (not at vegetation transition);
-  note polygon SDF approximation. See `docs/OPEN_QUESTIONS.md §1`.
+  note polygon SDF is EXACT for all simple polygons (including concave) — see
+  `docs/VEGETATION_POPULATION.md §2` and `docs/OPEN_QUESTIONS.md §1`.
 
 - [ ] **Resolve terrain `max-height-wins` behavior** — formula confirmed as
   `max(feature.height × smoothstep01(distToEdge / falloff))` over all features.

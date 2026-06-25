@@ -49,11 +49,14 @@ vegetation at point = parent_density + child_density × fade
 role/mowable/surface = parent's values (additive never overrides these)
 ```
 
-**Polygon signed distance:** For circles and axis-aligned/rotated rectangles the signed
-distance is exact. For polygons (`shapes.ts:146`), it is the distance to the nearest edge
-segment, which is the correct value for convex polygons but is an approximation for concave
-ones (the falloff band will be narrower near concavities, wider near convex lobes). This
-is acceptable for typical authored shapes.
+**Polygon signed distance:** For all shapes, the signed distance is exact.
+`distanceToSegment` (`geometry.ts:4`) clamps the closest-point parameter `t` to [0, 1],
+finding the exact nearest point on the finite segment. `min()` over all edge segments
+(`shapes.ts:146`) gives the exact nearest-boundary distance for any simple
+(non-self-intersecting) polygon, including concave ones. The SDF *gradient* has a crease
+at the medial axis (equidistant from two boundaries) for both convex and concave shapes,
+but the scalar *value* is correct everywhere. See `docs/VEGETATION_POPULATION.md §2`
+for a full derivation.
 
 ### What the spec currently says
 
@@ -80,8 +83,10 @@ hill and in every clover/flower area. The remaining spec work is three clarifyin
    `role`, `mowable`, and `surface` apply at the shape boundary, not at the vegetation
    transition: any point geometrically inside the shape uses the area's own role and
    mowability regardless of how much vegetation is blending."
-3. *Polygon note:* "For polygon shapes, the distance used is the distance to the nearest
-   edge segment, which is exact for convex polygons and an approximation for concave shapes."
+3. *Polygon note:* "For polygon shapes, the distance is the minimum distance to any edge
+   segment, which is exact for all simple (non-self-intersecting) polygons including
+   concave ones. The SDF gradient has a crease at the medial axis but the distance value
+   is correct everywhere — this is not an approximation."
 
 **The one tradeoff to decide:** Whether the role/mowable/surface snap behavior should be
 documented as specified (current impl) or changed to also fade. The snap approach is simpler,
