@@ -75,7 +75,7 @@ export type RuntimePathFeature = {
 };
 
 export type RuntimeMap = {
-  source: LevelV1;
+  source?: LevelV1;
   packPrefix: string;
   code: string;
   shortCode: string;
