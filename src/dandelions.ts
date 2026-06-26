@@ -1,8 +1,8 @@
-import { Color3, DynamicTexture, Material, Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
+import { Color3, DynamicTexture, Material, Matrix, Mesh, MeshBuilder, StandardMaterial, TransformNode, Vector3, VertexBuffer } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import { getActiveMap } from "./config";
 import type { Materials } from "./materials";
-import type { Dandelion, FallingPetal, FloatingSeed } from "./types";
+import type { Dandelion, FallingPetal, FloatingSeed, SeedFuzz } from "./types";
 import type { Wind } from "./wind";
 import { distanceToShot } from "./utils/geometry";
 import { foliageDensityAt, randomMowablePoint } from "./runtimeMap";
@@ -22,6 +22,8 @@ export function createDandelions(
   const dandelions: Dandelion[] = [];
   const floatingSeeds: FloatingSeed[] = [];
   const fallingPetals: FallingPetal[] = [];
+  const seedFuzzRefs: Array<{ dandelion: Dandelion; fuzz: SeedFuzz }> = [];
+  let seedFuzzBuffer = new Float32Array(0);
 
   // One soft seed-tuft sprite (fine light filaments + a dark seed dot in the
   // middle), drawn once and shared by every billboarded fuzz plane, so the puff
@@ -66,6 +68,12 @@ export function createDandelions(
   fluffMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
   fluffMaterial.backFaceCulling = false;
 
+  const fluffSource = MeshBuilder.CreatePlane("seed-fuzz-source", { size: 1 }, scene);
+  fluffSource.material = fluffMaterial;
+  fluffSource.isPickable = false;
+  fluffSource.alwaysSelectAsActiveMesh = true;
+  fluffSource.setEnabled(false);
+
   // Tiny dark-brown seed knob at the centre of the puff.
   const seedCoreMaterial = new StandardMaterial("dandelionSeedCoreMaterial", scene);
   seedCoreMaterial.diffuseColor = new Color3(0.2, 0.12, 0.05);
@@ -88,6 +96,43 @@ export function createDandelions(
     while (fallingPetals.length > 0) {
       fallingPetals.pop()?.mesh.dispose();
     }
+    seedFuzzRefs.length = 0;
+    seedFuzzBuffer = new Float32Array(0);
+    fluffSource.thinInstanceCount = 0;
+    fluffSource.setEnabled(false);
+  };
+
+  const seedFuzzWorldPosition = (dandelion: Dandelion, fuzz: SeedFuzz) => (
+    Vector3.TransformCoordinates(fuzz.localOffset, dandelion.head.computeWorldMatrix(true))
+  );
+
+  const writeSeedFuzzMatrix = (dandelion: Dandelion, fuzz: SeedFuzz) => {
+    if (fuzz.released) {
+      seedFuzzBuffer.fill(0, fuzz.matrixIndex * 16, (fuzz.matrixIndex * 16) + 16);
+      return;
+    }
+
+    const position = seedFuzzWorldPosition(dandelion, fuzz);
+    Matrix.Scaling(fuzz.size, fuzz.size, fuzz.size)
+      .multiply(Matrix.RotationYawPitchRoll(fuzz.rotation.y, fuzz.rotation.x, fuzz.rotation.z))
+      .multiply(Matrix.Translation(position.x, position.y, position.z))
+      .copyToArray(seedFuzzBuffer, fuzz.matrixIndex * 16);
+  };
+
+  const syncSeedFuzzInstances = () => {
+    if (seedFuzzRefs.length === 0) {
+      fluffSource.thinInstanceCount = 0;
+      fluffSource.setEnabled(false);
+      return;
+    }
+
+    seedFuzzBuffer = new Float32Array(seedFuzzRefs.length * 16);
+    for (const { dandelion, fuzz } of seedFuzzRefs) {
+      writeSeedFuzzMatrix(dandelion, fuzz);
+    }
+    fluffSource.setEnabled(true);
+    fluffSource.thinInstanceSetBuffer("matrix", seedFuzzBuffer, 16, false);
+    fluffSource.thinInstanceRefreshBoundingInfo();
   };
 
   const createDandelion = (x: number, z: number, kind: Dandelion["kind"]) => {
@@ -95,6 +140,7 @@ export function createDandelions(
     root.position = new Vector3(x, 0, z);
     root.rotation.y = Math.random() * Math.PI * 2; // face a random way so they don't all line up
     const pieces: Mesh[] = [];
+    const seedFuzz: SeedFuzz[] = [];
 
     // Per-plant geometry noise so no two stems look identical.
     const height = (kind === "seed" ? 0.95 : 0.72) * (0.86 + (Math.random() * 0.28));
@@ -120,6 +166,28 @@ export function createDandelions(
     const head = new TransformNode(`${kind}-head`, scene);
     head.parent = root;
     head.position.y = height + 0.02;
+
+    const dandelion: Dandelion = {
+      root,
+      stem,
+      head,
+      pieces,
+      seedFuzz,
+      detachedPieces: [],
+      x,
+      z,
+      kind,
+      cut: false,
+      popped: false,
+      headVelocity: Vector3.Zero(),
+      headFalling: false,
+      headSettled: false,
+      stemHeight: height,
+      leanX: 0,
+      leanZ: 0,
+      shrinking: false,
+      shrinkAge: 0,
+    };
 
     if (kind === "yellow") {
       // A flattened, faceted "lens" reads as a real flower centre instead of a
@@ -188,69 +256,59 @@ export function createDandelions(
         const ringRadius = Math.sqrt(Math.max(0, 1 - (y * y)));
         const theta = i * goldenAngle;
         const radius = 0.15 + (Math.random() * 0.045); // slight jitter off the shell
-        const fuzz = MeshBuilder.CreatePlane(`seed-fuzz-${i}`, { size: 0.07 + (Math.random() * 0.05) }, scene);
-        fuzz.parent = head;
-        fuzz.position = new Vector3(
-          Math.cos(theta) * ringRadius * radius,
-          y * radius,
-          Math.sin(theta) * ringRadius * radius,
-        );
-        fuzz.billboardMode = Mesh.BILLBOARDMODE_ALL;
-        fuzz.material = fluffMaterial;
-        pieces.push(fuzz);
+        const fuzz: SeedFuzz = {
+          localOffset: new Vector3(
+            Math.cos(theta) * ringRadius * radius,
+            y * radius,
+            Math.sin(theta) * ringRadius * radius,
+          ),
+          rotation: new Vector3(
+            (Math.random() - 0.5) * 0.9,
+            Math.random() * Math.PI * 2,
+            (Math.random() - 0.5) * 0.9,
+          ),
+          size: 0.07 + (Math.random() * 0.05),
+          matrixIndex: seedFuzzRefs.length,
+          released: false,
+        };
+        seedFuzz.push(fuzz);
+        seedFuzzRefs.push({ dandelion, fuzz });
       }
     }
 
-    dandelions.push({
-      root,
-      stem,
-      head,
-      pieces,
-      detachedPieces: [],
-      x,
-      z,
-      kind,
-      cut: false,
-      popped: false,
-      headVelocity: Vector3.Zero(),
-      headFalling: false,
-      headSettled: false,
-      stemHeight: height,
-      leanX: 0,
-      leanZ: 0,
-      shrinking: false,
-      shrinkAge: 0,
-    });
+    dandelions.push(dandelion);
   };
 
-  const releaseDandelionSeeds = (dandelion: Dandelion, requestedCount = dandelion.pieces.length, hitPop = false) => {
+  const releaseDandelionSeeds = (dandelion: Dandelion, requestedCount = dandelion.seedFuzz.length, hitPop = false) => {
     if (dandelion.popped || dandelion.kind !== "seed") {
       return;
     }
 
     let released = 0;
+    let seedFuzzChanged = false;
 
-    for (const piece of dandelion.pieces) {
+    for (const fuzz of dandelion.seedFuzz) {
       if (released >= requestedCount) {
         break;
       }
 
-      if (piece.name === "seed-core") {
+      if (fuzz.released) {
         continue;
       }
 
-      if (!piece.isEnabled() || piece.parent === null) {
-        continue;
-      }
-
-      const worldPosition = piece.getAbsolutePosition().clone();
-      piece.parent = null;
+      const worldPosition = seedFuzzWorldPosition(dandelion, fuzz);
+      const piece = MeshBuilder.CreatePlane("released-seed-fuzz", { size: fuzz.size }, scene);
       piece.position.copyFrom(worldPosition);
       piece.billboardMode = Mesh.BILLBOARDMODE_ALL;
+      piece.material = fluffMaterial;
+      piece.isPickable = false;
       // Keep the shared fluff material — cloning it here cloned its texture too
       // (~200 DynamicTexture clones at once = the destruction CPU spike). Per-seed
       // fade is done with mesh.visibility in update() instead.
       dandelion.detachedPieces.push(piece);
+      fuzz.released = true;
+      writeSeedFuzzMatrix(dandelion, fuzz);
+      seedFuzzChanged = true;
       floatingSeeds.push({
         mesh: piece,
         age: 0,
@@ -265,7 +323,11 @@ export function createDandelions(
       released += 1;
     }
 
-    const remaining = dandelion.pieces.some((piece) => piece.name !== "seed-core" && piece.isEnabled() && piece.parent !== null);
+    if (seedFuzzChanged) {
+      fluffSource.thinInstanceBufferUpdated("matrix");
+    }
+
+    const remaining = dandelion.seedFuzz.some((fuzz) => !fuzz.released);
     dandelion.popped = !remaining;
 
     if (dandelion.popped) {
@@ -379,6 +441,7 @@ export function createDandelions(
           const kind: Dandelion["kind"] = inst.index % 3 === 0 ? "seed" : "yellow";
           createDandelion(inst.x, inst.z, kind);
         }
+        syncSeedFuzzInstances();
         return;
       }
 
@@ -394,6 +457,7 @@ export function createDandelions(
           createDandelion(x, z, kind);
         }
       }
+      syncSeedFuzzInstances();
     },
 
     // Mow any dandelion the mower is currently over, and bow the ones it's

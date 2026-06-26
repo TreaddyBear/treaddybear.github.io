@@ -975,7 +975,7 @@ sun.specular = new Color3(1, 0.91, 0.66);
 const baseSunIntensity = sun.intensity;
 const baseSunSpecular = sun.specular.clone();
 
-const shadowMapSize = Math.min(useMobileRenderProfile ? 2048 : 8192, engine.getCaps().maxTextureSize);
+const shadowMapSize = Math.min(useMobileRenderProfile ? 2048 : 4096, engine.getCaps().maxTextureSize);
 const shadowGenerator = new ShadowGenerator(shadowMapSize, sun);
 shadowGenerator.usePercentageCloserFiltering = true;
 shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW;
@@ -1034,7 +1034,9 @@ function refreshLighting() {
     skyColor.b * settings.skyAmbientIntensity * 0.46,
   );
 
-  if (!settings.ssaoEnabled) {
+  const ssaoActive = settings.ssaoEnabled && getActiveLevelCode() !== showcaseLevelCode;
+
+  if (!ssaoActive) {
     ssaoPipeline?.dispose(false);
     ssaoPipeline = null;
     return;

@@ -57,13 +57,19 @@ export function createCloudShadows(scene: Scene) {
   sheet.isPickable = false;
   sheet.alwaysSelectAsActiveMesh = true;
   sheet.setEnabled(false);
+  let active = false;
 
   return {
     setEnabled(enabled: boolean) {
+      active = enabled;
       sheet.setEnabled(enabled);
     },
     // Drift the clouds slowly across the field.
     update(timeSeconds: number) {
+      if (!active) {
+        return;
+      }
+
       texture.uOffset = timeSeconds * 0.004;
       texture.vOffset = timeSeconds * 0.0026;
     },

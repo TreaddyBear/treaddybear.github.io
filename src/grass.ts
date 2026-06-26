@@ -131,10 +131,10 @@ export function createGrass(deps: GrassDeps) {
     const area = activeMapArea();
 
     if (getActiveLevelCode() === showcaseLevelCode) {
-      currentBladeCount = Math.max(baseBladeCount, Math.round(area * 16.75));
-      currentMediumGrassCount = Math.max(baseMediumGrassCount, Math.round(area * 12.5));
+      currentBladeCount = Math.max(baseBladeCount, Math.round(area * 10));
+      currentMediumGrassCount = Math.max(baseMediumGrassCount, Math.round(area * 7.5));
       currentWheatGrassCount = Math.max(baseWheatGrassCount, Math.round(area * 0.85));
-      currentSlatDensityScale = 5;
+      currentSlatDensityScale = 3.5;
       return;
     }
 

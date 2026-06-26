@@ -35,6 +35,7 @@ export type Dandelion = {
   stem: Mesh;
   head: TransformNode;
   pieces: Mesh[];
+  seedFuzz: SeedFuzz[];
   detachedPieces: Mesh[];
   x: number;
   z: number;
@@ -49,6 +50,14 @@ export type Dandelion = {
   leanZ: number;
   shrinking: boolean;
   shrinkAge: number;
+};
+
+export type SeedFuzz = {
+  localOffset: Vector3;
+  rotation: Vector3;
+  size: number;
+  matrixIndex: number;
+  released: boolean;
 };
 
 export type FloatingSeed = {
