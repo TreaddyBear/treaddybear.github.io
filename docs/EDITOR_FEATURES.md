@@ -30,7 +30,12 @@ later, but the first target is a clean project-global asset library.
 - Each species is a global definition in `assets/species/*.json`.
 - Import/export uses the contract in `docs/VEGETATION_ASSET_FORMAT.md`.
 - Species definitions describe procedural shape, material colors, randomized per-instance
-  ranges, and far-LOD behavior.
+  ranges, and far-LOD behavior. Each species is its own customizable asset even when it
+  shares a primitive with another species.
+- Field-flower color editing must support authored albedo per vertex. Hex, RGB, and HSL
+  inputs are acceptable editor controls; the stored asset format supports all three.
+- Emissive color and strength can be authored, including per vertex where supported, but
+  emissive should be an optional accent rather than the default visibility strategy.
 - The editor preview must show both a single large inspectable plant and a population preview.
 
 ### Vegetation LOD Preview
@@ -99,7 +104,7 @@ implementation should not get stuck trying to solve trees.
 
 ```ts
 type VegetationShapeDefinition =
-  | { type: "saddleFlower"; petalCount: RangeI; petalLength: RangeF; petalWidth: RangeF; cup: RangeF; curl: RangeF }
+  | { type: "fieldFlower"; petalSurface: "saddle"; petalCount: RangeI; petalLength: RangeF; petalWidth: RangeF; cup: RangeF; curl: RangeF }
   | { type: "tallFlower"; stemHeight: RangeF; stemRadius: RangeF; stemLean: RangeF; head: TallFlowerHeadDefinition; leaves?: TallFlowerLeafDefinition }
   | { type: "cloverCluster"; leafCount: RangeI; leafRadius: RangeF; clusterRadius: RangeF; lift: RangeF }
   | { type: "billboard"; width: RangeF; height: RangeF; pivot: "base" | "center" }

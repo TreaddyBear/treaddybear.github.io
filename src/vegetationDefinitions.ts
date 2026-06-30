@@ -3,19 +3,40 @@ import type { FoliageKey } from "./mapFormat";
 export type RangeF = { min: number; max: number };
 export type RangeI = { min: number; max: number };
 export type ColorHex = `#${string}`;
+export type ColorRgb = { space: "rgb"; r: number; g: number; b: number };
+export type ColorHsl = { space: "hsl"; h: number; s: number; l: number };
+export type VegetationColorValue = ColorHex | ColorRgb | ColorHsl;
 
 export type VegetationCategory = "fieldFlower" | "tallFlower" | "groundcover" | "shrub" | "tree" | "decorative";
+
+export type VegetationVertexColor = {
+  vertex: string;
+  albedo: VegetationColorValue;
+  emissive?: VegetationColorValue;
+  emissiveStrength?: number;
+};
+
+export type VegetationSurfaceColor = {
+  mode: "flat" | "verticalGradient" | "uvGradient" | "vertex";
+  albedo?: VegetationColorValue;
+  rootAlbedo?: VegetationColorValue;
+  tipAlbedo?: VegetationColorValue;
+  vertexColors?: VegetationVertexColor[];
+};
 
 export type VegetationMaterialDefinition = {
   baseColor: ColorHex;
   emissiveColor?: ColorHex;
+  emissiveStrength?: number;
+  surface?: VegetationSurfaceColor;
   roughness?: number;
   alpha?: number;
 };
 
 export type VegetationShapeDefinition =
   | {
-    type: "saddleFlower";
+    type: "fieldFlower";
+    petalSurface: "saddle";
     petalCount: RangeI;
     petalLength: RangeF;
     petalWidth: RangeF;
@@ -163,14 +184,21 @@ export const vegetationSpeciesDefinitions: Partial<Record<FoliageKey, Vegetation
     category: "fieldFlower",
     generator: "monolithicPlant",
     materials: {
-      petal: { baseColor: "#a8c7fa", emissiveColor: "#4d5f7a", roughness: 0.9 },
+      petal: {
+        baseColor: "#a8c7fa",
+        emissiveColor: "#4d5f7a",
+        emissiveStrength: 0.18,
+        surface: { mode: "flat", albedo: "#a8c7fa", rootAlbedo: "#7897d0", tipAlbedo: "#c6dcff" },
+        roughness: 0.9,
+      },
     },
     parts: [{
       id: "flower",
       kind: "monolith",
       materialId: "petal",
       shape: {
-        type: "saddleFlower",
+        type: "fieldFlower",
+        petalSurface: "saddle",
         petalCount: { min: 5, max: 8 },
         petalLength: { min: 0.075, max: 0.115 },
         petalWidth: { min: 0.04, max: 0.072 },
@@ -190,14 +218,21 @@ export const vegetationSpeciesDefinitions: Partial<Record<FoliageKey, Vegetation
     category: "fieldFlower",
     generator: "monolithicPlant",
     materials: {
-      petal: { baseColor: "#f2f5fc", emissiveColor: "#6b6e75", roughness: 0.9 },
+      petal: {
+        baseColor: "#f2f5fc",
+        emissiveColor: "#6b6e75",
+        emissiveStrength: 0.12,
+        surface: { mode: "flat", albedo: "#f2f5fc", rootAlbedo: "#d8dbe4", tipAlbedo: "#ffffff" },
+        roughness: 0.9,
+      },
     },
     parts: [{
       id: "flower",
       kind: "monolith",
       materialId: "petal",
       shape: {
-        type: "saddleFlower",
+        type: "fieldFlower",
+        petalSurface: "saddle",
         petalCount: { min: 5, max: 8 },
         petalLength: { min: 0.075, max: 0.115 },
         petalWidth: { min: 0.04, max: 0.072 },
@@ -217,14 +252,21 @@ export const vegetationSpeciesDefinitions: Partial<Record<FoliageKey, Vegetation
     category: "fieldFlower",
     generator: "monolithicPlant",
     materials: {
-      petal: { baseColor: "#fcdb38", emissiveColor: "#756112", roughness: 0.9 },
+      petal: {
+        baseColor: "#fcdb38",
+        emissiveColor: "#756112",
+        emissiveStrength: 0.15,
+        surface: { mode: "flat", albedo: "#fcdb38", rootAlbedo: "#b58b12", tipAlbedo: "#ffe86c" },
+        roughness: 0.9,
+      },
     },
     parts: [{
       id: "flower",
       kind: "monolith",
       materialId: "petal",
       shape: {
-        type: "saddleFlower",
+        type: "fieldFlower",
+        petalSurface: "saddle",
         petalCount: { min: 5, max: 8 },
         petalLength: { min: 0.075, max: 0.115 },
         petalWidth: { min: 0.04, max: 0.072 },
@@ -244,14 +286,21 @@ export const vegetationSpeciesDefinitions: Partial<Record<FoliageKey, Vegetation
     category: "fieldFlower",
     generator: "monolithicPlant",
     materials: {
-      petal: { baseColor: "#eb3830", emissiveColor: "#781a14", roughness: 0.9 },
+      petal: {
+        baseColor: "#eb3830",
+        emissiveColor: "#781a14",
+        emissiveStrength: 0.12,
+        surface: { mode: "flat", albedo: "#eb3830", rootAlbedo: "#911b17", tipAlbedo: "#ff6f62" },
+        roughness: 0.9,
+      },
     },
     parts: [{
       id: "flower",
       kind: "monolith",
       materialId: "petal",
       shape: {
-        type: "saddleFlower",
+        type: "fieldFlower",
+        petalSurface: "saddle",
         petalCount: { min: 5, max: 8 },
         petalLength: { min: 0.075, max: 0.115 },
         petalWidth: { min: 0.04, max: 0.072 },

@@ -39,6 +39,18 @@ Use one species per file for normal editing. This is the default import/export p
       "petal": {
         "baseColor": "#a8c7fa",
         "emissiveColor": "#4d5f7a",
+        "emissiveStrength": 0.18,
+        "surface": {
+          "mode": "vertex",
+          "vertexColors": [
+            { "vertex": "petal.r0.c0", "albedo": "#7897d0" },
+            { "vertex": "petal.r0.c1", "albedo": "#7fa0dc" },
+            { "vertex": "petal.r0.c2", "albedo": "#7897d0" },
+            { "vertex": "petal.r3.c0", "albedo": "#c6dcff", "emissive": "#425a8c", "emissiveStrength": 0.12 },
+            { "vertex": "petal.r3.c1", "albedo": "#d4e6ff", "emissive": "#425a8c", "emissiveStrength": 0.12 },
+            { "vertex": "petal.r3.c2", "albedo": "#c6dcff", "emissive": "#425a8c", "emissiveStrength": 0.12 }
+          ]
+        },
         "roughness": 0.9
       }
     },
@@ -48,7 +60,8 @@ Use one species per file for normal editing. This is the default import/export p
         "kind": "monolith",
         "materialId": "petal",
         "shape": {
-          "type": "saddleFlower",
+          "type": "fieldFlower",
+          "petalSurface": "saddle",
           "petalCount": { "min": 5, "max": 8 },
           "petalLength": { "min": 0.075, "max": 0.115 },
           "petalWidth": { "min": 0.04, "max": 0.072 },
@@ -133,9 +146,20 @@ without changing the file format.
 `materials` owns color and material tuning. LOD color should come from this definition, not from
 hardcoded runtime tint tables.
 
+Species are separate authored assets even when they share a primitive. `flowerBlue`,
+`flowerWhite`, `flowerYellow`, and `flowerRed` are four assets that can have different geometry
+ranges, materials, vertex colors, LOD colors, and editor preview metadata.
+
+Material color can be authored as hex, RGB, or HSL. `baseColor` remains the fallback albedo.
+`surface` can refine that with a flat color, a root-to-tip gradient, UV gradient, or explicit
+vertex colors. Per-vertex albedo is part of the format because it can be baked onto the generated
+source mesh for a species and still render cheaply through instancing. Per-vertex emissive is
+optional and should be treated as a controlled accent, not the default way to make flowers visible.
+
 `parts` describes the generated plant shape. The first pass supports:
 
-- `saddleFlower` for simple blue, white, yellow, and red field flowers.
+- `fieldFlower` with `petalSurface: "saddle"` for customizable small field flowers. "Saddle"
+  describes the current curved petal surface primitive, not a single flower asset.
 - `tallFlower` for tulips and dandelions: shared stem/leaf/head structure with species-specific
   head behavior.
 - `cloverCluster` for low groundcover clover.
@@ -253,6 +277,7 @@ The editor should reject imports that fail these rules:
 - Every species `id` must be stable text matching `^[A-Za-z][A-Za-z0-9_-]*$`.
 - Every species must have at least one material and at least one part.
 - Every part `materialId` must refer to a material in the same species.
+- Every explicit vertex color must refer to a stable vertex ID exposed by that shape primitive.
 - Every range must be finite, and `min` must be less than or equal to `max`.
 - Every integer range must contain whole numbers.
 - `farStrength`, when present, must be between `0` and `1`.
