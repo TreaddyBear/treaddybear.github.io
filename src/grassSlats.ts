@@ -1,8 +1,9 @@
 import { Effect, Mesh, ShaderMaterial, Vector2, Vector3, Vector4, VertexData } from "@babylonjs/core";
 import type { DynamicTexture, Scene } from "@babylonjs/core";
 import { MOW_FIELD } from "./mowField";
-import { settings } from "./config";
+import { defaultLawnMap, getActiveMap, settings } from "./config";
 import { hexToColor3 } from "./utils/color";
+import { foliageDensityAt } from "./runtimeMap";
 import { biomeHomeAmount, roadGrassAmount, sampledTerrainHeightAt } from "./world";
 import { windDirection } from "./wind";
 import type { GrassBake } from "./grassBake";
@@ -32,8 +33,18 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   const uvs: number[] = []; // runDistance, topFlag/heightFactor
   const groundYs: number[] = []; // baked terrain height — slats sit on the rolling ground
   const covers: number[] = []; // baked grass/dirt/road coverage (1 = grass, 0 = dirt/road)
+  const flowerDensities: number[] = []; // blue, white, yellow, red flower density at each vertex
   const indices: number[] = [];
   let vertexIndex = 0;
+
+  const sampleFlowerDensity = (x: number, z: number) => {
+    const map = getActiveMap();
+    const blue = Math.min(1, foliageDensityAt(map, "flowerBlue", x, z, defaultLawnMap));
+    const white = Math.min(1, foliageDensityAt(map, "flowerWhite", x, z, defaultLawnMap));
+    const yellow = Math.min(1, foliageDensityAt(map, "flowerYellow", x, z, defaultLawnMap));
+    const red = Math.min(1, foliageDensityAt(map, "flowerRed", x, z, defaultLawnMap));
+    return [blue, white, yellow, red];
+  };
 
   const addStrips = (alongX: boolean) => {
     const runMin = alongX ? minX : minZ;
@@ -67,8 +78,10 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         // Grass only past the road's dirt verge AND inside the grass biome, so the
         // slats stop at the same irregular dirt->grass edge the ground draws.
         const cover = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);
+        const flowerDensity = sampleFlowerDensity(x, z);
         groundYs.push(groundY, groundY);
         covers.push(cover, cover);
+        flowerDensities.push(...flowerDensity, ...flowerDensity);
 
         const bottom = vertexIndex;
         const top = vertexIndex + 1;
@@ -91,6 +104,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     uvs.length = 0;
     groundYs.length = 0;
     covers.length = 0;
+    flowerDensities.length = 0;
     indices.length = 0;
     vertexIndex = 0;
     addStrips(true);
@@ -104,6 +118,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     data.applyToMesh(mesh, true);
     mesh.setVerticesData("groundY", groundYs, true, 1);
     mesh.setVerticesData("cover", covers, true, 1);
+    mesh.setVerticesData("flowerDensity", flowerDensities, true, 4);
     mesh.refreshBoundingInfo();
   };
 
@@ -117,6 +132,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       attribute vec2 uv;
       attribute float groundY;
       attribute float cover;
+      attribute vec4 flowerDensity;
       uniform mat4 worldViewProjection;
       uniform sampler2D mowField;
       uniform vec4 bounds;
@@ -133,6 +149,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying float vRun;
       varying float vColorPick;
       varying float vCover;
+      varying vec4 vFlowerDensity;
 
       float mowedAt(vec2 xz) {
         vec2 uvm = vec2((xz.x - bounds.x) / bounds.z, 1.0 - ((xz.y - bounds.y) / bounds.w));
@@ -217,6 +234,7 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
         vTop = top;
         vRun = run;
         vCover = cover;
+        vFlowerDensity = flowerDensity;
         gl_Position = worldViewProjection * vec4(worldPosition, 1.0);
       }
     `;
@@ -229,10 +247,17 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
       varying float vRun;
       varying float vColorPick;
       varying float vCover;
+      varying vec4 vFlowerDensity;
       uniform vec3 topColorA;
       uniform vec3 topColorB;
       uniform vec3 midColor;
       uniform vec3 bottomColor;
+      uniform vec3 flowerBlueColor;
+      uniform vec3 flowerWhiteColor;
+      uniform vec3 flowerYellowColor;
+      uniform vec3 flowerRedColor;
+      uniform float flowerTintEnabled;
+      uniform float flowerTintStrength;
       uniform float slatMidPoint;
       uniform vec3 lightDir;
       uniform vec3 cameraPosition;
@@ -316,6 +341,18 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
           ? mix(bottomColor, midColor, tipAmount / knee)
           : mix(midColor, topMix, (tipAmount - knee) / (1.0 - knee));
         vec3 base = vert * (0.78 + (0.42 * albedoDetail.g));
+        float flowerTotal = vFlowerDensity.x + vFlowerDensity.y + vFlowerDensity.z + vFlowerDensity.w;
+        if (flowerTotal > 0.001 && flowerTintEnabled > 0.5) {
+          vec3 flowerColor = (
+            (flowerBlueColor * vFlowerDensity.x)
+            + (flowerWhiteColor * vFlowerDensity.y)
+            + (flowerYellowColor * vFlowerDensity.z)
+            + (flowerRedColor * vFlowerDensity.w)
+          ) / flowerTotal;
+          float tipMask = smoothstep(0.18, 1.0, tipAmount);
+          float flowerTint = clamp(flowerTotal * flowerTintStrength * tipMask, 0.0, 1.0);
+          base = mix(base, flowerColor, flowerTint);
+        }
         float diffuse = 0.42 + (0.58 * clamp((dot(normal, light) + 0.18) / 1.18, 0.0, 1.0));
 
         float rough = clamp(roughness, 0.04, 1.0);
@@ -346,10 +383,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   }
 
   const material = new ShaderMaterial("grassSlatsMat", scene, "grassSlats", {
-    attributes: ["position", "normal", "uv", "groundY", "cover"],
+    attributes: ["position", "normal", "uv", "groundY", "cover", "flowerDensity"],
     uniforms: [
       "worldViewProjection", "cameraPosition", "bounds", "slatHeight",
       "topColorA", "topColorB", "midColor", "bottomColor", "slatMidPoint",
+      "flowerBlueColor", "flowerWhiteColor", "flowerYellowColor", "flowerRedColor",
+      "flowerTintEnabled", "flowerTintStrength",
       "lightDir", "tileScale", "normalStrength", "roughness", "specIntensity", "sheen", "cutoff",
       "wiggleAmp", "wiggleFreq", "bendAmp", "time", "windAmp", "windDirection",
       "lodFade", "lodCenter", "slatFadeDistance", "slatFadeBand", "slatMaxDistance",
@@ -390,6 +429,12 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     material.setColor3("topColorB", hexToColor3(settings.lodSlatTopColorB));
     material.setColor3("midColor", hexToColor3(settings.lodSlatMidColor));
     material.setColor3("bottomColor", hexToColor3(settings.lodSlatBottomColor));
+    material.setColor3("flowerBlueColor", hexToColor3(settings.lodFlowerSlatBlueColor));
+    material.setColor3("flowerWhiteColor", hexToColor3(settings.lodFlowerSlatWhiteColor));
+    material.setColor3("flowerYellowColor", hexToColor3(settings.lodFlowerSlatYellowColor));
+    material.setColor3("flowerRedColor", hexToColor3(settings.lodFlowerSlatRedColor));
+    material.setFloat("flowerTintEnabled", settings.lodFlowerSlatsShow ? 1 : 0);
+    material.setFloat("flowerTintStrength", settings.lodFlowerSlatStrength);
     material.setFloat("slatMidPoint", settings.lodSlatColorMid);
     material.setFloat("lodFade", settings.lodFade ? 1 : 0);
     material.setFloat("slatFadeDistance", settings.lodSlatFadeDistance);
@@ -400,6 +445,23 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
   applySettings();
 
   const center = new Vector2(0, 0);
+
+  const rebuildMapFields = () => {
+    const pos = mesh.getVerticesData("position");
+    if (!pos) {
+      return;
+    }
+    const next = new Array(pos.length / 3);
+    const nextFlowerDensities: number[] = [];
+    for (let index = 0; index < next.length; index += 1) {
+      const x = pos[index * 3];
+      const z = pos[(index * 3) + 2];
+      next[index] = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);
+      nextFlowerDensities.push(...sampleFlowerDensity(x, z));
+    }
+    mesh.updateVerticesData("cover", next);
+    mesh.updateVerticesData("flowerDensity", nextFlowerDensities);
+  };
 
   return {
     applySettings,
@@ -414,26 +476,17 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
     rebuildDensity(densityScale: number) {
       const nextSpacing = BASE_SPACING / Math.sqrt(Math.max(0.1, densityScale));
       if (Math.abs(nextSpacing - currentSpacing) < 0.001) {
+        rebuildMapFields();
         return;
       }
 
       currentSpacing = nextSpacing;
       rebuildGeometry();
     },
-    // Recompute the grass/dirt coverage from the existing vertex positions (no
-    // re-jitter) when the road verge width changes, so slats follow the new edge.
+    // Recompute map-derived vertex fields from existing positions (no re-jitter)
+    // when level, road verge, or flower-density sources change.
     rebuildCover() {
-      const pos = mesh.getVerticesData("position");
-      if (!pos) {
-        return;
-      }
-      const next = new Array(pos.length / 3);
-      for (let index = 0; index < next.length; index += 1) {
-        const x = pos[index * 3];
-        const z = pos[(index * 3) + 2];
-        next[index] = roadGrassAmount(x, z, settings.lodSlatRoadInset) * biomeHomeAmount(x, z);
-      }
-      mesh.updateVerticesData("cover", next);
+      rebuildMapFields();
     },
     show(on: boolean) {
       settings.lodSlatsShow = on;
