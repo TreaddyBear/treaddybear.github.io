@@ -55,15 +55,27 @@ if (!import.meta.env.PROD) {
       return {};
     }
   };
+  const writeBag = (key: string, bagToWrite: Bag) => {
+    if (Object.keys(bagToWrite).length === 0) {
+      localStorage.removeItem(key);
+      return;
+    }
+
+    localStorage.setItem(key, JSON.stringify(bagToWrite));
+  };
 
   const overrides = loadBag(OVERRIDE_KEY);
   for (const k of Object.keys(overrides)) {
     const target = tuneTargets.get(k);
 
-    if (target) {
-      target.set(overrides[k]);
+    if (!target || overrides[k] === target.defaultValue) {
+      delete overrides[k];
+      continue;
     }
+
+    target.set(overrides[k]);
   }
+  writeBag(OVERRIDE_KEY, overrides);
 
   // Committed values already baked into the code default (or no longer real
   // settings) are dropped, so "pending" only shows what still needs baking.
@@ -75,6 +87,7 @@ if (!import.meta.env.PROD) {
       delete committed[k];
     }
   }
+  writeBag(COMMIT_KEY, committed);
 
   const fmt = (v: unknown) => (typeof v === "string" ? JSON.stringify(v) : String(v));
   const getControlKey = (ctrl: HTMLElement) => {
@@ -107,7 +120,7 @@ if (!import.meta.env.PROD) {
     }
     localStorage.setItem(OVERRIDE_KEY, JSON.stringify(diff));
   };
-  const saveCommitted = () => localStorage.setItem(COMMIT_KEY, JSON.stringify(committed));
+  const saveCommitted = () => writeBag(COMMIT_KEY, committed);
   const pendingLines = () => Object.keys(committed).sort().map((k) => `  ${k}: ${fmt(committed[k])},`).join("\n");
 
   const dots = new Map<string, { revert: HTMLElement; commit: HTMLElement }>();
