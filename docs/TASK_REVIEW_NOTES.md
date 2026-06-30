@@ -105,16 +105,80 @@ Recent / last-24h review items: 10.
 
 Overall outstanding items found in docs/code: 13.
 
-- Standardize shared rendering modules between LaMow and LaMow Editor.
-- Extract shared foliage/species generation standards so editor previews and game runtime use the same definitions.
-- Retire legacy flat map arrays (`segments`, `cloverPatches`, `flowerBeds`, `flowerFields`) once remaining consumers move to area-tree/baked queries.
-- Audit tulips: docs say tulip runtime placement bypasses baked instances and remains non-deterministic.
-- Audit clover: docs say clover white bunches still use legacy flat patches and `Math.random()`.
-- Stabilize dandelion kind selection; docs note seed/yellow type depends on baked array index.
-- Move attract-camera points of interest off legacy flat vegetation arrays.
-- Add flower far LOD strategy, either colored slats or another cheap representation.
-- Finish debug settings information architecture: organize submenus and keep special controls distinct from tunables.
-- Decide and document terrain/height falloff edge cases and validator warnings.
-- Make sky/HDRI conversion pipeline repeatable and asset-size-conscious.
-- Improve automated visual review path; existing docs still call out Vite/browser screenshot reliability work.
-- Continue map editor parity work so authored changes reflect game output exactly.
+1. Shared rendering modules for LaMow + LaMow Editor
+   - Classification: real architecture goal.
+   - Release call: v2/ongoing, except pieces needed by immediate sky/foliage work.
+   - Wording: rendering code should move toward reusable modules consumed by both game and editor, but this should happen by extracting one stable renderer at a time.
+   - Follow-up: start with sky/lighting and foliage LOD, because those are already active problem areas.
+
+2. Shared foliage/species generation standards
+   - Classification: real architecture goal.
+   - Release call: v2, with pre-release slices if needed for visible flower/clover fixes.
+   - Wording: editor previews and runtime should eventually use the same species definitions and deterministic generation code.
+   - Follow-up: do not block the next release on a full species editor unless current foliage visuals cannot be tuned safely otherwise.
+
+3. Retire legacy flat map arrays
+   - Classification: legitimate technical debt.
+   - Release call: v2 unless map editor parity is blocked by it.
+   - Wording: `segments`, `cloverPatches`, `flowerBeds`, and `flowerFields` are derived legacy views; long-term source of truth should be area-tree/baked queries.
+   - Follow-up: migrate one consumer at a time. Avoid a large rewrite while performance/foliage/sky are still moving.
+
+4. Tulip baked-instance audit
+   - Classification: legitimate correctness issue.
+   - Release call: pre-release if tulips appear in release levels; v2 if tulips remain demo/dev-only.
+   - Wording: docs say tulips are baked but runtime placement still uses old `flowerBeds` plus `Math.random()`.
+   - Follow-up: confirm whether tulips exist in the three final `bgrn` levels. If yes, wire them to baked instances or explicitly exclude them from release content.
+
+5. Clover baked/deterministic audit
+   - Classification: legitimate but split into visual vs determinism concerns.
+   - Release call: pre-release for visual clarity; v2 for exact deterministic clover blossoms unless release behavior visibly depends on it.
+   - Wording: clover itself has baked support, but white clover-flower bunches still appear to use legacy patches and `Math.random()`.
+   - Follow-up: inspect clover in `devVegtest`/editor first. Fix visual readability before chasing full determinism.
+
+6. Stable dandelion kind selection
+   - Classification: correctness cleanup.
+   - Release call: v2 unless save-state or authored dandelion identity matters before release.
+   - Wording: seed/yellow kind should eventually be derived from a stable per-instance seed/id, not array position.
+   - Follow-up: safe to postpone if current release only needs consistent-enough distribution, not persistent individual dandelion identity.
+
+7. Attract-camera POI migration
+   - Classification: legitimate dependency cleanup.
+   - Release call: pre-release if attract screen shots are visibly wrong; otherwise v2 with legacy-array retirement.
+   - Wording: attract camera still reads legacy flat vegetation arrays for points of interest.
+   - Follow-up: leave until either legacy arrays are retired or attract shots lose flower/clover targeting.
+
+8. Flower far LOD / colored slats
+   - Classification: required performance/art task.
+   - Release call: pre-release.
+   - Wording: add colored far-LOD flower representation, either by tinting grass slats from flower density or by adding separate cheap colored slat layers.
+   - Follow-up: prioritize this before further density changes, because it attacks both frame rate and distant readability.
+
+9. Debug settings information architecture
+   - Classification: real UX/dev-tooling task.
+   - Release call: pre-release for broken/confusing essentials; v2 for a full polish pass.
+   - Wording: level launch, diagnostics, and saved tunables need clearer separation.
+   - Follow-up: keep special controls above tunables and outside saved local settings unless explicitly intended.
+
+10. Terrain/height falloff spec and validator warnings
+    - Classification: spec hygiene.
+    - Release call: v2/doc unless current authored maps hit the ambiguous case.
+    - Wording: define what `height` means when falloff exceeds shape inradius, and decide whether validator warns.
+    - Follow-up: do not block release if current final maps validate visually.
+
+11. Sky/HDRI conversion pipeline
+    - Classification: useful asset-pipeline work.
+    - Release call: pre-release if the current sky asset still looks wrong; otherwise v2/tooling.
+    - Wording: conversion should be repeatable, size-conscious, and avoid committing huge source EXR files.
+    - Follow-up: current immediate task is live sky calibration; formal source-asset tooling can come after the visual is accepted.
+
+12. Automated visual review path
+    - Classification: dev-experience/tooling.
+    - Release call: v2 unless lack of screenshots blocks remote verification.
+    - Wording: `pnpm viz` is the reliable headless vegetation path; browser/game screenshots still need a hardened single-command capture flow.
+    - Follow-up: not gameplay-critical, but valuable for long remote sessions and release confidence.
+
+13. Map editor parity
+    - Classification: umbrella requirement.
+    - Release call: pre-release for anything that makes final levels render/play differently from authored intent; v2 for broader editor feature growth.
+    - Wording: map editor changes must reflect the game accurately, especially level identity, vegetation density, terrain, and foliage standards.
+    - Follow-up: treat as a gate for final `bgrn` levels, not as a demand to finish the whole editor before release.
