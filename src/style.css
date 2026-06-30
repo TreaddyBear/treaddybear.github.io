@@ -1066,34 +1066,66 @@ body.cinematic-menu-mode #hud {
 #celebrationSeeds {
   position: absolute;
   inset: 0;
+  z-index: 5;
   pointer-events: none;
 }
 
-.celebration-seed {
+.dandelion-firework {
   position: absolute;
   left: 50%;
-  top: 56%;
-  width: var(--seed-size);
-  height: var(--seed-size);
-  border-radius: 999px;
-  background: hsl(var(--seed-hue) 95% 66%);
-  box-shadow:
-    0 0 8px hsl(var(--seed-hue) 95% 72% / 80%),
-    0 0 22px hsl(var(--seed-hue) 95% 72% / 45%);
-  transform: translate(-50%, -50%);
-  animation: seed-firework 3200ms var(--seed-delay) cubic-bezier(0.15, 0.9, 0.25, 1) forwards;
+  top: 62%;
+  width: 0;
+  height: 0;
 }
 
-.celebration-seed::after {
+.dandelion-firework-head {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 52%, #7d4a08 0 12%, transparent 13%),
+    repeating-conic-gradient(from 7deg, #ffdf2d 0 8deg, #ffc400 8deg 14deg, #fff47a 14deg 18deg);
+  box-shadow:
+    0 0 10px rgb(255 219 44 / 76%),
+    0 0 28px rgb(255 219 44 / 42%);
+  transform: translate(-50%, -50%);
+  animation: dandelion-head-arc var(--firework-duration) var(--firework-delay) cubic-bezier(0.18, 0.86, 0.26, 1) forwards;
+}
+
+.dandelion-firework-head::after {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 34%;
-  height: 34%;
+  width: 30%;
+  height: 30%;
   border-radius: inherit;
-  background: #fff;
+  background: #6f3e07;
   content: "";
   transform: translate(-50%, -50%);
+}
+
+.dandelion-firework-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--particle-size);
+  height: calc(var(--particle-size) * 2.8);
+  border-radius: 999px 999px 70% 70%;
+  background: rgb(255 255 238 / 92%);
+  box-shadow: 0 0 7px rgb(255 255 238 / 58%);
+  opacity: 0;
+  transform: translate(var(--peak-x), var(--peak-y)) rotate(0deg);
+  animation: dandelion-particle-fall var(--particle-duration) var(--particle-delay) cubic-bezier(0.2, 0.06, 0.68, 1) forwards;
+}
+
+.dandelion-firework-particle.is-yellow {
+  width: calc(var(--particle-size) * 1.4);
+  height: calc(var(--particle-size) * 1.4);
+  background: #ffd92e;
+  box-shadow: 0 0 8px rgb(255 217 46 / 68%);
 }
 
 @keyframes title-pop {
@@ -1107,22 +1139,43 @@ body.cinematic-menu-mode #hud {
   }
 }
 
-@keyframes seed-firework {
+@keyframes dandelion-head-arc {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.2);
+    transform: translate(var(--start-x), 160px) scale(0.5);
   }
   12% {
     opacity: 1;
   }
+  48% {
+    opacity: 1;
+    transform: translate(var(--peak-x), var(--peak-y)) scale(1);
+  }
+  58% {
+    opacity: 1;
+    transform: translate(var(--peak-x), var(--peak-y)) scale(1.28);
+  }
+  64% {
+    opacity: 0;
+    transform: translate(var(--peak-x), var(--peak-y)) scale(0.2);
+  }
   100% {
     opacity: 0;
-    transform:
-      translate(
-        calc(-50% + var(--seed-x)),
-        calc(-50% + var(--seed-y))
-      )
-      scale(0.72);
+    transform: translate(var(--peak-x), var(--peak-y)) scale(0.2);
+  }
+}
+
+@keyframes dandelion-particle-fall {
+  0% {
+    opacity: 0;
+    transform: translate(var(--peak-x), var(--peak-y)) rotate(0deg) scale(0.6);
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fall-x), var(--fall-y)) rotate(var(--particle-spin)) scale(0.9);
   }
 }
 

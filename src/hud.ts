@@ -238,10 +238,10 @@ const celebrationSeedCount = (reason: ResultReason, stars: number) => {
   }
 
   if(stars === 2) {
-    return 88;
+    return 7;
   }
 
-  return 150;
+  return 12;
 };
 
 const nextAccidentOffset = (index: number, offsets: AccidentOffset[]): AccidentOffset => {
@@ -523,18 +523,39 @@ export function createHud(deps: HudDeps) {
     const seedCount = celebrationSeedCount(reason, stars);
 
     for(let index = 0; index < seedCount; index += 1) {
-      const seed = document.createElement("span");
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 110 + (Math.random() * (stars >= 3 ? 520 : 420));
-      const verticalLift = 40 + (Math.random() * (stars >= 3 ? 280 : 220));
+      const firework = document.createElement("span");
+      const startX = -360 + (Math.random() * 720);
+      const peakX = startX + (-120 + (Math.random() * 240));
+      const peakY = -190 - (Math.random() * (stars >= 3 ? 230 : 160));
+      const delay = Math.random() * 0.75;
+      const duration = 2.4 + (Math.random() * 0.55);
+      firework.className = "dandelion-firework";
+      firework.style.setProperty("--start-x", `${startX}px`);
+      firework.style.setProperty("--peak-x", `${peakX}px`);
+      firework.style.setProperty("--peak-y", `${peakY}px`);
+      firework.style.setProperty("--firework-delay", `${delay}s`);
+      firework.style.setProperty("--firework-duration", `${duration}s`);
 
-      seed.className = "celebration-seed";
-      seed.style.setProperty("--seed-x", `${Math.cos(angle) * distance}px`);
-      seed.style.setProperty("--seed-y", `${(Math.sin(angle) * distance) - verticalLift}px`);
-      seed.style.setProperty("--seed-delay", `${Math.random() * 0.7}s`);
-      seed.style.setProperty("--seed-size", `${4 + (Math.random() * 9)}px`);
-      seed.style.setProperty("--seed-hue", `${Math.floor(Math.random() * 360)}`);
-      deps.celebrationSeeds.append(seed);
+      const head = document.createElement("span");
+      head.className = "dandelion-firework-head";
+      firework.append(head);
+
+      const particleCount = stars >= 3 ? 18 : 12;
+      for(let p = 0; p < particleCount; p += 1) {
+        const particle = document.createElement("span");
+        const fallX = peakX + (-140 + (Math.random() * 280));
+        const fallY = 210 + (Math.random() * 330);
+        particle.className = p % 4 === 0 ? "dandelion-firework-particle is-yellow" : "dandelion-firework-particle";
+        particle.style.setProperty("--fall-x", `${fallX}px`);
+        particle.style.setProperty("--fall-y", `${fallY}px`);
+        particle.style.setProperty("--particle-delay", `${delay + (duration * 0.52) + (Math.random() * 0.18)}s`);
+        particle.style.setProperty("--particle-duration", `${1.8 + (Math.random() * 1.2)}s`);
+        particle.style.setProperty("--particle-size", `${3 + (Math.random() * 5)}px`);
+        particle.style.setProperty("--particle-spin", `${-180 + (Math.random() * 360)}deg`);
+        firework.append(particle);
+      }
+
+      deps.celebrationSeeds.append(firework);
     }
 
     deps.celebration.hidden = false;
