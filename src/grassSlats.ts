@@ -349,8 +349,9 @@ export function createGrassSlats(scene: Scene, mowTexture: DynamicTexture, bake:
             + (flowerYellowColor * vFlowerDensity.z)
             + (flowerRedColor * vFlowerDensity.w)
           ) / flowerTotal;
-          float tipMask = smoothstep(0.18, 1.0, tipAmount);
-          float flowerTint = clamp(flowerTotal * flowerTintStrength * tipMask, 0.0, 1.0);
+          float densityMask = smoothstep(0.08, 1.0, flowerTotal);
+          float tipMask = smoothstep(0.32, 1.0, tipAmount);
+          float flowerTint = clamp(densityMask * flowerTintStrength * tipMask, 0.0, 0.72);
           base = mix(base, flowerColor, flowerTint);
         }
         float diffuse = 0.42 + (0.58 * clamp((dot(normal, light) + 0.18) / 1.18, 0.0, 1.0));

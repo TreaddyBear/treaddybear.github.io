@@ -103,11 +103,11 @@ export const settings = {
   lodSlatBottomColor: "#799726", // shaded base
   lodSlatColorMid: 0.4, // where the mid color sits along the blade (0 base, 1 tip)
   lodFlowerSlatsShow: true,
-  lodFlowerSlatStrength: 0.72,
-  lodFlowerSlatBlueColor: "#9fbcff",
-  lodFlowerSlatWhiteColor: "#f4f5ee",
-  lodFlowerSlatYellowColor: "#ffd84e",
-  lodFlowerSlatRedColor: "#ff6f72",
+  lodFlowerSlatStrength: 0.42,
+  lodFlowerSlatBlueColor: "#a8c7fa",
+  lodFlowerSlatWhiteColor: "#f2f5fc",
+  lodFlowerSlatYellowColor: "#fcdb38",
+  lodFlowerSlatRedColor: "#eb3830",
   // Distance LOD handoff. With lodFade on, the slats dither IN with camera
   // distance (near = real blades, far = slats). lodFadeDistance is the ground
   // radius where slats start; lodFadeBand is how wide the dither fade-in is.

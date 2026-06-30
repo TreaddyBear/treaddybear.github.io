@@ -37,6 +37,10 @@ Status: first implementation pass added; needs visual/performance review.
 - Colored flower slats are required. The implementation choice is open: either tint existing slats from flower-density fields, or add separate cheap colored slat layers for flower color families.
 - Selection criterion: pick the approach that gives better frame time and clearer flower-field readability at distance.
 - Current implementation direction: tint existing slats from active-map flower density fields. This adds shader/attribute cost but no extra slat mesh layer.
+- Current coverage: field flowers only (`flowerBlue`, `flowerWhite`, `flowerYellow`, `flowerRed`).
+- Current non-coverage: tulips, dandelions, and clover do not drive colored slat tinting yet.
+- Current tint colors are intended to match the field-flower petal material hues, but still need live visual review.
+- Better long-term path: colored far-LOD should come from foliage/species asset definitions, not hardcoded shader channels. Each species should declare its far-LOD color, far-LOD behavior, and whether it contributes to grass-slat tinting or to a separate impostor/slat layer.
 
 ## Flower shape/editor pipeline
 
@@ -45,8 +49,9 @@ Status: specified but not implemented as data.
 - `docs/VEGETATION_EDITOR.md` defines the intended approach: procedural species definitions with range parameters, deterministic per-instance seeds, editor preview, and bake output.
 - Current runtime flowers in `src/fieldFlowers.ts` are still generated directly in code from a hardcoded saddle-petal mesh plus `Math.random()` for yaw, height, petal count, stem, and petal transforms.
 - Current baked instances carry position/type/index only. They do not carry per-instance visual parameters or baked mesh data.
-- No `map-exports/species/*.json` species files exist yet, and `tools/vegetation-sampler.ts` does not read species definitions or write visual props into `bakedInstances`.
+- No `assets/species/*.json` species files exist yet, and `tools/vegetation-sampler.ts` does not read species definitions or write visual props into `bakedInstances`.
 - Practical next step: extract the current hardcoded field-flower shape generation into a shared `FlowerSpeciesParams`/`generateFlower` module, then let both runtime and editor preview call it before extending the bake format.
+- Asset-editor direction: species definitions should be global project assets referenced by maps, not embedded inside map files. Optional pack-local species/assets can come later, after the global path is solid.
 
 ## Outstanding inventory
 
@@ -80,7 +85,7 @@ Recent / last-24h review items: 10.
 
 5. Clover clarity
    - Classification: legitimate unresolved issue.
-   - Release call: pre-release inspection; larger determinism cleanup can be v2 if visuals are acceptable.
+   - Release call: pre-release inspection; larger determinism cleanup can be later work if visuals are acceptable.
    - Wording: clover needs a readable test/editor inspection path, and older docs still call out legacy/non-deterministic clover-flower behavior.
    - Follow-up: inspect clover in the editor/test level, then decide whether visual clarity alone is enough for release.
 

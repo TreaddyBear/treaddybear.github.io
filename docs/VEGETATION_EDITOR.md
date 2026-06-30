@@ -291,7 +291,7 @@ the game scene at the cost of a second GPU context.
 The editor's output is a species definition file, stored alongside the map format:
 
 ```json
-// map-exports/species/white-flower.json
+// assets/species/white-flower.json
 {
   "speciesId": "white-flower",
   "generator": "fieldFlower",
@@ -317,7 +317,7 @@ At runtime, `fieldFlowers.ts` reads the per-instance properties from `bakedInsta
 | `src/dandelions.ts` | Extract `generateDandelion(params, seed)` |
 | `src/editor/vegetationEditor.ts` | New (dev-only) |
 | `tools/vegetation-sampler.ts` | Accept species JSON; write visual props to `bakedInstances` |
-| `map-exports/species/*.json` | New species definition files per flower type |
+| `assets/species/*.json` | New global species definition files per flower type |
 
 ---
 

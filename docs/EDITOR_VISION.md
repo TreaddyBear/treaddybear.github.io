@@ -54,13 +54,25 @@ This loop is already partially built for maps:
 
 The editor extends the same pipeline to other definition types without reinventing the loop.
 
+### Asset storage decision
+
+The editor's non-map assets are project-global by default. Vegetation species, mower parts,
+imported meshes, procedural assembly rules, and shared material definitions should live in
+project asset folders and work across all maps. Map files should reference those assets by
+stable IDs; they should not embed flower-shape definitions, imported mesh data, or other
+global asset contents.
+
+Pack-local/custom assets are a reasonable later extension, but not the current target. The
+first implementation should solve the common project-global case cleanly before adding
+per-pack asset overrides.
+
 ### Definition types
 
 | Type | Definition source | Bake step | Preview |
 |---|---|---|---|
 | **Maps** | `lawn-maps.json` (existing) | `pnpm bake` | `pnpm viz` + in-game |
-| **Vegetation species** | `map-exports/species/*.json` (proposed) | bake writes per-instance props to `bakedInstances` | in-editor Babylon scene — see `docs/VEGETATION_EDITOR.md` |
-| **Mowers** | `mowers/*.json` (proposed) | none — real-time assembly | in-editor Babylon scene — see §3 below |
+| **Vegetation species** | `assets/species/*.json` (proposed) | bake writes per-instance props to `bakedInstances` | in-editor Babylon scene — see `docs/VEGETATION_EDITOR.md` |
+| **Mowers** | `assets/mowers/*.json` (proposed) | none — real-time assembly | in-editor Babylon scene — see §3 below |
 | **Structural objects** (fences, roads, props) | path data in `lawn-maps.json` (existing) + module mesh refs (proposed extension) | none — real-time assembly of imported modules | in-editor Babylon scene — see §4 below |
 
 All types share the same validate → preview contract. The editor renders a different panel per
