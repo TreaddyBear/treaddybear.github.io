@@ -74,9 +74,13 @@ export function createGrass(deps: GrassDeps) {
   }
 
   const grassGrid = new Map<string, number[]>();
+  const decorativeGrassGrid = new Map<string, Array<{ kind: "medium" | "wheat"; index: number }>>();
   let longGrassMatrices = new Float32Array(0);
   let mediumGrassMatrices = new Float32Array(0);
   let mediumGrassColors = new Float32Array(0);
+  let mediumGrassX = new Float32Array(0);
+  let mediumGrassZ = new Float32Array(0);
+  let mediumGrassMowed: boolean[] = [];
   let longGrassColors = new Float32Array(0);
   // The wild/wheat grass is now multi-stalk clumps in a few stalk-count
   // variants, indexed the same compact way as the cut blades below.
@@ -84,6 +88,9 @@ export function createGrass(deps: GrassDeps) {
   let wheatLocalIndex = new Int32Array(0);
   let wheatVariantMatrices: Float32Array[] = [];
   let wheatVariantColors: Float32Array[] = [];
+  let wheatGrassX = new Float32Array(0);
+  let wheatGrassZ = new Float32Array(0);
+  let wheatGrassMowed: boolean[] = [];
   // Cut blades come in four top-edge shapes (flat / point / sawtooth / V), one
   // thin-instance mesh each, so a blade lives in its variant mesh at a local
   // index and the per-variant buffers stay compact.
@@ -153,6 +160,17 @@ export function createGrass(deps: GrassDeps) {
   // instead of the blades leaving a wider gap by the road.
   const isGrassHere = (x: number, z: number) => roadGrassAmount(x, z) > 0.5;
   const randomYardPoint = () => randomMowablePoint(getActiveMap());
+
+  const addDecorativeGrassToGrid = (kind: "medium" | "wheat", index: number, x: number, z: number) => {
+    const key = gridKey(Math.floor(x / cellSize), Math.floor(z / cellSize));
+    const cell = decorativeGrassGrid.get(key);
+
+    if (cell) {
+      cell.push({ kind, index });
+    } else {
+      decorativeGrassGrid.set(key, [{ kind, index }]);
+    }
+  };
 
   // Four cut-blade silhouettes. backFaceCulling is off on the cut material, so
   // winding doesn't matter. y runs 0 (base) to 1 (tip), scaled tiny when drawn.
@@ -636,6 +654,9 @@ export function createGrass(deps: GrassDeps) {
   const placeMediumGrass = () => {
     mediumGrassMatrices = new Float32Array(currentMediumGrassCount * 16);
     mediumGrassColors = new Float32Array(currentMediumGrassCount * 4);
+    mediumGrassX = new Float32Array(currentMediumGrassCount);
+    mediumGrassZ = new Float32Array(currentMediumGrassCount);
+    mediumGrassMowed = Array.from({ length: currentMediumGrassCount }, () => false);
     const base = hexToColor3(settings.grassBaseColor);
     const smooth01 = (value: number) => {
       const t = Math.max(0, Math.min(1, value));
@@ -670,9 +691,13 @@ export function createGrass(deps: GrassDeps) {
       if (!placed) {
         writeMatrix(mediumGrassMatrices, i, emptyMatrix());
         writeColor(mediumGrassColors, i, [0, 0, 0, 0]);
+        mediumGrassMowed[i] = true;
         continue;
       }
 
+      mediumGrassX[i] = x;
+      mediumGrassZ[i] = z;
+      addDecorativeGrassToGrid("medium", i, x, z);
       const rotation = Quaternion.FromEulerAngles(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.08);
       const distanceFade = Math.max(0.16, 1 - (distance * 0.02));
       const patchNoise = grassNoiseAt(x, z);
@@ -702,6 +727,9 @@ export function createGrass(deps: GrassDeps) {
   const placeWheatGrass = () => {
     wheatVariant = new Uint8Array(currentWheatGrassCount);
     wheatLocalIndex = new Int32Array(currentWheatGrassCount);
+    wheatGrassX = new Float32Array(currentWheatGrassCount);
+    wheatGrassZ = new Float32Array(currentWheatGrassCount);
+    wheatGrassMowed = Array.from({ length: currentWheatGrassCount }, () => false);
     const variantCounts = [0, 0, 0, 0];
     for (let i = 0; i < currentWheatGrassCount; i += 1) {
       const v = pickWheatVariant();
@@ -760,6 +788,9 @@ export function createGrass(deps: GrassDeps) {
 
       const variant = wheatVariant[i];
       const localIndex = wheatLocalIndex[i];
+      wheatGrassX[i] = x;
+      wheatGrassZ[i] = z;
+      addDecorativeGrassToGrid("wheat", i, x, z);
       writeMatrix(wheatVariantMatrices[variant], localIndex, matrix);
       writeColor(wheatVariantColors[variant], localIndex, [pale.r, pale.g, pale.b, 1]);
     }
@@ -808,6 +839,70 @@ export function createGrass(deps: GrassDeps) {
     writeMatrix(cutVariantMatrices[cutVariant[index]], cutLocalIndex[index], matrixForBlade(index, true));
     cutDirty[cutVariant[index]] = true;
     return true;
+  };
+
+  const mowDecorativeOutsideGrass = (mowRadiusSquared: number) => {
+    let mediumChanged = false;
+    const wheatChanged = [false, false, false, false];
+    let changed = false;
+    const minCellX = Math.floor((player.position.x - mowerCutRadius) / cellSize);
+    const maxCellX = Math.floor((player.position.x + mowerCutRadius) / cellSize);
+    const minCellZ = Math.floor((player.position.z - mowerCutRadius) / cellSize);
+    const maxCellZ = Math.floor((player.position.z + mowerCutRadius) / cellSize);
+
+    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+      for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
+        const cell = decorativeGrassGrid.get(gridKey(cellX, cellZ));
+        if (!cell) {
+          continue;
+        }
+
+        for (const item of cell) {
+          if (item.kind === "medium") {
+            if (mediumGrassMowed[item.index]) {
+              continue;
+            }
+
+            const dx = player.position.x - mediumGrassX[item.index];
+            const dz = player.position.z - mediumGrassZ[item.index];
+            if ((dx * dx) + (dz * dz) > mowRadiusSquared) {
+              continue;
+            }
+
+            mediumGrassMowed[item.index] = true;
+            writeMatrix(mediumGrassMatrices, item.index, emptyMatrix());
+            mediumChanged = true;
+            changed = true;
+          } else {
+            if (wheatGrassMowed[item.index]) {
+              continue;
+            }
+
+            const dx = player.position.x - wheatGrassX[item.index];
+            const dz = player.position.z - wheatGrassZ[item.index];
+            if ((dx * dx) + (dz * dz) > mowRadiusSquared) {
+              continue;
+            }
+
+            wheatGrassMowed[item.index] = true;
+            writeMatrix(wheatVariantMatrices[wheatVariant[item.index]], wheatLocalIndex[item.index], emptyMatrix());
+            wheatChanged[wheatVariant[item.index]] = true;
+            changed = true;
+          }
+        }
+      }
+    }
+
+    if (mediumChanged) {
+      mediumGrass.thinInstanceBufferUpdated("matrix");
+    }
+    for (let v = 0; v < wheatGrassMeshes.length; v += 1) {
+      if (wheatChanged[v]) {
+        wheatGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+      }
+    }
+
+    return changed;
   };
 
   const hasUnmowedNeighborWithin = (index: number, radius: number) => {
@@ -930,6 +1025,7 @@ export function createGrass(deps: GrassDeps) {
       helpRequested = false;
       helpPulseUntilSeconds = 0;
       mowField.reset();
+      decorativeGrassGrid.clear();
       placeMediumGrass();
       placeWheatGrass();
       placeGrass();
@@ -961,7 +1057,7 @@ export function createGrass(deps: GrassDeps) {
       const maxCellX = Math.floor((player.position.x + mowerCutRadius) / cellSize);
       const minCellZ = Math.floor((player.position.z - mowerCutRadius) / cellSize);
       const maxCellZ = Math.floor((player.position.z + mowerCutRadius) / cellSize);
-      let mowedThisFrame = false;
+      let scoredMowedThisFrame = false;
       const cutDirty = [false, false, false, false];
 
       for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
@@ -980,28 +1076,27 @@ export function createGrass(deps: GrassDeps) {
             const dx = player.position.x - grassX[index];
             const dz = player.position.z - grassZ[index];
 
-            if ((dx * dx) + (dz * dz) <= mowRadiusSquared) {
-              isMowed[index] = true;
-              mowedCount += 1;
-              writeMatrix(longGrassMatrices, index, emptyMatrix());
-              writeMatrix(cutVariantMatrices[cutVariant[index]], cutLocalIndex[index], matrixForBlade(index, true));
-              cutDirty[cutVariant[index]] = true;
-              mowedThisFrame = true;
+            if ((dx * dx) + (dz * dz) <= mowRadiusSquared && cutBladeAt(index, cutDirty)) {
+              scoredMowedThisFrame = true;
             }
           }
         }
       }
 
-      if (mowedThisFrame) {
+      const decorativeMowedThisFrame = mowDecorativeOutsideGrass(mowRadiusSquared);
+
+      if (scoredMowedThisFrame || decorativeMowedThisFrame) {
         lastMowSeconds = performance.now() / 1000;
         grassCuttingAudioTimer = 0.16;
-        longGrass.thinInstanceBufferUpdated("matrix");
-        for (let v = 0; v < cutGrassMeshes.length; v += 1) {
-          if (cutDirty[v]) {
-            cutGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+        if (scoredMowedThisFrame) {
+          longGrass.thinInstanceBufferUpdated("matrix");
+          for (let v = 0; v < cutGrassMeshes.length; v += 1) {
+            if (cutDirty[v]) {
+              cutGrassMeshes[v].thinInstanceBufferUpdated("matrix");
+            }
           }
+          onMowProgress();
         }
-        onMowProgress();
 
         if (clippingBurstCooldown <= 0) {
           wind.burstMowerClippings(false);
