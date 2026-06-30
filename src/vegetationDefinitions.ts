@@ -4,7 +4,7 @@ export type RangeF = { min: number; max: number };
 export type RangeI = { min: number; max: number };
 export type ColorHex = `#${string}`;
 
-export type VegetationCategory = "fieldFlower" | "groundcover" | "shrub" | "tree" | "decorative";
+export type VegetationCategory = "fieldFlower" | "tallFlower" | "groundcover" | "shrub" | "tree" | "decorative";
 
 export type VegetationMaterialDefinition = {
   baseColor: ColorHex;
@@ -26,6 +26,14 @@ export type VegetationShapeDefinition =
     centerRadius: RangeF;
   }
   | {
+    type: "tallFlower";
+    stemHeight: RangeF;
+    stemRadius: RangeF;
+    stemLean: RangeF;
+    head: TallFlowerHeadDefinition;
+    leaves?: TallFlowerLeafDefinition;
+  }
+  | {
     type: "cloverCluster";
     leafCount: RangeI;
     leafRadius: RangeF;
@@ -42,6 +50,34 @@ export type VegetationShapeDefinition =
     type: "importedMesh";
     assetId: string;
   };
+
+export type TallFlowerHeadDefinition =
+  | {
+    type: "tulipCup";
+    diameter: RangeF;
+    heightScale: RangeF;
+    petalCount?: RangeI;
+  }
+  | {
+    type: "dandelionYellow";
+    centerDiameter: RangeF;
+    rayCount: RangeI;
+    rayLength: RangeF;
+  }
+  | {
+    type: "dandelionSeedPuff";
+    coreRadius: RangeF;
+    fuzzCount: RangeI;
+    puffRadius: RangeF;
+    fuzzSize: RangeF;
+  };
+
+export type TallFlowerLeafDefinition = {
+  count: RangeI;
+  length: RangeF;
+  width: RangeF;
+  curl?: RangeF;
+};
 
 export type VegetationTransformRanges = {
   yaw?: RangeF;
@@ -74,6 +110,13 @@ export type VegetationLodDefinition = {
   maxRenderDistance?: number;
 };
 
+export type VegetationInteractionDefinition = {
+  protectedMistake?: boolean;
+  mowBehavior?: "collapse" | "cutStem" | "releaseHead" | "releaseSeeds" | "releasePetals";
+  shotBehavior?: "none" | "sameAsMow" | "protectedDamage";
+  headBehavior?: "none" | "tulipCrush" | "dandelionSeedRelease" | "dandelionYellowPetalPop";
+};
+
 export type VegetationSpeciesDefinition = {
   id: FoliageKey | string;
   displayName: string;
@@ -83,6 +126,7 @@ export type VegetationSpeciesDefinition = {
   materials: Record<string, VegetationMaterialDefinition>;
   instanceRanges: VegetationInstanceRanges;
   lod: VegetationLodDefinition;
+  interaction?: VegetationInteractionDefinition;
 };
 
 export type VegetationAssetEditorMetadata = {

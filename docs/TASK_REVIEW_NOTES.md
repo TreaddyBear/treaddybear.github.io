@@ -137,9 +137,9 @@ Overall outstanding items found in docs/code: 13.
 
 4. Tulip baked-instance audit
    - Classification: legitimate correctness issue.
-   - Release call: pre-release if tulips appear in release levels; later cleanup if tulips remain demo/dev-only.
+   - Release call: pre-release. Tulips are expected content.
    - Wording: docs say tulips are baked but runtime placement still uses old `flowerBeds` plus `Math.random()`.
-   - Follow-up: confirm whether tulips exist in the three final `bgrn` levels. If yes, wire them to baked instances or explicitly exclude them from release content.
+   - Follow-up: formalize tulips as tall-flower species assets, then wire placement to baked instances instead of old `flowerBeds`.
 
 5. Clover baked/deterministic audit
    - Classification: legitimate but split into visual vs determinism concerns.
@@ -149,9 +149,9 @@ Overall outstanding items found in docs/code: 13.
 
 6. Stable dandelion kind selection
    - Classification: correctness cleanup.
-   - Release call: later cleanup unless save-state or authored dandelion identity matters before release.
-   - Wording: seed/yellow kind should eventually be derived from a stable per-instance seed/id, not array position.
-   - Follow-up: safe to postpone if current release only needs consistent-enough distribution, not persistent individual dandelion identity.
+   - Release call: pre-release if live seed release remains broken; otherwise format/runtime cleanup can follow tulip work.
+   - Wording: seed/yellow kind should eventually be derived from a stable per-instance seed/id, not array position. Dandelions should use the tall-flower shape path once their head behavior enters the species asset pipeline.
+   - Follow-up: preserve the special seed-release and yellow-head-petal behaviors; do not flatten dandelions into generic small field flowers.
 
 7. Attract-camera POI migration
    - Classification: legitimate dependency cleanup.

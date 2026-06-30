@@ -22,8 +22,11 @@ later, but the first target is a clean project-global asset library.
 
 ### Vegetation Species
 
-- Edit simple flowers and clover first.
-- Dandelions stay out of the first pass unless they are needed to prove the model.
+- Edit simple flowers, clover, and tulips first.
+- Dandelions stay out of the first editor UI pass unless they are needed to prove the tall-flower
+  behavior model.
+- Grass is tabled as a species asset until its color, terrain, mowing, and far-LOD responsibilities
+  are considered as one ground-system design.
 - Each species is a global definition in `assets/species/*.json`.
 - Import/export uses the contract in `docs/VEGETATION_ASSET_FORMAT.md`.
 - Species definitions describe procedural shape, material colors, randomized per-instance
@@ -61,7 +64,7 @@ A species is a reusable global asset:
 type VegetationSpeciesDefinition = {
   id: string;
   displayName: string;
-  category: "fieldFlower" | "groundcover" | "shrub" | "tree" | "decorative";
+  category: "fieldFlower" | "tallFlower" | "groundcover" | "shrub" | "tree" | "decorative";
   generator: "monolithicPlant";
   parts: VegetationPartDefinition[];
   materials: Record<string, VegetationMaterialDefinition>;
@@ -86,16 +89,18 @@ type VegetationPartDefinition = {
 };
 ```
 
-Simple flowers can later split the monolith into stem + bud/petal cluster if useful. Clover can
-start as a low ground mat/leaf cluster monolith. Trees remain a peripheral design pressure:
-the taxonomy should not prevent future trunk/branch/leaf clusters, but the first implementation
-should not get stuck trying to solve trees.
+Simple flowers can later split the monolith into stem + bud/petal cluster if useful. Tulips and
+dandelions should use a tall-flower shape with shared stem/leaf ranges and specialized head
+behavior. Clover can start as a low ground mat/leaf cluster monolith. Trees remain a peripheral
+design pressure: the taxonomy should not prevent future trunk/branch/leaf clusters, but the first
+implementation should not get stuck trying to solve trees.
 
 ### Shape Primitives
 
 ```ts
 type VegetationShapeDefinition =
   | { type: "saddleFlower"; petalCount: RangeI; petalLength: RangeF; petalWidth: RangeF; cup: RangeF; curl: RangeF }
+  | { type: "tallFlower"; stemHeight: RangeF; stemRadius: RangeF; stemLean: RangeF; head: TallFlowerHeadDefinition; leaves?: TallFlowerLeafDefinition }
   | { type: "cloverCluster"; leafCount: RangeI; leafRadius: RangeF; clusterRadius: RangeF; lift: RangeF }
   | { type: "billboard"; width: RangeF; height: RangeF; pivot: "base" | "center" }
   | { type: "importedMesh"; assetId: string };
@@ -125,4 +130,5 @@ type VegetationLodDefinition = {
 5. Runtime renders the simple flower/clover definitions using shared generator code.
 6. Editor preview calls the same generator code.
 
-The first runtime target is simple flowers and clover only.
+The first runtime target is simple flowers, clover, and tulips. Dandelions should follow through
+the same tall-flower path after the tulip shape/interaction split is proven.

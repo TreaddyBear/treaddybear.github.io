@@ -3,8 +3,8 @@
 Status: format contract for the LaMow Editor vegetation species pipeline.
 
 This defines the JSON shape the editor imports and exports for project-global vegetation
-species. Maps should reference species by ID; they should not embed flower or clover shape
-definitions.
+species. Maps should reference species by ID; they should not embed flower, clover, tulip, or
+dandelion shape definitions.
 
 ## Storage
 
@@ -123,7 +123,7 @@ IDs include `flowerBlue`, `flowerWhite`, `flowerYellow`, `flowerRed`, and `clove
 `displayName` is editor UI text. It is not a stable reference.
 
 `category` groups the asset for editor browsing and default tooling. The first implemented
-categories are `fieldFlower` and `groundcover`.
+categories are `fieldFlower`, `tallFlower`, and `groundcover`.
 
 `generator` is currently always `monolithicPlant`. That means the engine treats each vegetation
 instance as one plant made from a parts array. The first simple flower and clover definitions
@@ -136,6 +136,8 @@ hardcoded runtime tint tables.
 `parts` describes the generated plant shape. The first pass supports:
 
 - `saddleFlower` for simple blue, white, yellow, and red field flowers.
+- `tallFlower` for tulips and dandelions: shared stem/leaf/head structure with species-specific
+  head behavior.
 - `cloverCluster` for low groundcover clover.
 - `billboard` for simple impostors or editor experiments.
 - `importedMesh` for reusable mesh assets when a procedural shape is not enough.
@@ -145,8 +147,56 @@ hardcoded runtime tint tables.
 `lod` describes how the species is represented at distance. This is where colored flower slats
 or grass-slat tinting belong once that rendering path is implemented and tuned in the editor.
 
+`interaction` describes gameplay behavior attached to the generated plant. This is deliberately
+separate from shape so small flowers do not inherit tall-flower behavior just because they have a
+stem. For example:
+
+- Tulips can be `protectedMistake: true` with `headBehavior: "tulipCrush"`.
+- Seed dandelions can use `headBehavior: "dandelionSeedRelease"`.
+- Yellow dandelions can use `headBehavior: "dandelionYellowPetalPop"`.
+- Small field flowers can keep simple collapse/cut behavior.
+
 `editor` is optional metadata for editor convenience. The game and bake pipeline should ignore
 unknown editor metadata.
+
+## Tall Flower Direction
+
+Tulips are expected content, so they should become formal species assets before release-level
+vegetation is considered complete. Dandelions can use the same tall-flower shape path when their
+behavior is brought into the asset pipeline.
+
+The goal is shared structure, not identical behavior:
+
+```json
+{
+  "type": "tallFlower",
+  "stemHeight": { "min": 0.5, "max": 0.75 },
+  "stemRadius": { "min": 0.012, "max": 0.028 },
+  "stemLean": { "min": -0.16, "max": 0.16 },
+  "head": {
+    "type": "tulipCup",
+    "diameter": { "min": 0.14, "max": 0.22 },
+    "heightScale": { "min": 1.05, "max": 1.35 },
+    "petalCount": { "min": 5, "max": 8 }
+  },
+  "leaves": {
+    "count": { "min": 1, "max": 2 },
+    "length": { "min": 0.22, "max": 0.38 },
+    "width": { "min": 0.08, "max": 0.18 },
+    "curl": { "min": -0.2, "max": 0.2 }
+  }
+}
+```
+
+Tulip and dandelion species should share stem height, stem radius, lean, and optional leaves.
+Their heads stay specialized because the gameplay behavior is different:
+
+- Tulip heads crush and count as protected mistakes.
+- Seed dandelion heads release fuzz into wind.
+- Yellow dandelion heads detach, fall, and can pop petals.
+
+Grass is intentionally tabled here. It has density, color, mowing, terrain blending, and far-LOD
+responsibilities that make it more like a ground system than a simple species asset.
 
 ## Clover Example
 
@@ -218,5 +268,5 @@ The editor should reject imports that fail these rules:
 4. Runtime resolves `definitionId` through the shared vegetation definition loader.
 5. Editor preview and game rendering call the same generator code for a given definition.
 
-Dandelions are intentionally outside the first import/export target. They can use the same
-envelope once their seed-head release behavior and generated shape model are ready to define.
+Dandelions are outside the first editor UI target, but they should use the tall-flower envelope
+once their seed-head release behavior and generated shape model are ready to define.
