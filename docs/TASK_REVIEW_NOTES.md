@@ -19,23 +19,23 @@ Status: corrected for tunability; visual value still needs live inspection.
 - Those two sky controls are no longer inside `data-dev-transient`, so the dev tuning UI can show revert/commit controls and save them into `src/config.ts`.
 - The green appearance likely came from the lower field/ground band of the WebP being visible through the dome mapping; the new commit-able vertical offset is the intended calibration control for that.
 
-## Red/blue flower density language
+## Flower density language
 
-Status: clarified.
+Status: settled.
 
-- "Semantic 10x" means the engine/baker interprets an authored density of `1.0` for blue/red flowers as much denser than the raw map number would normally imply.
-- Current implementation: blue/red use a 10x placement multiplier; white/yellow use a 5x placement multiplier.
-- Current `devVegtest` baked counts confirm the result: blue `1179`, red `1191`, white `599`, yellow `592`.
-- No map file density values were raised to get that result; the interpretation happens in the bake/runtime placement code.
+- The current visible density is the intended meaning of authored density `1.0` for the current flower size.
+- Do not keep describing this as a "10x" behavior in planning language. That was implementation history, not the design vocabulary.
+- Future density changes should be discussed as changes to what `1.0` means visually for that species/size.
 
 ## Flower slats / colored slats
 
-Status: not implemented.
+Status: required pre-release work.
 
 - The current far LOD slat renderer is grass-only.
 - Slats have tunable grass colors (`lodSlatTopColorA/B`, `lodSlatMidColor`, `lodSlatBottomColor`) but no per-flower color layer.
 - Field flowers are still rendered as thin-instance flower geometry near the mower and collapsed outside the decorative vegetation render radius.
-- No colored flower slat layer has been added yet, and existing grass slats are not being tinted by flower density.
+- Colored flower slats are required. The implementation choice is open: either tint existing slats from flower-density fields, or add separate cheap colored slat layers for flower color families.
+- Selection criterion: pick the approach that gives better frame time and clearer flower-field readability at distance.
 
 ## Outstanding inventory
 
@@ -43,16 +43,65 @@ Status: reviewed and counted.
 
 Recent / last-24h review items: 10.
 
-- Wind effects: corrected so the spawn radius follows the active play area, while existing wisps/motes keep their spawn-time wind direction and lifetime. Current center is the player/mower position; if the camera ever detaches from the mower, this should be revisited to include a camera-ground focus point.
-- Skybox: vertical offset and vertical flip are now real visible tuning settings, while diagnostic texture selection stays transient. Needs live calibration against the real WebP so the field/ground band never reads as a green sky.
-- Flower density: red/blue flower density is implemented as an engine/baker interpretation multiplier, not as raised map densities. Needs live approval after the latest bake values.
-- Flower LOD: colored flower slats are not implemented yet. This is still a likely performance/appearance task.
-- Clover clarity: clover still needs an editor/game inspection pass; older docs call out legacy/non-deterministic clover-flower behavior.
-- Dandelion seed release: code was touched recently but still needs live confirmation that seed heads release and drift correctly.
-- Result card fireworks: implemented recently, but still needs visual approval in the running game.
-- Decorative mowing outside lawns: implemented recently for medium/wheat decorative grass, but still needs live confirmation and performance review.
-- Debug settings storage: stale/default localStorage pruning was added, but broader menu organization is still outstanding.
-- Invisible collision / mower height shove: recent collision/grounding work needs live confirmation against the lawn-edge shove case.
+1. Wind effects
+   - Classification: implemented; needs live feel check.
+   - Release call: pre-release verification.
+   - Wording: spawn radius follows active play area. Existing wind wisps/motes are not dragged, re-aimed, or tied to mower heading.
+   - Follow-up: if camera ever detaches from the mower, use a camera-ground focus point in addition to player position.
+
+2. Skybox calibration
+   - Classification: partially implemented.
+   - Release call: pre-release.
+   - Wording: vertical offset and vertical flip are now visible, commit-able settings; diagnostic texture selection remains transient.
+   - Follow-up: live-calibrate the real WebP so the field/ground band cannot read as green sky.
+
+3. Flower density
+   - Classification: complete for current release unless live review says otherwise.
+   - Release call: no separate work item.
+   - Wording: current visible density is now the definition of `1.0` for the current flower size.
+   - Follow-up: remove old "10x" planning language when touching related docs/comments.
+
+4. Colored flower slats
+   - Classification: not implemented.
+   - Release call: pre-release performance/art task.
+   - Wording: add colored far-LOD flower representation, either by tinting existing slats or by adding separate cheap colored slat layers.
+   - Follow-up: prototype both if the faster/better-looking answer is not obvious from code inspection.
+
+5. Clover clarity
+   - Classification: legitimate unresolved issue.
+   - Release call: pre-release inspection; larger determinism cleanup can be v2 if visuals are acceptable.
+   - Wording: clover needs a readable test/editor inspection path, and older docs still call out legacy/non-deterministic clover-flower behavior.
+   - Follow-up: inspect clover in the editor/test level, then decide whether visual clarity alone is enough for release.
+
+6. Dandelion seed release
+   - Classification: implemented path exists; reported live behavior still needs confirmation.
+   - Release call: pre-release bug check.
+   - Wording: seed heads should release fuzz into wind when popped/cut; "stuck head" behavior is not acceptable.
+   - Follow-up: reproduce in live game and fix if seeds still fail to detach/drift.
+
+7. Result-card dandelion fireworks
+   - Classification: implemented; needs visual approval.
+   - Release call: pre-release polish check.
+   - Wording: end-card dandelion fireworks should render above UI/text, arc upward, pop, and scatter particles downward.
+   - Follow-up: live-check timing, layer order, and whether it reads as dandelion heads rather than generic confetti.
+
+8. Decorative mowing outside lawns
+   - Classification: implemented for medium/wheat decorative grass; scope may need widening.
+   - Release call: pre-release behavior/perf check.
+   - Wording: mower should visibly mow grass anywhere it drives; outside-lawn mowing must not count toward lawn completion.
+   - Follow-up: verify which grass layers are actually cut outside lawns and whether flowers/clover/dandelions should also respond outside scored areas.
+
+9. Debug settings cleanup
+   - Classification: partially implemented.
+   - Release call: pre-release for broken/stale controls; broader submenu design can continue after.
+   - Wording: stale/default localStorage pruning exists, but settings organization still needs a deliberate pass.
+   - Follow-up: separate special controls like level launch and diagnostics from saved tunables.
+
+10. Invisible collision / mower height shove
+    - Classification: unresolved until live repro says otherwise.
+    - Release call: pre-release bug check.
+    - Wording: no invisible walls. Only visible opaque objects or physical slope behavior should stop the mower.
+    - Follow-up: verify the lawn-edge shove/downward grounding case after the recent collision/grounding changes.
 
 Overall outstanding items found in docs/code: 13.
 
