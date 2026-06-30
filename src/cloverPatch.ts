@@ -30,7 +30,7 @@ const LARGE_PER_SQM = 6;
 // Baked-path cluster constants. Each baked "clover" instance expands into a small
 // cluster of leaves. The expansion ratio (~2 small + P(0.25) large) approximately
 // preserves the runtime leaf count across typical authored densities (validated
-// against bgrnEll d≈0.25 and bgrnShowcase d≈2.4).
+// against bgrnEll d≈0.25 and demoShowcase d≈2.4).
 const BAKED_SMALL_PER_INSTANCE = 2;
 const BAKED_LARGE_PROB = 0.25;
 const BAKED_SCATTER_RADIUS = 0.12; // leaves scatter within ±this of the anchor
@@ -76,7 +76,7 @@ function buildLargeClover(scene: Scene): Mesh {
   return meshFrom(scene, "clover-large", positions, indices);
 }
 
-type Plant = { x: number; z: number; mowed: boolean; large: boolean; index: number };
+type Plant = { x: number; z: number; mowed: boolean; visible: boolean; large: boolean; index: number };
 
 export function createCloverPatch(
   scene: Scene,
@@ -87,14 +87,15 @@ export function createCloverPatch(
   const large = buildLargeClover(scene);
   for (const mesh of [small, large]) {
     mesh.material = materials.cloverLeafMaterial;
-    mesh.alwaysSelectAsActiveMesh = true;
     mesh.isPickable = false;
     mesh.setEnabled(false); // until place() gives it instances
   }
 
   let plants: Plant[] = [];
   let smallBuffer = new Float32Array(0);
+  let smallSourceBuffer = new Float32Array(0);
   let largeBuffer = new Float32Array(0);
+  let largeSourceBuffer = new Float32Array(0);
 
   const showInstances = (mesh: Mesh, buffer: Float32Array) => {
     if (buffer.length === 0) {
@@ -109,6 +110,21 @@ export function createCloverPatch(
 
   const collapseInstance = (buffer: Float32Array, instanceIndex: number) => {
     buffer.fill(0, instanceIndex * 16, (instanceIndex * 16) + 16);
+  };
+
+  const restoreInstance = (target: Float32Array, source: Float32Array, instanceIndex: number) => {
+    target.set(source.subarray(instanceIndex * 16, (instanceIndex * 16) + 16), instanceIndex * 16);
+  };
+
+  const setPlantVisibleInBuffers = (plant: Plant, visible: boolean) => {
+    const target = plant.large ? largeBuffer : smallBuffer;
+    const source = plant.large ? largeSourceBuffer : smallSourceBuffer;
+
+    if (visible && !plant.mowed) {
+      restoreInstance(target, source, plant.index);
+    } else {
+      collapseInstance(target, plant.index);
+    }
   };
 
   const placeLeaf = (
@@ -130,7 +146,7 @@ export function createCloverPatch(
         .multiply(Matrix.RotationZ(tiltZ))
         .multiply(Matrix.Translation(cx, y, cz)),
     );
-    plants.push({ x: cx, z: cz, mowed: false, large: isLarge, index });
+    plants.push({ x: cx, z: cz, mowed: false, visible: true, large: isLarge, index });
   };
 
   const place = () => {
@@ -166,6 +182,8 @@ export function createCloverPatch(
       };
       smallBuffer = flatten(smallMatrices);
       largeBuffer = flatten(largeMatrices);
+      smallSourceBuffer = new Float32Array(smallBuffer);
+      largeSourceBuffer = new Float32Array(largeBuffer);
       showInstances(small, smallBuffer);
       showInstances(large, largeBuffer);
       return;
@@ -211,7 +229,7 @@ export function createCloverPatch(
                 .multiply(Matrix.RotationZ(tiltZ))
                 .multiply(Matrix.Translation(cx, y, cz)),
             );
-            plants.push({ x: cx, z: cz, mowed: false, large: isLarge, index });
+            plants.push({ x: cx, z: cz, mowed: false, visible: true, large: isLarge, index });
           }
         }
       }
@@ -230,6 +248,8 @@ export function createCloverPatch(
 
     smallBuffer = flatten(smallMatrices);
     largeBuffer = flatten(largeMatrices);
+    smallSourceBuffer = new Float32Array(smallBuffer);
+    largeSourceBuffer = new Float32Array(largeBuffer);
     showInstances(small, smallBuffer);
     showInstances(large, largeBuffer);
   };
@@ -253,14 +273,45 @@ export function createCloverPatch(
           continue;
         }
         plant.mowed = true;
-        if (plant.large) {
-          collapseInstance(largeBuffer, plant.index);
-          largeChanged = true;
-        } else {
-          collapseInstance(smallBuffer, plant.index);
-          smallChanged = true;
-        }
+        setPlantVisibleInBuffers(plant, false);
+        largeChanged ||= plant.large;
+        smallChanged ||= !plant.large;
       }
+      if (smallChanged) {
+        small.thinInstanceBufferUpdated("matrix");
+      }
+      if (largeChanged) {
+        large.thinInstanceBufferUpdated("matrix");
+      }
+    },
+
+    syncVisibility(mowerX: number, mowerZ: number, radiusSquared: number) {
+      if (plants.length === 0) {
+        return;
+      }
+
+      let smallChanged = false;
+      let largeChanged = false;
+
+      for (const plant of plants) {
+        if (plant.mowed) {
+          continue;
+        }
+
+        const dx = plant.x - mowerX;
+        const dz = plant.z - mowerZ;
+        const visible = ((dx * dx) + (dz * dz)) <= radiusSquared;
+
+        if (plant.visible === visible) {
+          continue;
+        }
+
+        plant.visible = visible;
+        setPlantVisibleInBuffers(plant, visible);
+        largeChanged ||= plant.large;
+        smallChanged ||= !plant.large;
+      }
+
       if (smallChanged) {
         small.thinInstanceBufferUpdated("matrix");
       }

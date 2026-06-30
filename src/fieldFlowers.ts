@@ -89,6 +89,7 @@ type PlantInstance = {
   x: number;
   z: number;
   mowed: boolean;
+  visible: boolean;
   variant: FlowerVariant;
   petalStart: number; // within its variant's petal buffer
   petalCount: number;
@@ -112,7 +113,6 @@ export function createFieldFlowers(
   for (const variant of VARIANTS) {
     const mesh = buildSaddlePetal(scene);
     mesh.material = petalMaterialFor[variant];
-    mesh.alwaysSelectAsActiveMesh = true;
     mesh.isPickable = false;
     petalMesh[variant] = mesh;
   }
@@ -120,12 +120,10 @@ export function createFieldFlowers(
   const stem = MeshBuilder.CreateCylinder("field-flower-stem", { height: 1, diameter: 1, tessellation: 5 }, scene);
   stem.bakeTransformIntoVertices(Matrix.Translation(0, 0.5, 0));
   stem.material = materials.blueFlowerStemMaterial;
-  stem.alwaysSelectAsActiveMesh = true;
   stem.isPickable = false;
 
   const center = MeshBuilder.CreateSphere("field-flower-center", { diameter: 1, segments: 6 }, scene);
   center.material = materials.blueFlowerCenterMaterial;
-  center.alwaysSelectAsActiveMesh = true;
   center.isPickable = false;
 
   const allMeshes = [...VARIANTS.map((v) => petalMesh[v]), stem, center];
@@ -135,11 +133,15 @@ export function createFieldFlowers(
 
   // Retained buffers (one petal buffer per colour; shared stem + centre buffers).
   const petalBuffer = {} as Record<FlowerVariant, Float32Array>;
+  const petalSourceBuffer = {} as Record<FlowerVariant, Float32Array>;
   for (const variant of VARIANTS) {
     petalBuffer[variant] = new Float32Array(0);
+    petalSourceBuffer[variant] = new Float32Array(0);
   }
   let stemBuffer = new Float32Array(0);
+  let stemSourceBuffer = new Float32Array(0);
   let centerBuffer = new Float32Array(0);
+  let centerSourceBuffer = new Float32Array(0);
   let plants: PlantInstance[] = [];
 
   const showInstances = (mesh: Mesh, buffer: Float32Array) => {
@@ -160,6 +162,32 @@ export function createFieldFlowers(
   // nothing rasterizes — the mowed look.
   const collapseInstance = (buffer: Float32Array, instanceIndex: number) => {
     buffer.fill(0, instanceIndex * 16, (instanceIndex * 16) + 16);
+  };
+
+  const restoreInstance = (target: Float32Array, source: Float32Array, instanceIndex: number) => {
+    target.set(source.subarray(instanceIndex * 16, (instanceIndex * 16) + 16), instanceIndex * 16);
+  };
+
+  const setPlantVisibleInBuffers = (plant: PlantInstance, visible: boolean) => {
+    const variantBuffer = petalBuffer[plant.variant];
+    const variantSourceBuffer = petalSourceBuffer[plant.variant];
+
+    for (let k = 0; k < plant.petalCount; k += 1) {
+      const index = plant.petalStart + k;
+      if (visible && !plant.mowed) {
+        restoreInstance(variantBuffer, variantSourceBuffer, index);
+      } else {
+        collapseInstance(variantBuffer, index);
+      }
+    }
+
+    if (visible && !plant.mowed) {
+      restoreInstance(stemBuffer, stemSourceBuffer, plant.index);
+      restoreInstance(centerBuffer, centerSourceBuffer, plant.index);
+    } else {
+      collapseInstance(stemBuffer, plant.index);
+      collapseInstance(centerBuffer, plant.index);
+    }
   };
 
   const buildFlowers = (): Flower[] => {
@@ -192,7 +220,7 @@ export function createFieldFlowers(
     }
 
     // Runtime fallback — used when bakedInstances is empty (dev map loader, or
-    // levels the bake pipeline skipped such as bgrnBackground).
+    // levels the bake pipeline skipped such as worldBackground).
     const fields = map.flowerFields;
     const flowers: Flower[] = [];
 
@@ -307,9 +335,12 @@ export function createFieldFlowers(
 
     for (const variant of VARIANTS) {
       petalBuffer[variant] = new Float32Array(petalTotals[variant] * 16);
+      petalSourceBuffer[variant] = new Float32Array(petalTotals[variant] * 16);
     }
     stemBuffer = new Float32Array(flowers.length * 16);
+    stemSourceBuffer = new Float32Array(flowers.length * 16);
     centerBuffer = new Float32Array(flowers.length * 16);
+    centerSourceBuffer = new Float32Array(flowers.length * 16);
 
     const petalCursor = {} as Record<FlowerVariant, number>;
     for (const variant of VARIANTS) {
@@ -365,12 +396,19 @@ export function createFieldFlowers(
         x: flower.x,
         z: flower.z,
         mowed: false,
+        visible: true,
         variant: flower.variant,
         petalStart,
         petalCount: flower.petalCount,
         index: i,
       });
     }
+
+    for (const variant of VARIANTS) {
+      petalSourceBuffer[variant].set(petalBuffer[variant]);
+    }
+    stemSourceBuffer.set(stemBuffer);
+    centerSourceBuffer.set(centerBuffer);
 
     for (const variant of VARIANTS) {
       showInstances(petalMesh[variant], petalBuffer[variant]);
@@ -403,12 +441,7 @@ export function createFieldFlowers(
         }
 
         plant.mowed = true;
-        const variantBuffer = petalBuffer[plant.variant];
-        for (let k = 0; k < plant.petalCount; k += 1) {
-          collapseInstance(variantBuffer, plant.petalStart + k);
-        }
-        collapseInstance(stemBuffer, plant.index);
-        collapseInstance(centerBuffer, plant.index);
+        setPlantVisibleInBuffers(plant, false);
         dirtyVariants.add(plant.variant);
       }
 
@@ -416,6 +449,42 @@ export function createFieldFlowers(
         for (const variant of dirtyVariants) {
           petalMesh[variant].thinInstanceBufferUpdated("matrix");
         }
+        stem.thinInstanceBufferUpdated("matrix");
+        center.thinInstanceBufferUpdated("matrix");
+      }
+    },
+
+    syncVisibility(mowerX: number, mowerZ: number, radiusSquared: number) {
+      if (plants.length === 0) {
+        return;
+      }
+
+      const dirtyVariants = new Set<FlowerVariant>();
+      let sharedChanged = false;
+
+      for (const plant of plants) {
+        if (plant.mowed) {
+          continue;
+        }
+
+        const dx = plant.x - mowerX;
+        const dz = plant.z - mowerZ;
+        const visible = ((dx * dx) + (dz * dz)) <= radiusSquared;
+
+        if (plant.visible === visible) {
+          continue;
+        }
+
+        plant.visible = visible;
+        setPlantVisibleInBuffers(plant, visible);
+        dirtyVariants.add(plant.variant);
+        sharedChanged = true;
+      }
+
+      for (const variant of dirtyVariants) {
+        petalMesh[variant].thinInstanceBufferUpdated("matrix");
+      }
+      if (sharedChanged) {
         stem.thinInstanceBufferUpdated("matrix");
         center.thinInstanceBufferUpdated("matrix");
       }

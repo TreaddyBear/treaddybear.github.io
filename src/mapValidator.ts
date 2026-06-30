@@ -1,5 +1,5 @@
 import type { Area, AreaShape, Distribution, LevelV1, MapPackV1 } from "./mapFormat";
-import { foliageRegistry, fullLevelCode } from "./mapFormat";
+import { foliageRegistry, levelFullCode, resolveLevelCodeReference } from "./mapFormat";
 import { containsPoint } from "./utils/shapes";
 
 // All foliage keys defined in the v1 registry.
@@ -153,7 +153,7 @@ function siblingSiblingErrors(siblings: Area[], siblingPath: string): string[] {
 }
 
 function errorsForLevel(pack: MapPackV1["pack"], level: LevelV1): string[] {
-  const code = fullLevelCode(pack.prefix, level.code);
+  const code = levelFullCode(pack.prefix, level);
   const P = `level(${code})`;
   const errors: string[] = [];
 
@@ -262,7 +262,7 @@ export function validateMapPack(pack: MapPackV1): string[] {
 
   const levelCodes = new Set<string>();
   for (const level of pack.levels ?? []) {
-    const code = fullLevelCode(pack.pack?.prefix ?? "", level.code);
+    const code = levelFullCode(pack.pack?.prefix ?? "", level);
     if (levelCodes.has(code)) {
       errors.push(`pack.levels: duplicate level code "${code}"`);
     }
@@ -271,7 +271,7 @@ export function validateMapPack(pack: MapPackV1): string[] {
   }
 
   if (pack.defaultLevelCode) {
-    const defaultCode = fullLevelCode(pack.pack?.prefix ?? "", pack.defaultLevelCode);
+    const defaultCode = resolveLevelCodeReference(pack.pack?.prefix ?? "", pack.levels ?? [], pack.defaultLevelCode);
     if (!levelCodes.has(defaultCode)) {
       errors.push(
         `pack.defaultLevelCode: "${pack.defaultLevelCode}" resolves to "${defaultCode}" ` +

@@ -26,6 +26,9 @@ function capitalize(value) {
 }
 
 function fullLevelCode(pack, level) {
+  if (level.fullCode) {
+    return level.fullCode;
+  }
   return `${pack.prefix}${capitalize(level.code)}`;
 }
 

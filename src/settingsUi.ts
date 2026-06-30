@@ -1,5 +1,5 @@
 import type { AnalogInput, InputMode } from "./input";
-import { lawnLevels, normalizeLevelCode, settings } from "./config";
+import { allLawnMaps, lawnLevels, normalizeLevelCode, settings } from "./config";
 import { setMenuPreference } from "./localSettings";
 
 export type SettingsUi = ReturnType<typeof createSettingsUi>;
@@ -9,6 +9,7 @@ export type SettingsUiDeps = {
   quickInput: HTMLDivElement;
   analogInput: AnalogInput;
   onRegenerate: () => void;
+  onSelectLevel: (code: string, options?: { savePreference?: boolean; startGame?: boolean }) => void;
   refreshGrassColors: () => void;
   refreshGrassMaterial: () => void;
   refreshTextureScales: () => void;
@@ -241,6 +242,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
     const mapControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#mapId");
+    const mapGoButton = deps.settingsRoot.querySelector<HTMLButtonElement>("#mapGoButton");
     let regenerateTimer = 0;
 
     const scheduleRegenerate = () => {
@@ -428,11 +430,19 @@ export function createSettingsUi(deps: SettingsUiDeps) {
     window.addEventListener("gamepaddisconnected", syncQuickInputModes);
 
     if (mapControl) {
+      mapControl.replaceChildren(...allLawnMaps.map((map) => {
+        const option = document.createElement("option");
+        option.value = map.code;
+        option.textContent = `${map.name} (${map.code})`;
+        return option;
+      }));
       settings.mapId = normalizeLevelCode(settings.mapId);
       mapControl.value = settings.mapId;
-      mapControl.addEventListener("input", () => {
-        settings.mapId = normalizeLevelCode(mapControl.value);
-        deps.onRegenerate();
+    }
+
+    if (mapGoButton && mapControl) {
+      mapGoButton.addEventListener("click", () => {
+        deps.onSelectLevel(mapControl.value, { savePreference: false, startGame: true });
       });
     }
   };

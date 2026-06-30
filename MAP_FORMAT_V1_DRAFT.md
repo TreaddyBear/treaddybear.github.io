@@ -115,6 +115,7 @@ type PackInfo = {
 
 type LevelV1 = {
   code: string;
+  fullCode?: string;
   name: string;
   parSeconds: number;
   spawn: Spawn;
@@ -142,6 +143,12 @@ type AuthoredItem = {
   };
 };
 ```
+
+`code` is the short code within the pack. Normal playable levels use the pack
+prefix to form their durable full code, e.g. pack prefix `bgrn` plus level code
+`ell` becomes `bgrnEll`. `fullCode` is an explicit override for special-purpose
+levels that should not inherit the pack prefix: demo scenes, debug fixtures,
+editor previews, or world/background support maps.
 
 `editor` fields are editor hints only. They are not gameplay state. Do not add
 editor visibility fields until the exact behavior is known, because `visible` is

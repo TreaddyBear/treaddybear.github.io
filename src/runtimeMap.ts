@@ -9,7 +9,7 @@ import type {
   PathShape,
   Point2,
 } from "./mapFormat";
-import { fullLevelCode } from "./mapFormat";
+import { levelFullCode, resolveLevelCodeReference } from "./mapFormat";
 import type { BakedInstance } from "./bakedMapFormat";
 import { valueNoise } from "./utils/noise";
 import type { Bounds2 } from "./utils/shapes";
@@ -403,6 +403,16 @@ function densityToSpacing(density: number, fallback = 0.6) {
   return Math.max(0.18, Number((0.5 / Math.sqrt(Math.max(0.01, density))).toFixed(3)));
 }
 
+const fieldFlowerDensityScale = 5;
+const sparseColorFlowerDensityScale = fieldFlowerDensityScale * 2;
+
+function flowerDensityToSpacing(type: string, density: number, fallback = 0.6) {
+  const scale = type === "flowerBlue" || type === "flowerRed"
+    ? sparseColorFlowerDensityScale
+    : fieldFlowerDensityScale;
+  return densityToSpacing(density * scale, fallback);
+}
+
 function pathFeatureBounds(shape: PathShape, width: number): Bounds2 {
   const bounds = pathBounds(shape);
   const margin = Math.max(0, width / 2);
@@ -523,7 +533,7 @@ function estimatedMowableArea(areas: Area[], parentMowable = false): number {
 }
 
 function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
-  const code = fullLevelCode(pack.prefix, level.code);
+  const code = levelFullCode(pack.prefix, level);
   const areas = level.areas ?? [];
   const flatAreas = allAreas(areas);
   const mowableAreas = flatAreas.filter((area) => {
@@ -560,7 +570,7 @@ function normalizeLevel(pack: MapPackV1["pack"], level: LevelV1): RuntimeMap {
         flowerFields.push({
           variant: flowerTypeToVariant[type],
           area: bounds,
-          spacing: densityToSpacing(density),
+          spacing: flowerDensityToSpacing(type, density),
           sourceArea: area,
           type,
         });
@@ -644,7 +654,7 @@ export function normalizeMapPack(pack: MapPackV1) {
   const byCode = Object.fromEntries(maps.map((map) => [map.code, map])) as Record<string, RuntimeMap>;
   const parSeconds = Object.fromEntries(maps.map((map) => [map.code, map.parSeconds])) as Record<string, number>;
   const codes = maps.map((map) => map.code);
-  const defaultCode = pack.defaultLevelCode ? fullLevelCode(pack.pack.prefix, pack.defaultLevelCode) : undefined;
+  const defaultCode = pack.defaultLevelCode ? resolveLevelCodeReference(pack.pack.prefix, pack.levels, pack.defaultLevelCode) : undefined;
   const defaultMap = defaultCode ? byCode[defaultCode] : undefined;
   return { maps, byCode, parSeconds, codes, defaultMap };
 }

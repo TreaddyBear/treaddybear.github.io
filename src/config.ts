@@ -215,7 +215,15 @@ export const defaultLevelCode: LevelCode | undefined = normalizedMaps.defaultMap
 // mode) but is excluded from the normal playable rotation.
 export const showcaseLevelCode: LevelCode = levelCodes.find((code) => /showcase/i.test(code)) ?? levelCodes[levelCodes.length - 1];
 export const playableLevelCodes: LevelCode[] = levelCodes.filter(
-  (code) => code !== showcaseLevelCode && code !== defaultLevelCode,
+  (code) => {
+    const map = normalizedMaps.byCode[code];
+    const tags = new Set(map?.tags ?? []);
+    return code !== showcaseLevelCode
+      && code !== defaultLevelCode
+      && !tags.has("demo")
+      && !tags.has("debug")
+      && !tags.has("background");
+  },
 );
 
 export const lawnLevels = {

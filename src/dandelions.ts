@@ -71,7 +71,6 @@ export function createDandelions(
   const fluffSource = MeshBuilder.CreatePlane("seed-fuzz-source", { size: 1 }, scene);
   fluffSource.material = fluffMaterial;
   fluffSource.isPickable = false;
-  fluffSource.alwaysSelectAsActiveMesh = true;
   fluffSource.setEnabled(false);
 
   // Tiny dark-brown seed knob at the centre of the puff.
@@ -107,7 +106,7 @@ export function createDandelions(
   );
 
   const writeSeedFuzzMatrix = (dandelion: Dandelion, fuzz: SeedFuzz) => {
-    if (fuzz.released) {
+    if (fuzz.released || !dandelion.visible) {
       seedFuzzBuffer.fill(0, fuzz.matrixIndex * 16, (fuzz.matrixIndex * 16) + 16);
       return;
     }
@@ -187,6 +186,7 @@ export function createDandelions(
       leanZ: 0,
       shrinking: false,
       shrinkAge: 0,
+      visible: true,
     };
 
     if (kind === "yellow") {
@@ -396,7 +396,9 @@ export function createDandelions(
     wind.burstMowerClippings(dandelion.kind === "yellow");
 
     if (dandelion.kind === "seed") {
-      releaseDandelionSeeds(dandelion, dandelion.pieces.length, true);
+      const headPosition = dandelion.head.getAbsolutePosition();
+      releaseDandelionSeeds(dandelion, dandelion.seedFuzz.length, true);
+      wind.burstDandelionSeeds(headPosition.x, headPosition.z, headPosition.y);
       return;
     }
 
@@ -465,6 +467,10 @@ export function createDandelions(
     mowAt(mowerX: number, mowerZ: number, radiusSquared: number) {
       const leanRadius = 1;
       for (const dandelion of dandelions) {
+        if (!dandelion.visible && !dandelion.cut) {
+          continue;
+        }
+
         const target = targetPosition(dandelion);
         const dx = mowerX - target.x;
         const dz = mowerZ - target.z;
@@ -502,6 +508,10 @@ export function createDandelions(
       const hits: Array<{ x: number; z: number }> = [];
 
       for (const dandelion of dandelions) {
+        if (!dandelion.visible && !dandelion.cut) {
+          continue;
+        }
+
         const target = targetPosition(dandelion);
 
         if (distanceToShot(target.x, target.z, origin, direction, range) < 0.42) {
@@ -513,8 +523,40 @@ export function createDandelions(
       return hits;
     },
 
+    syncVisibility(mowerX: number, mowerZ: number, radiusSquared: number) {
+      let seedFuzzChanged = false;
+
+      for (const dandelion of dandelions) {
+        const dx = dandelion.x - mowerX;
+        const dz = dandelion.z - mowerZ;
+        const active = dandelion.cut || ((dx * dx) + (dz * dz)) <= radiusSquared;
+
+        if (dandelion.visible === active) {
+          continue;
+        }
+
+        dandelion.visible = active;
+        dandelion.root.setEnabled(active);
+        if (dandelion.kind === "seed") {
+          for (const fuzz of dandelion.seedFuzz) {
+            writeSeedFuzzMatrix(dandelion, fuzz);
+          }
+          seedFuzzChanged = true;
+        }
+      }
+
+      if (seedFuzzChanged) {
+        fluffSource.thinInstanceBufferUpdated("matrix");
+        fluffSource.thinInstanceRefreshBoundingInfo();
+      }
+    },
+
     update(deltaSeconds: number) {
       for (const dandelion of dandelions) {
+        if (!dandelion.visible && !dandelion.cut) {
+          continue;
+        }
+
         if (dandelion.shrinking) {
           dandelion.shrinkAge += deltaSeconds;
           const t = Math.min(1, dandelion.shrinkAge / 0.13);

@@ -44,7 +44,7 @@ export function createTulips(scene: Scene, materials: Materials, groundHeightAt:
     leaf.rotation.z = -0.75;
     leaf.material = materials.tulipStemMaterial;
 
-    tulips.push({ root, head, stem, x, z, destroyed: false });
+    tulips.push({ root, head, stem, x, z, destroyed: false, visible: true });
   };
 
   const destroy = (tulip: Tulip) => {
@@ -81,6 +81,10 @@ export function createTulips(scene: Scene, materials: Materials, groundHeightAt:
       let changed = false;
 
       for (const tulip of tulips) {
+        if (!tulip.visible) {
+          continue;
+        }
+
         if (tulip.destroyed) {
           continue;
         }
@@ -97,6 +101,21 @@ export function createTulips(scene: Scene, materials: Materials, groundHeightAt:
       }
 
       return changed;
+    },
+
+    syncVisibility(mowerX: number, mowerZ: number, radiusSquared: number) {
+      for (const tulip of tulips) {
+        const dx = tulip.x - mowerX;
+        const dz = tulip.z - mowerZ;
+        const active = ((dx * dx) + (dz * dz)) <= radiusSquared;
+
+        if (tulip.visible === active) {
+          continue;
+        }
+
+        tulip.visible = active;
+        tulip.root.setEnabled(active);
+      }
     },
 
     // Destroys tulips along a shot. Returns the positions hit so the caller can

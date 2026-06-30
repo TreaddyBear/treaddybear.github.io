@@ -78,6 +78,10 @@ if (!import.meta.env.PROD) {
 
   const fmt = (v: unknown) => (typeof v === "string" ? JSON.stringify(v) : String(v));
   const getControlKey = (ctrl: HTMLElement) => {
+    if (ctrl.closest("[data-dev-transient]")) {
+      return "";
+    }
+
     if (ctrl.dataset.levelCode && ctrl.dataset.levelSetting) {
       const levelCode = normalizeLevelCode(ctrl.dataset.levelCode);
       return `lawnLevels.settings.${ctrl.dataset.levelSetting}.${levelCode}`;
@@ -239,8 +243,9 @@ if (!import.meta.env.PROD) {
     });
 
     const summary = panel.querySelector(":scope > summary");
-    summary?.after(pendingWrap);
-    summary?.after(bar);
+    const devUiAnchor = panel.querySelector<HTMLElement>(":scope > [data-dev-transient]") ?? summary;
+    devUiAnchor?.after(pendingWrap);
+    devUiAnchor?.after(bar);
 
     revertAll.addEventListener("click", () => {
       localStorage.removeItem(OVERRIDE_KEY);
@@ -249,7 +254,7 @@ if (!import.meta.env.PROD) {
 
     for (const ctrl of panel.querySelectorAll<HTMLElement>("input[id], select[id]")) {
       const key = getControlKey(ctrl);
-      if (!tuneTargets.has(key)) {
+      if (!key || !tuneTargets.has(key)) {
         continue;
       }
       const label = ctrl.closest("label");

@@ -20,6 +20,7 @@ import {
   shapeBounds,
 } from "../src/utils/shapes";
 import { valueNoise } from "../src/utils/noise";
+import { encodePNG } from "./png-writer";
 
 // ---------------------------------------------------------------------------
 // Seeded PRNG
@@ -148,6 +149,70 @@ export const TIERS = [
 ] as const;
 
 export type TierDef = (typeof TIERS)[number];
+export type BakeProgressEvent = {
+  levelCode: string;
+  tierId: TierDef["id"];
+  areaId: string;
+  attempts: number;
+  accepted: number;
+  active: number;
+  elapsedMs: number;
+};
+export type BakeDiagnostic = {
+  levelCode: string;
+  tierId: TierDef["id"];
+  areaId: string;
+  reason: string;
+  attempts: number;
+  accepted: number;
+  elapsedMs: number;
+  image: Buffer;
+};
+export type BakeControl = {
+  onProgress?: (event: BakeProgressEvent) => void;
+  onDiagnostic?: (diagnostic: BakeDiagnostic) => void;
+  shouldAbort?: () => boolean;
+};
+
+class VegetationBakeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VegetationBakeError";
+  }
+}
+
+const FIELD_FLOWER_DENSITY_SCALE = 5;
+const SPARSE_COLOR_FLOWER_DENSITY_SCALE = FIELD_FLOWER_DENSITY_SCALE * 2;
+
+function speciesPlacementScale(type: string): number {
+  if (type === "flowerBlue" || type === "flowerRed") {
+    return SPARSE_COLOR_FLOWER_DENSITY_SCALE;
+  }
+
+  return (
+    type === "flowerWhite"
+    || type === "flowerYellow"
+  ) ? FIELD_FLOWER_DENSITY_SCALE : 1;
+}
+
+// Authored density semantics for placement:
+//   1.0 = full target density, with breathing room
+//   2.0 = lush/crowded maximum pressure
+//
+// The raw density map is still used for categorical type weights and debug
+// heatmaps. This remap only controls Poisson spacing/counts, so authors get
+// headroom above the normal "100%" value instead of density=1 already being
+// the top of the useful range.
+const PLACEMENT_DENSITY_HEADROOM = 2;
+const MIN_PLACEMENT_DENSITY = 0.001;
+
+function placementDensity(rawTotalDensity: number): number {
+  return Math.max(0, Math.min(rawTotalDensity, PLACEMENT_DENSITY_HEADROOM)) / PLACEMENT_DENSITY_HEADROOM;
+}
+
+function calibratedPlacementDensity(type: string, rawDensity: number): number {
+  return placementDensity(rawDensity) * speciesPlacementScale(type);
+}
 
 // ---------------------------------------------------------------------------
 // Bridson Poisson-disk sampler (variable radius)
@@ -160,15 +225,26 @@ export type TierDef = (typeof TIERS)[number];
  * Returns only the newly placed positions (not preOccupied entries).
  */
 function bridsonSample(opts: {
+  levelCode: string;
+  tierId: TierDef["id"];
+  areaId: string;
   bounds: Bounds2;
   totalDensity: (x: number, z: number) => number;
   minSpacing: number;
   rng: LCG;
   k?: number;
   preOccupied?: [number, number][];
+  control?: BakeControl;
 }): [number, number][] {
-  const { bounds, totalDensity, minSpacing, rng, k = 30, preOccupied = [] } = opts;
+  const { levelCode, tierId, areaId, bounds, totalDensity, minSpacing, rng, k = 30, preOccupied = [], control } = opts;
   const { xMin, xMax, zMin, zMax } = bounds;
+  const startedAt = Date.now();
+  let attempts = 0;
+  let accepted = 0;
+  let lastProgressAt = startedAt;
+  let attemptsSinceAccepted = 0;
+  const maxAttempts = Math.max(120_000, Math.ceil(((xMax - xMin) * (zMax - zMin)) / Math.max(0.0001, minSpacing * minSpacing)) * 600);
+  const maxAttemptsSinceAccepted = Math.max(18_000, Math.ceil(maxAttempts * 0.12));
 
   // r(x,z) = minSpacing / sqrt(clamp(density, 0, 8))
   // Absolute minimum radius = minSpacing / sqrt(8) → cell size = that / sqrt(2) = minSpacing / 4
@@ -176,9 +252,9 @@ function bridsonSample(opts: {
   const gridW = Math.ceil((xMax - xMin) / cellSize) + 2;
   const gridH = Math.ceil((zMax - zMin) / cellSize) + 2;
 
-  // Grid stores index of one accepted point per cell (-1 = empty).
-  // Multiple preOccupied points in the same cell is handled via a linear scan.
-  const grid = new Int32Array(gridW * gridH).fill(-1);
+  // Sparse grid of accepted point indices. A cell can hold multiple points when
+  // a denser earlier tier is used as pre-occupied exclusion for a coarser tier.
+  const grid = new Map<number, number[]>();
 
   // All accepted positions: [preOccupied…, newly placed…]
   const pts: [number, number][] = [];
@@ -189,20 +265,116 @@ function bridsonSample(opts: {
     Math.max(0, Math.min(gridH - 1, Math.floor((z - zMin) / cellSize))),
   ];
 
+  const cellKey = (cx: number, cz: number) => (cz * gridW) + cx;
+
   const inBounds = (x: number, z: number) =>
     x >= xMin && x <= xMax && z >= zMin && z <= zMax;
 
+  const densityAt = (x: number, z: number) => {
+    const density = totalDensity(x, z);
+    return density >= MIN_PLACEMENT_DENSITY ? density : 0;
+  };
+
+  const emitProgress = (force = false) => {
+    const now = Date.now();
+    if (!force && attempts % 100_000 !== 0 && now - lastProgressAt < 1_000) {
+      return;
+    }
+    lastProgressAt = now;
+    control?.onProgress?.({
+      levelCode,
+      tierId,
+      areaId,
+      attempts,
+      accepted,
+      active: active.length,
+      elapsedMs: now - startedAt,
+    });
+  };
+
+  const diagnosticImage = (reason: string) => {
+    const width = 128;
+    const height = 128;
+    const rgba = new Uint8Array(width * height * 4);
+    for (let py = 0; py < height; py += 1) {
+      const z = zMax - ((py / Math.max(1, height - 1)) * (zMax - zMin));
+      for (let px = 0; px < width; px += 1) {
+        const x = xMin + ((px / Math.max(1, width - 1)) * (xMax - xMin));
+        const density = Math.max(0, Math.min(1, totalDensity(x, z) / 5));
+        const offset = ((py * width) + px) * 4;
+        const shade = Math.round(28 + (density * 170));
+        rgba[offset] = shade;
+        rgba[offset + 1] = shade;
+        rgba[offset + 2] = shade;
+        rgba[offset + 3] = 255;
+      }
+    }
+    for (const [x, z] of pts) {
+      const px = Math.round(((x - xMin) / Math.max(0.0001, xMax - xMin)) * (width - 1));
+      const py = Math.round(((zMax - z) / Math.max(0.0001, zMax - zMin)) * (height - 1));
+      for (let oy = -1; oy <= 1; oy += 1) {
+        for (let ox = -1; ox <= 1; ox += 1) {
+          const ix = px + ox;
+          const iy = py + oy;
+          if (ix < 0 || ix >= width || iy < 0 || iy >= height) continue;
+          const offset = ((iy * width) + ix) * 4;
+          rgba[offset] = 255;
+          rgba[offset + 1] = 120;
+          rgba[offset + 2] = 32;
+          rgba[offset + 3] = 255;
+        }
+      }
+    }
+    control?.onDiagnostic?.({
+      levelCode,
+      tierId,
+      areaId,
+      reason,
+      attempts,
+      accepted,
+      elapsedMs: Date.now() - startedAt,
+      image: encodePNG(width, height, rgba),
+    });
+  };
+
+  const fail = (reason: string): never => {
+    emitProgress(true);
+    diagnosticImage(reason);
+    throw new VegetationBakeError(`${levelCode}/${tierId}/${areaId}: ${reason} after ${attempts} attempts, ${accepted} accepted`);
+  };
+
+  const tickAttempt = () => {
+    attempts += 1;
+    attemptsSinceAccepted += 1;
+    emitProgress();
+    if (control?.shouldAbort?.()) {
+      fail("aborted");
+    }
+    if (attempts > maxAttempts) {
+      fail("maxAttempts");
+    }
+    if (accepted > 0 && attemptsSinceAccepted > maxAttemptsSinceAccepted) {
+      fail("noProgress");
+    }
+  };
+
   const localR = (x: number, z: number): number => {
-    const d = totalDensity(x, z);
+    const d = densityAt(x, z);
     if (d <= 0) return minSpacing * 8;  // sentinel — no placement here
-    return minSpacing / Math.sqrt(Math.min(d, 8));
+    return Math.min(minSpacing * 8, minSpacing / Math.sqrt(Math.min(d, 8)));
   };
 
   // Add a point to the grid (makeActive=false for preOccupied points)
   const addPoint = (x: number, z: number, makeActive: boolean) => {
     const idx = pts.length;
     const [cx, cz] = cellOf(x, z);
-    grid[cz * gridW + cx] = idx;  // last writer wins if cell already occupied
+    const key = cellKey(cx, cz);
+    const bucket = grid.get(key);
+    if (bucket) {
+      bucket.push(idx);
+    } else {
+      grid.set(key, [idx]);
+    }
     pts.push([x, z]);
     if (makeActive) active.push(idx);
   };
@@ -215,15 +387,13 @@ function bridsonSample(opts: {
       for (let dx = -sr; dx <= sr; dx++) {
         const nx = cx + dx, nz = cz + dz;
         if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridH) continue;
-        const idx = grid[nz * gridW + nx];
-        if (idx < 0) continue;
-        const [px, pz] = pts[idx]!;
-        if ((px - x) ** 2 + (pz - z) ** 2 < r * r) return true;
+        const bucket = grid.get(cellKey(nx, nz));
+        if (!bucket) continue;
+        for (const idx of bucket) {
+          const [px, pz] = pts[idx]!;
+          if ((px - x) ** 2 + (pz - z) ** 2 < r * r) return true;
+        }
       }
-    }
-    // Linear scan for preOccupied points in cells that may have been overwritten
-    for (const [px, pz] of preOccupied) {
-      if ((px - x) ** 2 + (pz - z) ** 2 < r * r) return true;
     }
     return false;
   };
@@ -235,10 +405,13 @@ function bridsonSample(opts: {
   // Find a starting point where density > 0
   let foundStart = false;
   for (let attempt = 0; attempt < 3000; attempt++) {
+    tickAttempt();
     const x = xMin + rng.next() * (xMax - xMin);
     const z = zMin + rng.next() * (zMax - zMin);
-    if (totalDensity(x, z) > 0 && !tooClose(x, z, localR(x, z))) {
+    if (densityAt(x, z) > 0 && !tooClose(x, z, localR(x, z))) {
       addPoint(x, z, true);
+      accepted += 1;
+      attemptsSinceAccepted = 0;
       foundStart = true;
       break;
     }
@@ -254,15 +427,18 @@ function bridsonSample(opts: {
 
     let placed = false;
     for (let attempt = 0; attempt < k; attempt++) {
+      tickAttempt();
       const angle = rng.next() * Math.PI * 2;
       const dist = r0 * (1 + rng.next());  // annulus [r0, 2r0]
       const x = px + Math.cos(angle) * dist;
       const z = pz + Math.sin(angle) * dist;
       if (!inBounds(x, z)) continue;
-      if (totalDensity(x, z) <= 0) continue;
+      if (densityAt(x, z) <= 0) continue;
       const r = localR(x, z);
       if (!tooClose(x, z, r)) {
         addPoint(x, z, true);
+        accepted += 1;
+        attemptsSinceAccepted = 0;
         placed = true;
         break;
       }
@@ -274,6 +450,7 @@ function bridsonSample(opts: {
     }
   }
 
+  emitProgress(true);
   // Return only the newly placed points (not preOccupied)
   return pts.slice(preOccupiedCount);
 }
@@ -310,6 +487,8 @@ function sampleOneTier(
   tier: TierDef,
   seed: number,
   suppressedPositions: [number, number][],
+  levelCode: string,
+  control?: BakeControl,
 ): BakedInstance[] {
   const { types, minSpacing } = tier;
   const typeSet = new Set(types);
@@ -318,7 +497,7 @@ function sampleOneTier(
   const totalDensityAt = (x: number, z: number): number => {
     const d = sampleDensitiesAt(areas, x, z);
     let total = 0;
-    for (const type of types) total += d.get(type) ?? 0;
+    for (const type of types) total += calibratedPlacementDensity(type, d.get(type) ?? 0);
     return total;
   };
 
@@ -348,18 +527,22 @@ function sampleOneTier(
     };
 
     const newPositions = bridsonSample({
+      levelCode,
+      tierId: tier.id,
+      areaId: area.id,
       bounds: areaBounds,
       totalDensity: totalDensityAt,
       minSpacing,
       rng,
       k: 30,
       preOccupied: occupied,
+      control,
     });
 
     for (const [x, z] of newPositions) {
       // Categorical type draw from local d_i / T
       const d = sampleDensitiesAt(areas, x, z);
-      const dArr = types.map((t) => Math.max(0, d.get(t) ?? 0));
+      const dArr = types.map((t) => Math.max(0, calibratedPlacementDensity(t, d.get(t) ?? 0)));
       const total = dArr.reduce((a, b) => a + b, 0);
 
       let type: string = types[0]!;
@@ -448,6 +631,7 @@ function makeSeed(levelCode: string, tierIdx: number): number {
 export function computeAllTierInstances(
   areas: Area[],
   levelCode: string,
+  control?: BakeControl,
 ): BakedInstance[] {
   // Skip levels with enormous bounds (e.g., the 600×700m background level).
   const bounds = levelBounds(areas);
@@ -461,7 +645,7 @@ export function computeAllTierInstances(
   for (let ti = 0; ti < TIERS.length; ti++) {
     const tier = TIERS[ti]!;
     const seed = makeSeed(levelCode, ti);
-    const instances = sampleOneTier(areas, tier, seed, suppressedPositions);
+    const instances = sampleOneTier(areas, tier, seed, suppressedPositions, levelCode, control);
 
     for (const inst of instances) {
       inst.index = globalIndex++;

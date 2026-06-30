@@ -9,7 +9,6 @@ import {
   Quaternion,
   Scene,
   ShadowGenerator,
-  StandardMaterial,
   TransformNode,
   Vector3,
 } from "@babylonjs/core";
@@ -53,6 +52,7 @@ import { createCloudShadows } from "./cloudShadows";
 import { createMenu } from "./menu";
 import { createMowerControl } from "./mowerControl";
 import { renderingGroups } from "./renderOrder";
+import { createSkyEnvironment, type SkyTextureKey } from "./skyEnvironment";
 import {
   biomeHomeAmount,
   createBiomeGroundMaterial,
@@ -131,6 +131,8 @@ const mistakesEl = mistakesElement;
 const quickInputModeEl = quickInputModeElement;
 const settingsEl = settingsElement;
 const fullscreenButtonEl = fullscreenButtonElement;
+const decorativeVegetationRenderRadius = 34;
+const decorativeVegetationRenderRadiusSquared = decorativeVegetationRenderRadius * decorativeVegetationRenderRadius;
 const celebrationEl = celebrationElement;
 const celebrationSeedsEl = celebrationSeedsElement;
 const nextLevelButtonEl = nextLevelButtonElement;
@@ -282,6 +284,8 @@ const {
   secretGunMaterial,
   secretGunGripMaterial,
 } = materials;
+
+const skyEnvironment = createSkyEnvironment(scene);
 
 const gunEffects = createGunEffects(scene);
 const tulips = createTulips(scene, materials, groundHeightAt);
@@ -526,16 +530,13 @@ function groundHeightAt(x: number, z: number) {
     return flowerBedHeight;
   }
 
-  if (isInsideYard(x, z)) {
-    return Math.max(0, sampledTerrainHeightAt(x, z) - 0.08);
-  }
-
   if (isOnRoad(x, z)) {
     return 0.006;
   }
 
-  // Sit on the actual (coarse, linearly-interpolated) terrain mesh surface, not
-  // the smooth analytic curve, so the mower and grass don't float on slopes.
+  // Sit on the actual world terrain mesh surface, not a separate yard-clamped
+  // height. Collision should come from visible objects, not hidden height steps
+  // at authored lawn boundaries.
   return sampledTerrainHeightAt(x, z) - 0.08;
 }
 
@@ -695,18 +696,9 @@ function moveWithinYard(nextPosition: Vector3, movement: Vector3, impactSpeed: n
 
   const fenceHit = fence.collide(nextPosition.x, nextPosition.z);
   const rockHit = collidingRock(nextPosition.x, nextPosition.z);
-  const currentGround = groundHeightAt(player.position.x, player.position.z);
   const nextGround = groundHeightAt(nextPosition.x, nextPosition.z);
-  const horizontalDistance = Math.sqrt((movement.x * movement.x) + (movement.z * movement.z));
-  const slope = horizontalDistance > 0.0001 ? Math.abs(nextGround - currentGround) / horizontalDistance : 0;
-  const crossingBrokenOpening = fence.isNearBrokenOpening(player.position.x, player.position.z)
-    || fence.isNearBrokenOpening(nextPosition.x, nextPosition.z);
-  const steepTerrainHit = !crossingBrokenOpening
-    && !isInsideYard(nextPosition.x, nextPosition.z)
-    && !isOnRoad(nextPosition.x, nextPosition.z)
-    && slope > 0.72;
 
-  if (fenceHit.index < 0 && rockHit.index < 0 && !steepTerrainHit) {
+  if (fenceHit.index < 0 && rockHit.index < 0) {
     nextPosition.y = nextGround;
     player.position.copyFrom(nextPosition);
     return -1;
@@ -1151,6 +1143,7 @@ const settingsUi = createSettingsUi({
   quickInput: quickInputModeEl,
   analogInput,
   onRegenerate: resetGame,
+  onSelectLevel: loadSelectedLevel,
   refreshGrassColors: () => grass.refreshColors(),
   refreshGrassMaterial: () => grass.refreshMaterial(),
   refreshTextureScales,
@@ -1165,7 +1158,31 @@ const settingsUi = createSettingsUi({
   syncFenceHealth: () => fence.syncHealthLabels(),
 });
 
+function setupSkyDebugControls() {
+  const textureControl = settingsEl.querySelector<HTMLSelectElement>("#skyDebugTexture");
+  const flipControl = settingsEl.querySelector<HTMLInputElement>("#skyDebugFlip");
+  const offsetControl = settingsEl.querySelector<HTMLInputElement>("#skyDebugOffset");
+  const offsetValue = settingsEl.querySelector<HTMLSpanElement>("[data-value-for=\"skyDebugOffset\"]");
+
+  textureControl?.addEventListener("input", () => {
+    skyEnvironment.setTexture(textureControl.value as SkyTextureKey);
+  });
+
+  flipControl?.addEventListener("input", () => {
+    skyEnvironment.setFlipped(flipControl.checked);
+  });
+
+  offsetControl?.addEventListener("input", () => {
+    const offset = Number(offsetControl.value);
+    if (offsetValue) {
+      offsetValue.textContent = offset.toFixed(2);
+    }
+    skyEnvironment.setVerticalOffset(offset);
+  });
+}
+
 settingsUi.setup();
+setupSkyDebugControls();
 settingsUi.setInputMode(settings.inputMode as InputMode);
 refreshGroundColor();
 refreshTextureScales();
@@ -1318,10 +1335,17 @@ document.addEventListener("fullscreenchange", () => {
 // menu.isOpen) and clears held keys so the mower doesn't drift on resume.
 const isTouchPrimary = matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches;
 let syncGameplayInputVisibility = () => analogInput.setGameplayActive(false);
-const loadSelectedLevel = (code: string) => {
+type LoadLevelOptions = {
+  savePreference?: boolean;
+  startGame?: boolean;
+};
+
+function loadSelectedLevel(code: string, options: LoadLevelOptions = {}) {
   const levelCode = normalizeLevelCode(code);
   settings.mapId = levelCode;
-  setMenuPreference("lastLevelCode", levelCode);
+  if (options.savePreference !== false) {
+    setMenuPreference("lastLevelCode", levelCode);
+  }
   const mapControl = settingsEl.querySelector<HTMLSelectElement>("#mapId");
 
   if (mapControl) {
@@ -1329,7 +1353,14 @@ const loadSelectedLevel = (code: string) => {
   }
 
   resetGame();
-};
+
+  if (options.startGame) {
+    gameStarted = true;
+    menu.setStartMode(false);
+    menu.close();
+    syncGameplayInputVisibility();
+  }
+}
 
 const menu = createMenu({
   toggleFullscreen: () => fullscreenButtonEl.click(),
@@ -1547,6 +1578,10 @@ engine.runRenderLoop(() => {
   grass.updateMotion(timeSeconds);
   wind.update(deltaSeconds);
   gunEffects.update(deltaSeconds);
+  dandelions.syncVisibility(player.position.x, player.position.z, decorativeVegetationRenderRadiusSquared);
+  tulips.syncVisibility(player.position.x, player.position.z, decorativeVegetationRenderRadiusSquared);
+  fieldFlowers.syncVisibility(player.position.x, player.position.z, decorativeVegetationRenderRadiusSquared);
+  cloverPatch.syncVisibility(player.position.x, player.position.z, decorativeVegetationRenderRadiusSquared);
   dandelions.update(deltaSeconds);
   updateCloudShadows(timeSeconds);
   grass.mowUnderMower(deltaSeconds);

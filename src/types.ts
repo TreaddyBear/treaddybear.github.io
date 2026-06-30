@@ -50,6 +50,7 @@ export type Dandelion = {
   leanZ: number;
   shrinking: boolean;
   shrinkAge: number;
+  visible: boolean;
 };
 
 export type SeedFuzz = {
@@ -84,6 +85,7 @@ export type Tulip = {
   x: number;
   z: number;
   destroyed: boolean;
+  visible: boolean;
 };
 
 export type FenceDamageState = {

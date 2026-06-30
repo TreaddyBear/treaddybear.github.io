@@ -11,12 +11,12 @@
 // but produces BakedRuntimeMap (plain objects) instead of RuntimeMap (Vector3).
 // Keep the two in sync when normalizeLevel changes.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Area, FoliageKey, LevelV1, MapPackV1, PathShape } from "../src/mapFormat";
-import { foliageRegistry, fullLevelCode } from "../src/mapFormat";
+import { foliageRegistry, levelFullCode, resolveLevelCodeReference } from "../src/mapFormat";
 import { assertMapPackValid } from "../src/mapValidator";
 import {
   containsPoint,
@@ -42,6 +42,7 @@ import type {
   BakedVec3,
 } from "../src/bakedMapFormat";
 import { computeAllTierInstances } from "./vegetation-sampler";
+import type { BakeControl, BakeDiagnostic, BakeProgressEvent } from "./vegetation-sampler";
 import type { Bounds2 } from "../src/utils/shapes";
 
 // ---------------------------------------------------------------------------
@@ -194,8 +195,8 @@ const flowerTypeToVariant: Partial<Record<FoliageKey, "blue" | "white" | "yellow
 // Core bake function — mirrors normalizeLevel but outputs BakedRuntimeMap
 // ---------------------------------------------------------------------------
 
-function bakeLevel(pack: MapPackV1["pack"], level: LevelV1): BakedRuntimeMap {
-  const code = fullLevelCode(pack.prefix, level.code);
+function bakeLevel(pack: MapPackV1["pack"], level: LevelV1, control?: BakeControl): BakedRuntimeMap {
+  const code = levelFullCode(pack.prefix, level);
   const areas = level.areas ?? [];
   const flatAreas = allAreas(areas);
 
@@ -257,7 +258,7 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1): BakedRuntimeMap {
     bounds = { xMin: x - 8, xMax: x + 8, zMin: z - 8, zMax: z + 8 };
   }
 
-  const bakedInstances = computeAllTierInstances(areas, fullLevelCode(pack.prefix, level.code));
+  const bakedInstances = computeAllTierInstances(areas, code, control);
 
   return {
     packPrefix: pack.prefix,
@@ -301,10 +302,10 @@ function fnv1a(str: string): string {
   return hash.toString(16).padStart(8, "0");
 }
 
-function bakeMapPack(pack: MapPackV1, sourceHash: string): BakedMapPack {
-  const maps = pack.levels.map((level) => bakeLevel(pack.pack, level));
+function bakeMapPack(pack: MapPackV1, sourceHash: string, control?: BakeControl): BakedMapPack {
+  const maps = pack.levels.map((level) => bakeLevel(pack.pack, level, control));
   const defaultCode = pack.defaultLevelCode
-    ? fullLevelCode(pack.pack.prefix, pack.defaultLevelCode)
+    ? resolveLevelCodeReference(pack.pack.prefix, pack.levels, pack.defaultLevelCode)
     : undefined;
   return {
     bakedVersion: 1,
@@ -321,6 +322,15 @@ function bakeMapPack(pack: MapPackV1, sourceHash: string): BakedMapPack {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const sourcePath = resolve(__dirname, "../map-exports/lawn-maps.json");
 const outputPath = resolve(__dirname, "../map-exports/lawn-maps.baked.json");
+const diagnosticDir = resolve(__dirname, "../map-exports/debug/bake");
+const args = process.argv.slice(2);
+const option = (name: string) => {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : undefined;
+};
+const maxMsArg = option("--max-ms");
+const maxMs = maxMsArg ? Number(maxMsArg) : Number.POSITIVE_INFINITY;
+const bakeStartedAt = Date.now();
 
 const raw = JSON.parse(readFileSync(sourcePath, "utf-8")) as MapPackV1;
 
@@ -331,7 +341,34 @@ const sourceHash = fnv1a(JSON.stringify(raw));
 // Validate — exits loudly if the source is malformed.
 assertMapPackValid(raw);
 
-const baked = bakeMapPack(raw, sourceHash);
+mkdirSync(diagnosticDir, { recursive: true });
+
+let lastProgressLine = "";
+const progressLine = (event: BakeProgressEvent) => {
+  const elapsed = (event.elapsedMs / 1000).toFixed(1).padStart(5);
+  return `[bake ${elapsed}s] ${event.levelCode}/${event.tierId}/${event.areaId}: ${event.accepted} accepted, ${event.attempts} attempts, ${event.active} active`;
+};
+const control: BakeControl = {
+  shouldAbort() {
+    return Date.now() - bakeStartedAt > maxMs;
+  },
+  onProgress(event) {
+    const line = progressLine(event);
+    if (line !== lastProgressLine) {
+      console.log(line);
+      lastProgressLine = line;
+    }
+  },
+  onDiagnostic(diagnostic: BakeDiagnostic) {
+    const safeName = `${diagnostic.levelCode}_${diagnostic.tierId}_${diagnostic.areaId}_${diagnostic.reason}`.replace(/[^a-z0-9_-]+/gi, "-");
+    const imagePath = join(diagnosticDir, `${safeName}.png`);
+    writeFileSync(imagePath, diagnostic.image);
+    console.error(`Vegetation bake diagnostic written: ${imagePath}`);
+  },
+};
+
+try {
+const baked = bakeMapPack(raw, sourceHash, control);
 
 writeFileSync(outputPath, JSON.stringify(baked, null, 2), "utf-8");
 
@@ -339,3 +376,8 @@ const mapCount = baked.maps.length;
 const totalAreas = baked.maps.reduce((n, m) => n + allAreas(m.areas).length, 0);
 const totalSegments = baked.maps.reduce((n, m) => n + m.segments.length, 0);
 console.log(`Baked ${mapCount} levels — ${totalAreas} areas, ${totalSegments} mowable segments → ${outputPath}`);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  console.error("Bake failed before writing the baked artifact.");
+  process.exitCode = 1;
+}

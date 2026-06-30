@@ -197,11 +197,19 @@
     </div>
     <details id="settings" hidden>
       <summary>Settings</summary>
+      <div class="settings-level-launcher" data-dev-transient>
+        <label class="settings-level-row">Map <span class="settings-inline-control"><select id="mapId"></select><button id="mapGoButton" class="settings-icon-button" type="button" aria-label="Go to selected level" title="Go to selected level">&#9654;</button></span></label>
+        <details class="settings-subgroup settings-sky-debug">
+          <summary>Sky debug</summary>
+          <label>Texture <select id="skyDebugTexture"><option value="simple" selected>Asset</option><option value="orientation">Orientation bands</option><option value="magenta">Magenta</option></select></label>
+          <label>Flip vertical <input id="skyDebugFlip" type="checkbox" /></label>
+          <label>Vertical offset <span data-value-for="skyDebugOffset">0</span><input id="skyDebugOffset" type="range" min="-0.5" max="0.5" step="0.01" value="0" /></label>
+        </details>
+      </div>
       <details class="settings-group settings-category">
         <summary>Gameplay</summary>
         <details class="settings-subgroup">
           <summary>Input</summary>
-          <label>Map <select id="mapId"><option value="bgrnEll">Main</option><option value="bgrnBed">Flower Court</option><option value="bgrnKeyhole">Keyhole Gardens</option><option value="bgrnField">Blue Field</option><option value="bgrnShowcase">Showcase (attract)</option></select></label>
           <label>Input mode <select id="inputMode"><option value="auto" selected>Auto</option><option value="keyboard">Keyboard</option><option value="mouse">Mouse</option><option value="controller">Controller</option><option value="touch">Touchpad</option></select></label>
         </details>
         <details class="settings-subgroup">

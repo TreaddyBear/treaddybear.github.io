@@ -19,8 +19,8 @@ document; update it when items close or new ones surface.
 - [x] **Stale-artifact detection** (`src/devMapStaleCheck.ts`): FNV-1a hash of `JSON.stringify(parsedSource)` embedded in the artifact at bake time (`BakedMapPack.sourceHash`). At dev startup `bakedMapLoader.ts` fires-and-forgets a dynamic import of the check module; it recomputes the same hash from the Vite-served `lawn-maps.json` and `console.warn`s if they differ (`"⚠️ [LaMow] Baked map artifact is stale — run pnpm bake"`). Severity is warn, not error — the dev escape hatch exists for intentional unbaked tinkering. Tree-shaken from production (dynamic import inside `if (import.meta.env.DEV)`).
 
 **Baking issues caught during implementation (validator wins):**
-- `bgrnField.areas[0].children`: `flowerYellow03` and `flowerRed04` are identical additive rectangles — intentional (two flower types, same footprint). Validator updated to skip additive+additive pairs (commit `68c9329`).
-- `bgrnShowcase.areas[0].children`: `cloverPatch02` (replace circle, r=5.8) overlap with `flowerRed03` (additive rectangle) at corner region. Fixed by shifting circle center 0.5m east to `[2.0, 4.5]` (commit `19f39bf`).
+- `demoField.areas[0].children`: `flowerYellow03` and `flowerRed04` are identical additive rectangles — intentional (two flower types, same footprint). Validator updated to skip additive+additive pairs (commit `68c9329`).
+- `demoShowcase.areas[0].children`: `cloverPatch02` (replace circle, r=5.8) overlap with `flowerRed03` (additive rectangle) at corner region. Fixed by shifting circle center 0.5m east to `[2.0, 4.5]` (commit `19f39bf`).
 
 ---
 
@@ -161,7 +161,7 @@ edits MAP_FORMAT_V1_DRAFT.md.
   - `dandelions.ts`: baked `dandelion` instances → stable positions; `inst.index % 3 === 0`
     assigns seed/yellow kind deterministically. Spawn-radius guard preserved (skip within 1.18 m).
   - All three: if `bakedInstances.length === 0`, fall through to existing runtime path (dev escape
-    hatch / bgrnBackground). The escape hatch is automatic — no extra flag needed.
+    hatch / worldBackground). The escape hatch is automatic — no extra flag needed.
   - Flat arrays (`flowerFields`, `cloverPatches`, `dandelionCount`) kept for the runtime fallback;
     removal pending once the baked path is fully trusted (see Bucket 1 above).
 
@@ -176,7 +176,7 @@ pushed** as of 2026-06-25:
 |------|-------------|
 | `d00541d` | Fix silent-breakage risk in pre-v1 map tools (version claim and `maps`/`levels` key mismatch) |
 | `874ee77` | Fix six `runtimeMap.ts` correctness bugs (`lerpSamples`, `bedAreas`, `estimatedMowableArea`, clover radius, `grassKeep` comment, spawn Y); add `fallback`-capable sample API |
-| `d7ca9b6` | Add default background level for outer-world authored content — `bgrnBackground` level with Perlin grass and authored conceal-hill height feature; remove hardcoded hill formula from `world.ts`; wire `defaultLawnMap` through `config.ts`, `grass.ts`, `main.ts` |
+| `d7ca9b6` | Add default background level for outer-world authored content — `worldBackground` level with Perlin grass and authored conceal-hill height feature; remove hardcoded hill formula from `world.ts`; wire `defaultLawnMap` through `config.ts`, `grass.ts`, `main.ts` |
 | `619d60c` | Wire grass overlay mask to authored background density — `grassMaskValue` now reads `foliageDensityAt(activeMap, "grass", x, z, defaultLawnMap)` instead of a hardcoded `distanceToAnyLawn` fade; remove dead `grassOverlayAlpha` |
 | `383028c` | Add map-pack validator (`src/mapValidator.ts`) and wire into `src/mapData.ts` at startup |
 | `596b0c6` | Move `shapeCenter` from `runtimeMap.ts` to `utils/shapes.ts` |

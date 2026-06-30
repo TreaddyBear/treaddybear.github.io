@@ -124,6 +124,7 @@ export type Spawn = {
 
 export type LevelV1 = {
   code: string;
+  fullCode?: string;
   name: string;
   parSeconds: number;
   spawn: Spawn;
@@ -164,4 +165,13 @@ export function fullLevelCode(prefix: string, code: string) {
     return prefix;
   }
   return `${prefix}${code[0].toUpperCase()}${code.slice(1)}`;
+}
+
+export function levelFullCode(prefix: string, level: Pick<LevelV1, "code" | "fullCode">) {
+  return level.fullCode ?? fullLevelCode(prefix, level.code);
+}
+
+export function resolveLevelCodeReference(prefix: string, levels: Array<Pick<LevelV1, "code" | "fullCode">>, ref: string) {
+  const level = levels.find((candidate) => candidate.fullCode === ref || candidate.code === ref);
+  return level ? levelFullCode(prefix, level) : fullLevelCode(prefix, ref);
 }

@@ -95,7 +95,7 @@ defining which area "wins" the role/mowable/surface at mid-band — and the answ
 certainly be the inner area (same as the snap), since any point inside the lawn shape is in the
 lawn. There is no practical reason to change this.
 
-**If visual confirmation is still desired:** Start the dev server, load the `bgrnField` level
+**If visual confirmation is still desired:** Start the dev server, load the `demoField` level
 (which has both a `replace` clover area with edgeFalloff and an `additive` flower rectangle).
 Look at the grass → clover edge inside the main lawn. A smooth, slightly S-curved visual
 transition confirms the smoothstep curve. A linear-looking ramp would indicate a bug (there
@@ -151,7 +151,7 @@ meters from the edge — provided the shape has such a region. If `falloff >= sh
 `feature.height`. For a circle, `shape_inradius = radius`; for a rectangle, it is
 `min(width, depth) / 2`.
 
-**The only authored height feature** (`bgrnBackground.concealHill`):
+**The only authored height feature** (`worldBackground.concealHill`):
 ```json
 { "shape": { "type": "circle", "radius": 9 }, "height": 4.1, "falloff": 9 }
 ```
@@ -227,7 +227,7 @@ max-wins multi-feature behavior, is confirmed as implemented and correct. The sp
 updated to name the curve explicitly.
 
 **If visual confirmation is desired:** Start the dev server and look at the conceal hill
-(`bgrnBackground`, center at `[-25.5, -16.5]`, radius=9m). The hill should read as a smooth
+(`worldBackground`, center at `[-25.5, -16.5]`, radius=9m). The hill should read as a smooth
 dome with no flat top, rising from ground level at the circle's edge to ~4.1 m at center.
 If it looks too pointy at the top or too flat, the smoothstep S-curve can be adjusted by
 changing `falloff` — the formula itself doesn't need to change. The only alternative curve
