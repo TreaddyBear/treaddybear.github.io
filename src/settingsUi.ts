@@ -218,7 +218,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatRenderDistance",
       "lodRoadVergeWidth",
       "lodSlatRoadInset",
-      "lodFlowerSlatStrength",
     ] as const;
     const colorControls = [
       "grassBaseColor",
@@ -234,10 +233,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "lodSlatTopColorB",
       "lodSlatMidColor",
       "lodSlatBottomColor",
-      "lodFlowerSlatBlueColor",
-      "lodFlowerSlatWhiteColor",
-      "lodFlowerSlatYellowColor",
-      "lodFlowerSlatRedColor",
     ] as const;
     const checkboxControls = [
       "showFenceHealth",
@@ -248,7 +243,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
       "skyDomeFlipVertical",
       "lodShow",
       "lodSlatsShow",
-      "lodFlowerSlatsShow",
       "lodFade",
     ] as const;
     const inputModeControl = deps.settingsRoot.querySelector<HTMLSelectElement>("#inputMode");
@@ -343,7 +337,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           "lodSlatFadeDistance",
           "lodSlatFadeBand",
           "lodSlatRenderDistance",
-          "lodFlowerSlatStrength",
         ].includes(id)) {
           deps.refreshLod();
         } else if (id === "lodRoadVergeWidth" || id === "lodSlatRoadInset") {
@@ -401,10 +394,6 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           || id === "lodSlatTopColorB"
           || id === "lodSlatMidColor"
           || id === "lodSlatBottomColor"
-          || id === "lodFlowerSlatBlueColor"
-          || id === "lodFlowerSlatWhiteColor"
-          || id === "lodFlowerSlatYellowColor"
-          || id === "lodFlowerSlatRedColor"
         ) {
           deps.refreshLod();
         } else {
@@ -427,7 +416,7 @@ export function createSettingsUi(deps: SettingsUiDeps) {
           deps.syncFenceHealth();
         } else if (id === "ssaoEnabled") {
           deps.refreshLighting();
-        } else if (id === "lodShow" || id === "lodSlatsShow" || id === "lodFlowerSlatsShow" || id === "lodFade") {
+        } else if (id === "lodShow" || id === "lodSlatsShow" || id === "lodFade") {
           deps.refreshLod();
         }
       });

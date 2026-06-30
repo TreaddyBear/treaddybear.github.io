@@ -29,18 +29,14 @@ Status: settled.
 
 ## Flower slats / colored slats
 
-Status: first implementation pass added; needs visual/performance review.
+Status: runtime tint experiment canceled.
 
 - The current far LOD slat renderer is grass-only.
 - Slats have tunable grass colors (`lodSlatTopColorA/B`, `lodSlatMidColor`, `lodSlatBottomColor`) but no per-flower color layer.
 - Field flowers are still rendered as thin-instance flower geometry near the mower and collapsed outside the decorative vegetation render radius.
-- Colored flower slats are required. The implementation choice is open: either tint existing slats from flower-density fields, or add separate cheap colored slat layers for flower color families.
-- Selection criterion: pick the approach that gives better frame time and clearer flower-field readability at distance.
-- Current implementation direction: tint existing slats from active-map flower density fields. This adds shader/attribute cost but no extra slat mesh layer.
-- Current coverage: field flowers only (`flowerBlue`, `flowerWhite`, `flowerYellow`, `flowerRed`).
-- Current non-coverage: tulips, dandelions, and clover do not drive colored slat tinting yet.
-- Current tint colors are intended to match the field-flower petal material hues, but still need live visual review.
-- Better long-term path: colored far-LOD should come from foliage/species asset definitions, not hardcoded shader channels. Each species should declare its far-LOD color, far-LOD behavior, and whether it contributes to grass-slat tinting or to a separate impostor/slat layer.
+- Colored flower slats are still required, but the blind runtime tinting pass was removed.
+- This should be tuned through LaMow Editor's vegetation/LOD preview rather than guessed in the game shader.
+- Better path: colored far-LOD should come from foliage/species asset definitions. Each species should declare its far-LOD color, far-LOD behavior, and whether it contributes to grass-slat tinting or to a separate impostor/slat layer.
 
 ## Flower shape/editor pipeline
 

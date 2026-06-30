@@ -11,6 +11,7 @@
 import type { Area, FoliageKey, LevelV1, PathShape } from "./mapFormat";
 import type { Bounds2 } from "./utils/shapes";
 import type { FlowerVariant } from "./runtimeMap";
+import type { VegetationPartDefinition } from "./vegetationDefinitions";
 
 export type BakedVec3 = { x: number; y: number; z: number };
 
@@ -99,6 +100,14 @@ export type BakedInstance = {
   z: number;
   type: string;
   index: number;  // stable identifier for save data (unique within a level)
+  definitionId?: string;
+  parts?: BakedVegetationPart[];
+};
+
+export type BakedVegetationPart = {
+  definition: VegetationPartDefinition["id"];
+  materialId: string;
+  seed: number;
 };
 
 export type BakedMapPack = {
