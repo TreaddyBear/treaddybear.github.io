@@ -288,6 +288,9 @@ the game scene at the cost of a second GPU context.
 
 ### 5c. Output format — species definition JSON
 
+The current import/export contract is defined in `docs/VEGETATION_ASSET_FORMAT.md`. That
+format supersedes the rough sketch below.
+
 The editor's output is a species definition file, stored alongside the map format:
 
 ```json

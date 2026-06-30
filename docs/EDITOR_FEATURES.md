@@ -25,6 +25,7 @@ later, but the first target is a clean project-global asset library.
 - Edit simple flowers and clover first.
 - Dandelions stay out of the first pass unless they are needed to prove the model.
 - Each species is a global definition in `assets/species/*.json`.
+- Import/export uses the contract in `docs/VEGETATION_ASSET_FORMAT.md`.
 - Species definitions describe procedural shape, material colors, randomized per-instance
   ranges, and far-LOD behavior.
 - The editor preview must show both a single large inspectable plant and a population preview.

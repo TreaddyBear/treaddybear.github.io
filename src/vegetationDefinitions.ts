@@ -85,6 +85,33 @@ export type VegetationSpeciesDefinition = {
   lod: VegetationLodDefinition;
 };
 
+export type VegetationAssetEditorMetadata = {
+  tags?: string[];
+  notes?: string;
+  preview?: {
+    cameraDistance?: number;
+    populationSeed?: number;
+    populationCount?: number;
+    groundPatchMeters?: number;
+  };
+};
+
+export type VegetationSpeciesAssetFile = {
+  assetVersion: 1;
+  kind: "vegetationSpecies";
+  species: VegetationSpeciesDefinition;
+  editor?: VegetationAssetEditorMetadata;
+};
+
+export type VegetationSpeciesBundleFile = {
+  assetVersion: 1;
+  kind: "vegetationSpeciesBundle";
+  species: [VegetationSpeciesDefinition, ...VegetationSpeciesDefinition[]];
+  editor?: VegetationAssetEditorMetadata;
+};
+
+export type VegetationAssetFile = VegetationSpeciesAssetFile | VegetationSpeciesBundleFile;
+
 export const vegetationSpeciesDefinitions: Partial<Record<FoliageKey, VegetationSpeciesDefinition>> = {
   flowerBlue: {
     id: "flowerBlue",
