@@ -51,6 +51,13 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     };
   };
 
+  const captureWindOnMote = (mote: WindMote) => {
+    mote.directionX = windDirection.x;
+    mote.directionZ = windDirection.z;
+    mote.sideX = windSideDirection.x;
+    mote.sideZ = windSideDirection.z;
+  };
+
   const createWindWispMesh = (name: string) => {
     const mesh = new Mesh(name, scene);
     const segments = 80;
@@ -88,6 +95,10 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     wisp.x = point.x;
     wisp.z = point.z;
     wisp.y = 0.75 + (Math.random() * 0.8);
+    wisp.directionX = windDirection.x;
+    wisp.directionZ = windDirection.z;
+    wisp.sideX = windSideDirection.x;
+    wisp.sideZ = windSideDirection.z;
     wisp.bend = (Math.random() < 0.5 ? -1 : 1) * (0.45 + (Math.random() * 0.28));
     wisp.hook = -wisp.bend * (0.95 + (Math.random() * 0.45));
   };
@@ -115,11 +126,15 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       const hook = Math.sin(Math.PI * hookT * 0.9) * wisp.hook * hookAmount;
       const tangentZ = (Math.cos(Math.PI * Math.min(1, u * 0.92)) * Math.PI * 0.92 * wisp.bend * curveAmount)
         + (hookT > 0 ? Math.cos(Math.PI * hookT * 0.9) * Math.PI * 0.9 * wisp.hook * hookAmount / 0.42 : 0);
-      const tangent = windDirection.add(windSideDirection.scale(tangentZ)).normalize();
+      const tangent = new Vector3(
+        wisp.directionX + (wisp.sideX * tangentZ),
+        0,
+        wisp.directionZ + (wisp.sideZ * tangentZ),
+      ).normalize();
       const sideDistance = firstCurve + hook;
-      const centerX = wisp.x + (windDirection.x * x) + (windSideDirection.x * sideDistance);
+      const centerX = wisp.x + (wisp.directionX * x) + (wisp.sideX * sideDistance);
       const centerY = wisp.y + (Math.sin(Math.PI * u) * 0.04 * curveAmount);
-      const centerZ = wisp.z + (windDirection.z * x) + (windSideDirection.z * sideDistance);
+      const centerZ = wisp.z + (wisp.directionZ * x) + (wisp.sideZ * sideDistance);
       const lift = Math.sin(Math.PI * u) * 0.04 * curveAmount;
       const cameraDirection = camera.position.subtract(new Vector3(centerX, centerY, centerZ)).normalize();
       const widthDirection = Vector3.Cross(tangent, cameraDirection).normalize();
@@ -161,6 +176,10 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
         x: 0,
         z: 0,
         y: 1,
+        directionX: 1,
+        directionZ: 0,
+        sideX: 0,
+        sideZ: -1,
         bend: 0,
         hook: 0,
       };
@@ -206,6 +225,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
     mote.x = point.x;
     mote.z = point.z;
     mote.y = 0.45 + (Math.random() * 1.2);
+    captureWindOnMote(mote);
     mote.speed = settings.windSpeed * (0.86 + (Math.random() * 0.32));
     mote.drift = (Math.random() - 0.5) * 0.5;
     mote.size = 0.018 + (Math.random() * 0.035);
@@ -232,6 +252,10 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       x: 0,
       y: 0,
       z: 0,
+      directionX: 1,
+      directionZ: 0,
+      sideX: 0,
+      sideZ: -1,
       speed: 1,
       drift: 0,
       size: 0.02,
@@ -251,11 +275,9 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       mote.age += deltaSeconds;
 
       const travelDistance = Math.max(0, mote.age) * mote.speed;
-      const currentX = mote.x + (windDirection.x * travelDistance);
-      const currentZ = mote.z + (windDirection.z * travelDistance);
-      const playerDx = currentX - player.position.x;
-      const playerDz = currentZ - player.position.z;
-      if (mote.age > mote.duration || (playerDx * playerDx) + (playerDz * playerDz) > (effectRadius() + 10) ** 2) {
+      const currentX = mote.x + (mote.directionX * travelDistance);
+      const currentZ = mote.z + (mote.directionZ * travelDistance);
+      if (mote.age > mote.duration) {
         resetWindMote(mote);
       }
 
@@ -268,9 +290,9 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
       const fade = Math.sin(Math.PI * t);
       const travel = mote.age * mote.speed;
       const sideDrift = Math.sin(t * Math.PI) * mote.drift;
-      const x = mote.x + (windDirection.x * travel) + (windSideDirection.x * sideDrift);
+      const x = mote.x + (mote.directionX * travel) + (mote.sideX * sideDrift);
       const y = mote.y + (Math.sin((t * Math.PI * 2) + mote.drift) * 0.08);
-      const z = mote.z + (windDirection.z * travel) + (windSideDirection.z * sideDrift);
+      const z = mote.z + (mote.directionZ * travel) + (mote.sideZ * sideDrift);
 
       mote.mesh.position.set(x, y, z);
       mote.mesh.scaling.set(mote.size, mote.size, mote.size);
@@ -316,6 +338,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
         mote.x = originX + ((Math.random() - 0.5) * 0.38);
         mote.y = 0.18 + (Math.random() * 0.32);
         mote.z = originZ + ((Math.random() - 0.5) * 0.38);
+        captureWindOnMote(mote);
         mote.speed = settings.windSpeed * (0.34 + (Math.random() * 0.4));
         mote.drift = (sideSign * 0.75) + ((Math.random() - 0.5) * 0.35);
         mote.size = 0.014 + (Math.random() * 0.03);
@@ -337,6 +360,7 @@ export function createWind(scene: Scene, camera: ArcRotateCamera, player: Mesh, 
         mote.x = x + ((Math.random() - 0.5) * 0.25);
         mote.y = y + ((Math.random() - 0.5) * 0.18);
         mote.z = z + ((Math.random() - 0.5) * 0.25);
+        captureWindOnMote(mote);
         mote.speed = settings.windSpeed * (0.72 + (Math.random() * 0.75));
         mote.drift = (Math.random() - 0.5) * 0.9;
         mote.size = 0.018 + (Math.random() * 0.025);

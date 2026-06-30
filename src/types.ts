@@ -12,6 +12,10 @@ export type WindWisp = {
   x: number;
   z: number;
   y: number;
+  directionX: number;
+  directionZ: number;
+  sideX: number;
+  sideZ: number;
   bend: number;
   hook: number;
 };
@@ -25,6 +29,10 @@ export type WindMote = {
   x: number;
   y: number;
   z: number;
+  directionX: number;
+  directionZ: number;
+  sideX: number;
+  sideZ: number;
   speed: number;
   drift: number;
   size: number;

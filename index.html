@@ -199,12 +199,6 @@
       <summary>Settings</summary>
       <div class="settings-level-launcher" data-dev-transient>
         <label class="settings-level-row">Map <span class="settings-inline-control"><select id="mapId"></select><button id="mapGoButton" class="settings-icon-button" type="button" aria-label="Go to selected level" title="Go to selected level">&#9654;</button></span></label>
-        <details class="settings-subgroup settings-sky-debug">
-          <summary>Sky debug</summary>
-          <label>Texture <select id="skyDebugTexture"><option value="simple" selected>Asset</option><option value="orientation">Orientation bands</option><option value="magenta">Magenta</option></select></label>
-          <label>Flip vertical <input id="skyDebugFlip" type="checkbox" /></label>
-          <label>Vertical offset <span data-value-for="skyDebugOffset">0</span><input id="skyDebugOffset" type="range" min="-0.5" max="0.5" step="0.01" value="0" /></label>
-        </details>
       </div>
       <details class="settings-group settings-category">
         <summary>Gameplay</summary>
@@ -327,6 +321,9 @@
           <summary>Lighting</summary>
           <label>Sky ambient <span data-value-for="skyAmbientIntensity"></span><input id="skyAmbientIntensity" type="range" min="0" max="0.6" step="0.01" value="0.22" /></label>
           <label>Sky ambient color <input id="skyAmbientColor" type="color" value="#94bfff" /></label>
+          <label>Sky texture <select id="skyDebugTexture" data-dev-transient><option value="simple" selected>Asset</option><option value="orientation">Orientation bands</option><option value="magenta">Magenta</option></select></label>
+          <label>Sky flip vertical <input id="skyDomeFlipVertical" type="checkbox" /></label>
+          <label>Sky vertical offset <span data-value-for="skyDomeVerticalOffset"></span><input id="skyDomeVerticalOffset" type="range" min="-0.5" max="0.5" step="0.01" value="0" /></label>
           <label>SSAO enabled <input id="ssaoEnabled" type="checkbox" checked /></label>
           <label>SSAO strength <span data-value-for="ssaoStrength"></span><input id="ssaoStrength" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
           <label>SSAO radius <span data-value-for="ssaoRadius"></span><input id="ssaoRadius" type="range" min="0.1" max="5" step="0.05" value="1.15" /></label>

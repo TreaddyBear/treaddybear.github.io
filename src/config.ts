@@ -139,6 +139,8 @@ export const settings = {
   roadTextureVScale: 48,
   skyAmbientIntensity: 0.22,
   skyAmbientColor: "#94bfff",
+  skyDomeVerticalOffset: 0,
+  skyDomeFlipVertical: false,
   ssaoEnabled: true,
   ssaoStrength: 0.55,
   ssaoRadius: 1.15,

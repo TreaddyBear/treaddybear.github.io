@@ -1158,31 +1158,39 @@ const settingsUi = createSettingsUi({
   syncFenceHealth: () => fence.syncHealthLabels(),
 });
 
-function setupSkyDebugControls() {
+function setupSkyControls() {
   const textureControl = settingsEl.querySelector<HTMLSelectElement>("#skyDebugTexture");
-  const flipControl = settingsEl.querySelector<HTMLInputElement>("#skyDebugFlip");
-  const offsetControl = settingsEl.querySelector<HTMLInputElement>("#skyDebugOffset");
-  const offsetValue = settingsEl.querySelector<HTMLSpanElement>("[data-value-for=\"skyDebugOffset\"]");
+  const flipControl = settingsEl.querySelector<HTMLInputElement>("#skyDomeFlipVertical");
+  const offsetControl = settingsEl.querySelector<HTMLInputElement>("#skyDomeVerticalOffset");
+  const offsetValue = settingsEl.querySelector<HTMLSpanElement>("[data-value-for=\"skyDomeVerticalOffset\"]");
+
+  const applySkyTransform = () => {
+    skyEnvironment.setFlipped(settings.skyDomeFlipVertical);
+    skyEnvironment.setVerticalOffset(settings.skyDomeVerticalOffset);
+    if (offsetValue) {
+      offsetValue.textContent = settings.skyDomeVerticalOffset.toFixed(2);
+    }
+  };
 
   textureControl?.addEventListener("input", () => {
     skyEnvironment.setTexture(textureControl.value as SkyTextureKey);
   });
 
   flipControl?.addEventListener("input", () => {
-    skyEnvironment.setFlipped(flipControl.checked);
+    settings.skyDomeFlipVertical = flipControl.checked;
+    applySkyTransform();
   });
 
   offsetControl?.addEventListener("input", () => {
-    const offset = Number(offsetControl.value);
-    if (offsetValue) {
-      offsetValue.textContent = offset.toFixed(2);
-    }
-    skyEnvironment.setVerticalOffset(offset);
+    settings.skyDomeVerticalOffset = Number(offsetControl.value);
+    applySkyTransform();
   });
+
+  applySkyTransform();
 }
 
 settingsUi.setup();
-setupSkyDebugControls();
+setupSkyControls();
 settingsUi.setInputMode(settings.inputMode as InputMode);
 refreshGroundColor();
 refreshTextureScales();
