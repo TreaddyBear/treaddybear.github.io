@@ -4,7 +4,7 @@
 // this entire module out of production bundles.
 
 import rawSource from "../map-exports/lawn-maps.json";
-import type { BakedMapPack } from "./bakedMapFormat";
+import type { AnyBakedMapPack } from "./bakedMapFormat";
 
 // FNV-1a 32-bit — must match the identical implementation in tools/bake-maps.ts.
 // Both run on V8 (Node.js in the baker, Chromium at dev startup), so charCodeAt
@@ -17,7 +17,7 @@ function fnv1a(str: string): string {
   return hash.toString(16).padStart(8, "0");
 }
 
-export function checkBakedStaleness(baked: BakedMapPack): void {
+export function checkBakedStaleness(baked: AnyBakedMapPack): void {
   // rawSource is the parsed JSON object Vite gives us — same representation as
   // JSON.parse(readFileSync(...)) in the baker, so JSON.stringify key order is
   // identical across both V8 environments.

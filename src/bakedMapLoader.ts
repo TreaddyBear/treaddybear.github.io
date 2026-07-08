@@ -9,14 +9,15 @@ import { Vector3 } from "@babylonjs/core";
 import rawBaked from "../map-exports/lawn-maps.baked.json";
 
 import type {
+  AnyBakedMapPack,
+  AnyBakedRuntimeMap,
   BakedFenceSegment,
   BakedFlowerBed,
   BakedFlowerField,
-  BakedMapPack,
-  BakedRuntimeMap,
   BakedRuntimeSegment,
   BakedVec3,
 } from "./bakedMapFormat";
+import { expandBakedInstances } from "./bakedMapFormat";
 import type {
   FenceSegment,
   FlowerBed,
@@ -33,7 +34,7 @@ function hydrateSegment(s: BakedRuntimeSegment): RuntimeSegment {
   return { ...s, center: vec3(s.center) };
 }
 
-function hydrateMap(baked: BakedRuntimeMap): RuntimeMap {
+function hydrateMap(baked: AnyBakedRuntimeMap): RuntimeMap {
   return {
     ...baked,
     spawn: vec3(baked.spawn),
@@ -50,14 +51,14 @@ function hydrateMap(baked: BakedRuntimeMap): RuntimeMap {
       ...f,
       area: hydrateSegment(f.area),
     })),
-    bakedInstances: baked.bakedInstances,
+    bakedInstances: expandBakedInstances(baked),
   };
 }
 
 // Returns the same shape as normalizeMapPack() — maps, byCode, parSeconds,
 // codes, defaultMap — so config.ts can stay structurally unchanged.
 export function loadBakedMapPack() {
-  const baked = rawBaked as unknown as BakedMapPack;
+  const baked = rawBaked as unknown as AnyBakedMapPack;
 
   // Fire-and-forget dev staleness check. The dynamic import is inside the DEV
   // guard so Vite tree-shakes the entire devMapStaleCheck module from prod builds.

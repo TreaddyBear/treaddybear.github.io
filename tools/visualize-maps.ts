@@ -13,7 +13,8 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Area } from "../src/mapFormat";
-import type { BakedInstance, BakedMapPack } from "../src/bakedMapFormat";
+import type { AnyBakedMapPack } from "../src/bakedMapFormat";
+import { expandBakedInstances } from "../src/bakedMapFormat";
 import { sampleDensitiesAt, TIERS, levelBounds } from "./vegetation-sampler";
 import { shapeBounds } from "../src/utils/shapes";
 import { encodePNG } from "./png-writer";
@@ -22,7 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const bakedPath = resolve(__dirname, "../map-exports/lawn-maps.baked.json");
 const outDir    = resolve(__dirname, "../map-exports/debug");
 
-const baked = JSON.parse(readFileSync(bakedPath, "utf-8")) as BakedMapPack;
+const baked = JSON.parse(readFileSync(bakedPath, "utf-8")) as AnyBakedMapPack;
 mkdirSync(outDir, { recursive: true });
 
 // ---------------------------------------------------------------------------
@@ -233,7 +234,8 @@ for (const map of baked.maps) {
   const imgH  = Math.max(1, Math.ceil(worldH * scale));
 
   const code = map.shortCode;
-  console.log(`\n${code}: ${imgW}×${imgH} px @ ${scale.toFixed(2)} px/m — ${map.bakedInstances.length} instances`);
+  const bakedInstances = expandBakedInstances(map);
+  console.log(`\n${code}: ${imgW}×${imgH} px @ ${scale.toFixed(2)} px/m — ${bakedInstances.length} instances`);
 
   // --- (a) Per-layer density heatmaps ---
   const vegTypes = collectVegTypes(areas);
@@ -301,7 +303,7 @@ for (const map of baked.maps) {
     // Dot radius: at least 1px, scales with zoom
     const dotR = Math.max(1, Math.round(scale * 0.25));
 
-    for (const inst of map.bakedInstances as BakedInstance[]) {
+    for (const inst of bakedInstances) {
       const [px, py] = worldToImg(inst.x, inst.z, bounds, scale, imgH);
       const color: RGBA = TYPE_RGBA[inst.type] ?? [200, 200, 200, 255];
       drawDisk(buf, imgW, imgH, px, py, dotR, color);

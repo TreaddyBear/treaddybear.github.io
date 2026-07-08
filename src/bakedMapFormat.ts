@@ -110,11 +110,65 @@ export type BakedVegetationPart = {
   seed: number;
 };
 
-export type BakedMapPack = {
+export type CompactBakedInstance = [x: number, z: number, typeIndex: number];
+
+export type CompactBakedRuntimeMap = Omit<BakedRuntimeMap, "bakedInstances"> & {
+  bakedInstanceTypes: string[];
+  bakedInstances: CompactBakedInstance[];
+};
+
+export type LegacyBakedMapPack = {
   bakedVersion: 1;
-  // FNV-1a hash of JSON.stringify(parsed authored source) at bake time.
-  // Compared at dev startup to detect edits to lawn-maps.json without a rebake.
   sourceHash: string;
   defaultLevelCode?: string;
   maps: BakedRuntimeMap[];
 };
+
+export type BakedMapPack = {
+  bakedVersion: 2;
+  // FNV-1a hash of JSON.stringify(parsed authored source) at bake time.
+  // Compared at dev startup to detect edits to lawn-maps.json without a rebake.
+  sourceHash: string;
+  defaultLevelCode?: string;
+  maps: CompactBakedRuntimeMap[];
+};
+
+export type AnyBakedMapPack = BakedMapPack | LegacyBakedMapPack;
+export type AnyBakedRuntimeMap = BakedRuntimeMap | CompactBakedRuntimeMap;
+
+export function compactBakedInstances(instances: BakedInstance[]) {
+  const typeToIndex = new Map<string, number>();
+  const bakedInstanceTypes: string[] = [];
+  const bakedInstances: CompactBakedInstance[] = instances.map((inst) => {
+    let typeIndex = typeToIndex.get(inst.type);
+    if (typeIndex === undefined) {
+      typeIndex = bakedInstanceTypes.length;
+      typeToIndex.set(inst.type, typeIndex);
+      bakedInstanceTypes.push(inst.type);
+    }
+
+    return [inst.x, inst.z, typeIndex];
+  });
+
+  return { bakedInstanceTypes, bakedInstances };
+}
+
+export function expandBakedInstances(map: AnyBakedRuntimeMap): BakedInstance[] {
+  const instances = map.bakedInstances;
+  if (instances.length === 0) {
+    return [];
+  }
+
+  const first = instances[0];
+  if (!Array.isArray(first)) {
+    return instances as BakedInstance[];
+  }
+
+  const types = "bakedInstanceTypes" in map ? map.bakedInstanceTypes : [];
+  return (instances as CompactBakedInstance[]).map(([x, z, typeIndex], index): BakedInstance => ({
+    x,
+    z,
+    type: types[typeIndex] ?? "unknown",
+    index,
+  }));
+}

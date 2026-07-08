@@ -76,4 +76,20 @@ function tuneWriter(): Plugin {
 export default defineConfig({
   base: "./",
   plugins: [tuneWriter()],
+  build: {
+    chunkSizeWarningLimit: 6500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/@babylonjs/core")) {
+            return "babylon";
+          }
+
+          if (id.includes("map-exports/lawn-maps.baked.json")) {
+            return "maps";
+          }
+        },
+      },
+    },
+  },
 });

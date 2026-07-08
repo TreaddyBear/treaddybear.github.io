@@ -36,11 +36,12 @@ import type {
   BakedFlowerBed,
   BakedFlowerField,
   BakedMapPack,
-  BakedRuntimeMap,
+  CompactBakedRuntimeMap,
   BakedRuntimePathFeature,
   BakedRuntimeSegment,
   BakedVec3,
 } from "../src/bakedMapFormat";
+import { compactBakedInstances } from "../src/bakedMapFormat";
 import { computeAllTierInstances } from "./vegetation-sampler";
 import type { BakeControl, BakeDiagnostic, BakeProgressEvent } from "./vegetation-sampler";
 import type { Bounds2 } from "../src/utils/shapes";
@@ -195,7 +196,7 @@ const flowerTypeToVariant: Partial<Record<FoliageKey, "blue" | "white" | "yellow
 // Core bake function — mirrors normalizeLevel but outputs BakedRuntimeMap
 // ---------------------------------------------------------------------------
 
-function bakeLevel(pack: MapPackV1["pack"], level: LevelV1, control?: BakeControl): BakedRuntimeMap {
+function bakeLevel(pack: MapPackV1["pack"], level: LevelV1, control?: BakeControl): CompactBakedRuntimeMap {
   const code = levelFullCode(pack.prefix, level);
   const areas = level.areas ?? [];
   const flatAreas = allAreas(areas);
@@ -259,6 +260,7 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1, control?: BakeContro
   }
 
   const bakedInstances = computeAllTierInstances(areas, code, control);
+  const compactInstances = compactBakedInstances(bakedInstances);
 
   return {
     packPrefix: pack.prefix,
@@ -287,7 +289,8 @@ function bakeLevel(pack: MapPackV1["pack"], level: LevelV1, control?: BakeContro
     dandelionCount,
     flowerFields,
     cloverPatches,
-    bakedInstances,
+    bakedInstanceTypes: compactInstances.bakedInstanceTypes,
+    bakedInstances: compactInstances.bakedInstances,
   };
 }
 
@@ -308,7 +311,7 @@ function bakeMapPack(pack: MapPackV1, sourceHash: string, control?: BakeControl)
     ? resolveLevelCodeReference(pack.pack.prefix, pack.levels, pack.defaultLevelCode)
     : undefined;
   return {
-    bakedVersion: 1,
+    bakedVersion: 2,
     sourceHash,
     defaultLevelCode: defaultCode,
     maps,
@@ -370,7 +373,7 @@ const control: BakeControl = {
 try {
 const baked = bakeMapPack(raw, sourceHash, control);
 
-writeFileSync(outputPath, JSON.stringify(baked, null, 2), "utf-8");
+writeFileSync(outputPath, `${JSON.stringify(baked)}\n`, "utf-8");
 
 const mapCount = baked.maps.length;
 const totalAreas = baked.maps.reduce((n, m) => n + allAreas(m.areas).length, 0);

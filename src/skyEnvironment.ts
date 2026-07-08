@@ -10,10 +10,12 @@ import {
 import "@babylonjs/core/Materials/Textures/Loaders/envTextureLoader";
 import { renderingGroups } from "./renderOrder";
 
+const publicAsset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+
 export const skyTextureSources = {
-  simple: "/sky/skybox-simple.webp",
-  orientation: "/sky/skybox-debug-orientation.png",
-  magenta: "/sky/skybox-debug-magenta.png",
+  simple: publicAsset("sky/skybox-simple.webp"),
+  orientation: publicAsset("sky/skybox-debug-orientation.png"),
+  magenta: publicAsset("sky/skybox-debug-magenta.png"),
 } as const;
 
 export type SkyTextureKey = keyof typeof skyTextureSources;
@@ -21,7 +23,7 @@ export type SkyTextureKey = keyof typeof skyTextureSources;
 export type SkyEnvironment = ReturnType<typeof createSkyEnvironment>;
 
 export function createSkyEnvironment(scene: Scene) {
-  scene.environmentTexture = CubeTexture.CreateFromPrefilteredData("/env/skybox-simple.env", scene);
+  scene.environmentTexture = CubeTexture.CreateFromPrefilteredData(publicAsset("env/skybox-simple.env"), scene);
   scene.environmentIntensity = 0.42;
 
   let currentTexture: Texture | null = null;
@@ -29,9 +31,11 @@ export function createSkyEnvironment(scene: Scene) {
   let flipped = false;
 
   const material = new StandardMaterial("skyboxSimpleMaterial", scene);
+  material.diffuseColor = Color3.Black();
   material.emissiveColor = Color3.White();
   material.specularColor = Color3.Black();
   material.disableLighting = true;
+  material.disableDepthWrite = true;
   material.backFaceCulling = false;
 
   const dome = MeshBuilder.CreateSphere("skybox-simple", {
@@ -60,7 +64,6 @@ export function createSkyEnvironment(scene: Scene) {
     currentTexture?.dispose();
     currentTexture = next;
     applyTransform();
-    material.diffuseTexture = next;
     material.emissiveTexture = next;
   };
 

@@ -1172,9 +1172,16 @@ function setupSkyControls() {
     }
   };
 
-  textureControl?.addEventListener("input", () => {
+  const applySkyTexture = () => {
+    if (!textureControl) {
+      return;
+    }
+
     skyEnvironment.setTexture(textureControl.value as SkyTextureKey);
-  });
+  };
+
+  textureControl?.addEventListener("input", applySkyTexture);
+  textureControl?.addEventListener("change", applySkyTexture);
 
   flipControl?.addEventListener("input", () => {
     settings.skyDomeFlipVertical = flipControl.checked;
